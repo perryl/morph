@@ -195,6 +195,7 @@ class LocalRepoCache(object):
     def _cache_name(self, url):
         scheme, netloc, path, query, fragment = urlparse.urlsplit(url)
         if scheme == 'file':
+
             return path
         else:
             basename = self._escape(url)
