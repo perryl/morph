@@ -94,7 +94,9 @@ class RemoteRepoCache(object):
         request_data = []
         for n in xrange(0, len(tuples)):
             request_data.append({'repo': urls[n], 'ref': tuples[n][1]})
+        request_data = json.dumps(request_data)
         response_data = self._make_post_request('sha1s', request_data)
+        response_data = json.loads(response_data)
         data = {}
         for n in xrange(0, len(tuples)):
             data[tuples[n]] = {
@@ -102,7 +104,7 @@ class RemoteRepoCache(object):
                 'repo-url': response_data[n]['repo'],
                 'ref': response_data[n]['ref'],
             }
-            if 'error' in resonse_data[n]:
+            if 'error' in response_data[n]:
                 data[tuples[n]]['error'] = response_data[n]['error']
             else:
                 data[tuples[n]]['sha1'] = response_data[n]['sha1']
@@ -130,5 +132,7 @@ class RemoteRepoCache(object):
         if not server_url.endswith('/'):
             server_url += '/'
         url = urlparse.urljoin(server_url, '/1.0/%s' % path)
-        handle = urllib2.urlopen(url, data)
+        request = urllib2.Request(
+                url, data, {'Content-Type': 'application/json'})
+        handle = urllib2.urlopen(request, data)
         return handle.read()

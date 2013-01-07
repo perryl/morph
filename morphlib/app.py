@@ -280,6 +280,66 @@ class Morph(cliapp.Application):
             absref, tree = repo.resolve_ref(ref)
         return absref, tree
 
+    def resolve_refs(self, refs, lrc, rrc, update=True):
+        resolved = {}
+
+        # First resolve refs in all repositories that are already cached.
+        local_references = [x for x in refs if lrc.has_repo(x[0])]
+        for reponame, ref in local_references:
+            repo = lrc.get_repo(reponame)
+            if update:
+                self.status(msg='Updating cached git repository %(reponame)s',
+                            reponame=reponame)
+                repo.update()
+            absref, tree = repo.resolve_ref(ref)
+            resolved[(reponame, ref)] = {
+                    'repo': reponame,
+                    'repo-url': repo.url,
+                    'ref': ref,
+                    'sha1': absref,
+                    'tree': tree
+            }
+
+        # Then, if we have a remote repo cache, resolve refs in all
+        # repositories that we haven't cached locally yet.
+        if rrc:
+            remote_references = [x for x in refs if not x in local_references]
+            if remote_references:
+                self.status(msg='Resolving %(count)i references via '
+                                'remote repository cache',
+                            count=len(remote_references))
+                resolved_remote_refs = rrc.resolve_refs(remote_references)
+                for reponame, ref in remote_references:
+                    for reference in resolved_remote_refs.keys():
+                            del resolved_remote_refs[reference]
+                    resolved.update(resolved_remote_refs)
+
+        # Lastly, attempt to cache repositories for any ref that has not
+        # been resolved successfully so far.
+        #
+        # FIXME Doesn't this only ever cache repositories from the remote
+        # repo cache that don't have the ref anyway? It is the same that
+        # the resolve_ref() method does though...
+        uncached_references = [x for x in refs if not x in resolved]
+        for reponame, ref in uncached_references:
+            if update:
+                self.status(msg='Caching git repository %(reponame)s',
+                            reponame=reponame)
+                repo = lrc.cache_repo(reponame)
+                repo.update()
+            else:
+                repo = lrc.get_repo(reponame)
+            absref, tree = repo.resolve_ref(ref)
+            resolved[(reponame, ref)] = {
+                    'repo': reponame,
+                    'repo-url': repo.url,
+                    'ref': ref,
+                    'sha1': absref,
+                    'tree': tree
+            }
+
+        return resolved
+
     def traverse_morphs(self, triplets, lrc, rrc, update=True,
                         visit=lambda rn, rf, fn, arf, m: None):
         morph_factory = morphlib.morphologyfactory.MorphologyFactory(lrc, rrc,
@@ -288,6 +348,32 @@ class Morph(cliapp.Application):
         updated_repos = set()
         resolved_refs = {}
         resolved_morphologies = {}
+
+        def resolve_refs(morphology, *fields):
+            # Resolve the references used in morphology at once.
+            refs = []
+            for field in fields:
+                if field in morphology and morphology[field]:
+                    refs.extend([(s['repo'], s['ref'])
+                                 for s in morphology[field]])
+            sha1s = self.resolve_refs(refs, lrc, rrc, update)
+
+            # Mark them all as resolved so they are not resolved twice.
+            for info in sha1s.itervalues():
+                if 'error' in info:
+                    raise cliapp.AppException(
+                            'Failed to resolve reference "%s" '
+                            'in repository %s' % (info['ref'], info['repo']))
+                else:
+                    reference = (info['repo'], info['ref'])
+                    resolved_refs[reference] = (info['sha1'], info['tree'])
+
+        def load_morphology(reponame, absref, filename):
+            reference = (reponame, absref, filename)
+            if not reference in resolved_morphologies:
+                resolved_morphologies[reference] = \
+                    morph_factory.get_morphology(*reference)
+            return resolved_morphologies[reference]
 
         while queue:
             reponame, ref, filename = queue.popleft()
@@ -303,17 +389,18 @@ class Morph(cliapp.Application):
             updated_repos.add(reponame)
 
             # Fetch the (repo, ref, filename) morphology, cache result.
-            reference = (reponame, absref, filename)
-            if not reference in resolved_morphologies:
-                resolved_morphologies[reference] = \
-                    morph_factory.get_morphology(reponame, absref, filename)
-            morphology = resolved_morphologies[reference]
+            morphology = load_morphology(reponame, absref, filename)
 
             visit(reponame, ref, filename, absref, tree, morphology)
+
+            # Resolve the refs of all strata and/or chunks in the
+            # morphology at once.
             if morphology['kind'] == 'system':
+                resolve_refs(morphology, 'strata')
                 queue.extend((s['repo'], s['ref'], '%s.morph' % s['morph'])
                              for s in morphology['strata'])
             elif morphology['kind'] == 'stratum':
+                resolve_refs(morphology, 'build-depends', 'chunks')
                 if morphology['build-depends']:
                     queue.extend((s['repo'], s['ref'], '%s.morph' % s['morph'])
                                  for s in morphology['build-depends'])
