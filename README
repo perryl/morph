@@ -6,7 +6,7 @@ README for morph
 > problems, mail baserock-dev@baserock.org.
 
 `morph` builds binaries for [Baserock](http://www.baserock.org/),
-an embedded Linux solution. Please see the website for overall information.
+an appliance Linux solution. Please see the website for overall information.
 
 
 Usage
