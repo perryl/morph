@@ -15,6 +15,7 @@
 
 import os
 import re
+import subprocess
 
 import morphlib
 import logging
@@ -388,6 +389,11 @@ def parse_environment_pairs(env, pairs):
     return dict(env.items() + extra_env.items())
 
 
+def has_hardware_fp():
+    output = subprocess.check_output(['readelf', '-A', '/proc/self/exe'])
+    return 'Tag_ABI_VFP_args: VFP registers' in output
+
+
 def get_host_architecture(): # pragma: no cover
     '''Get the canonical Morph name for the host's architecture.'''
 
@@ -405,6 +411,9 @@ def get_host_architecture(): # pragma: no cover
 
     if machine not in table:
         raise morphlib.Error('Unknown host architecture %s' % machine)
+
+    if machine == 'armv7l' and has_hardware_fp():
+        return 'armv7lhf'
 
     return table[machine]
 
