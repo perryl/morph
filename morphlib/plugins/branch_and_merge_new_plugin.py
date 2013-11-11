@@ -321,25 +321,10 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
                 logging.debug('Loading: %s %s %s' % (repo_url, ref, filename))
                 dirname = sb.get_git_directory_name(repo_url)
 
-                # Get the right morphology. The right ref might not be
-                # checked out, in which case we get the file from git.
-                # However, if it is checked out, we get it from the
-                # filesystem directly, in case the user has made any
-                # changes to it. If the entire repo hasn't been checked
-                # out yet, do that first.
-
                 if not os.path.exists(dirname):
                     self._checkout(lrc, sb, repo_url, ref)
-                    m = self._load_morphology_from_file(
-                        loader, dirname, filename)
-                else:
-                    gd = morphlib.gitdir.GitDirectory(dirname)
-                    if gd.is_currently_checked_out(ref):
-                        m = self._load_morphology_from_file(
-                            loader, dirname, filename)
-                    else:
-                        m = self._load_morphology_from_git(
-                            loader, gd, ref, filename)
+
+                m = self._load_morphology_from_file(loader, dirname, filename)
 
                 m.repo_url = repo_url
                 m.ref = ref
