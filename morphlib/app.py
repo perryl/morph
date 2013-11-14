@@ -315,8 +315,7 @@ class Morph(cliapp.Application):
             absref, tree = repo.resolve_ref(ref)
         return absref, tree
 
-    def traverse_morphs(self, triplets, lrc, rrc, update=True,
-                        visit=lambda rn, rf, fn, arf, m: None):
+    def traverse_morphs(self, triplets, lrc, rrc, update=True, visit):
         morph_factory = morphlib.morphologyfactory.MorphologyFactory(lrc, rrc,
                                                                      self)
         queue = collections.deque(triplets)
@@ -344,7 +343,9 @@ class Morph(cliapp.Application):
                     morph_factory.get_morphology(reponame, absref, filename)
             morphology = resolved_morphologies[reference]
 
-            visit(reponame, ref, filename, absref, tree, morphology)
+            if visit:
+                visit(reponame, ref, filename, absref, tree, morphology)
+
             if morphology['kind'] == 'system':
                 queue.extend((s['repo'] or reponame,
                               s['ref'] or ref,
