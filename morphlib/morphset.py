@@ -15,7 +15,7 @@
 #
 # =*= License: GPL-2 =*=
 
-
+import sets
 import morphlib
 
 
@@ -155,6 +155,7 @@ class MorphologySet(object):
         '''
 
         altered_references = {}
+        altered_strata = sets.Set()
 
         def process_spec_list(m, kind):
             specs = m[kind]
@@ -166,12 +167,24 @@ class MorphologySet(object):
                         m.dirty = True
                         altered_references[orig_spec] = spec
 
+            return m.dirty
+
         for m in self.morphologies:
             if m['kind'] == 'system':
                 process_spec_list(m, 'strata')
             elif m['kind'] == 'stratum':
-                process_spec_list(m, 'build-depends')
-                process_spec_list(m, 'chunks')
+                if process_spec_list(m, 'build-depends'):
+                    altered_strata.add(m['name'])
+
+                if process_spec_list(m, 'chunks'):
+                    altered_strata.add(m['name'])
+
+        for m in self.morphologies:
+            if m['kind'] == 'system':
+                specs = m['strata']
+                for spec in specs:
+                    if spec['morph'] in altered_strata:
+                        cb_process(m, 'strata', spec)
 
         for m in self.morphologies:
             tup = (m.repo_url, m.ref, m.filename[:-len('.morph')])
