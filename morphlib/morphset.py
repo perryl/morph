@@ -17,6 +17,7 @@
 
 
 import morphlib
+import logging
 
 
 class StratumNotInSystemError(morphlib.Error):
@@ -152,19 +153,24 @@ class MorphologySet(object):
         A coroutine was attempted, but it required the same amount of
         code at the call site as doing it by hand.
         
+        Returns a list of morphologies changed by the filter.
         '''
 
         altered_references = {}
+        altered_parents = []
 
-        def process_spec_list(m, kind):
-            specs = m[kind]
+        def process_spec_list(parent, kind):
+            logging.debug("process_spec_list, parent=%s, kind=%s"
+                          % (parent.filename,kind))
+            specs = parent[kind]
             for spec in specs:
-                if cb_filter(m, kind, spec):
+                if cb_filter(parent, kind, spec):
                     orig_spec = (spec['repo'], spec['ref'], spec['morph'])
-                    dirtied = cb_process(m, kind, spec)
+                    dirtied = cb_process(parent, kind, spec)
                     if dirtied:
-                        m.dirty = True
+                        parent.dirty = True
                         altered_references[orig_spec] = spec
+                        altered_parents.append(parent)
 
         for m in self.morphologies:
             if m['kind'] == 'system':
@@ -183,6 +189,7 @@ class MorphologySet(object):
                 assert (m.filename == spec['morph'] + '.morph'
                         or m.repo_url == spec['repo']), \
                        'Moving morphologies is not supported.'
+        return altered_parents
 
     def change_ref(self, repo_url, orig_ref, morph_filename, new_ref):
         '''Change a triplet's ref to a new one in all morphologies in a ref.
@@ -198,11 +205,21 @@ class MorphologySet(object):
                     spec['morph'] + '.morph' == morph_filename)
 
         def process_spec(m, kind, spec):
+            if spec.has_key('unpetrify-ref'):
+                return False
             spec['unpetrify-ref'] = spec['ref']
             spec['ref'] = new_ref
             return True
 
-        self.traverse_specs(process_spec, wanted_spec)
+        altered_morphs = self.traverse_specs(process_spec, wanted_spec)
+        logging.debug('change_ref, iterating altered_morphs(%s)'
+                      % len(altered_morphs))
+        for m in altered_morphs:
+            logging.debug('%s', m.filename)
+            altered_morphs.extend(
+                self.change_ref(m.repo_url, m.ref, m.filename,  new_ref))
+
+        return altered_morphs
 
     def list_refs(self):
         '''Return a set of all the (repo, ref) pairs in the MorphologySet.
