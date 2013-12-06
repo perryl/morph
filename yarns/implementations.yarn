@@ -96,10 +96,89 @@ another to hold a chunk.
 
     mkdir "$DATADIR/gits/test-chunk"
 
-    cat << EOF > "$DATADIR/gits/test-chunk/test-chunk.morph"
+    cat << 'EOF' > "$DATADIR/gits/test-chunk/test-chunk.morph"
     name: test-chunk
     kind: chunk
-    build-system: dummy
+    build-system: manual
+    install-commands:
+    # Add bins
+    - |
+      for d in bin sbin; do
+          mkdir -p "$DESTDIR/$PREFIX/$d"
+          f="$DESTDIR/$PREFIX/$d/test"
+          touch "$f"
+          chmod +x "$f"
+      done
+    # Add libs
+    ## Add shared libraries
+    - |
+      for dir in lib lib32 lib64; do
+          d="$DESTDIR/$PREFIX/$dir"
+          mkdir -p "$d"
+          touch "$d/libtest.so"
+          chmod +x "$d/libtest.so"
+          ln -s libtest.so "$d/libtest.so.0"
+          ln -s libtest.so.0 "$d/libtest.so.0.0"
+          ln -s libtest.so.0.0 "$d/libtest.so.0.0.0"
+      done
+    ## Add library executables
+    - |
+      d="$DESTDIR/$PREFIX/libexec"
+      mkdir -p "$d"
+      touch "$d/test-bin"
+      chmod +x "$d/test-bin"
+    # Add devel
+    ## Add headers
+    - |
+      d="$DESTDIR/$PREFIX/include"
+      mkdir -p "$d"
+      touch "$d/test.h"
+    ## Add pkg-config
+    - |
+      for dir in lib lib32 lib64 share; do
+          d="$DESTDIR/$PREFIX/$dir/pkgconfig"
+          mkdir -p "$d"
+          touch "$d/test.pc"
+      done
+    ## Add static libraries
+    - |
+      for dir in lib lib32 lib64; do
+          d="$DESTDIR/$PREFIX/$dir"
+          mkdir -p "$d"
+          touch "$d/libtest.a" "$d/libtest.la"
+      done
+    # Add doc
+    - |
+      for f in info/test.info.gz man/man3/test.3.gz doc/test/doc.html; do
+          file="$DESTDIR/$PREFIX/share/$f"
+          d=$(dirname "$file")
+          mkdir -p "$d"
+          touch "$file"
+      done
+    # Add locale
+    ## Add locale
+    - |
+      d="$DESTDIR/$PREFIX/share/locale/en_GB/LC_MESSAGES"
+      mkdir -p "$d"
+      touch "$d/test.mo"
+    ## Add i18n
+    - |
+      for f in i18n/locales/en_GB charmaps/UTF-8.gz; do
+          file="$DESTDIR/$PREFIX/$f"
+          d=$(dirname "$file")
+          mkdir -p "$d"
+          touch "$file"
+      done
+    ## Add zoneinfo
+    - |
+      d="$DESTDIR/$PREFIX/share/zoneinfo"
+      mkdir -p "$d"
+      touch "$d/UTC"
+    # Add misc
+    - |
+      d="$DESTDIR/$PREFIX/etc"
+      mkdir -p "$d" "$d/test.d"
+      touch "$d/test.conf" "$d/test.d/README"
     EOF
 
     run_in "$DATADIR/gits/test-chunk" git init .
