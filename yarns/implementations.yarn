@@ -735,3 +735,12 @@ Implementations for building systems
     IMPLEMENTS THEN morph build the system (\S+) of the (branch|tag) (\S+)
     cd "$DATADIR/workspace/$MATCH_3"
     run_morph build "$MATCH_1"
+
+Implementations for tarball inspection
+--------------------------------------
+
+    IMPLEMENTS THEN tarball (\S+) contains (.*)
+    tar -tf "$DATADIR/$MATCH_1" | grep -Fe "$MATCH_2"
+
+    IMPLEMENTS THEN tarball (\S+) doesn't contain (.*)
+    ! tar -tf "$DATADIR/$MATCH_1" | grep -Fe "$MATCH_2"

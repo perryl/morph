@@ -1,0 +1,129 @@
+Artifact splitting tests
+========================
+
+    SCENARIO building a system with morphologies that have splitting rules
+    GIVEN a workspace
+    AND a git server
+
+    AND chunk test-chunk includes the default splitting rules
+    AND stratum test-stratum includes the default splitting rules
+    AND system test-system includes the default splitting rules
+
+    WHEN the user checks out the system branch called master
+    THEN morph build the system test-system of the branch master
+
+
+
+    SCENARIO building a system only using runtime strata
+    GIVEN a workspace
+    AND a git server
+    AND system test-system only uses test-stratum-runtime from test-stratum
+    WHEN the user checks out the system branch called master
+    GIVEN a cluster called test-cluster for deploying only the test-system system as type tar in system branch master
+    WHEN the user builds the system test-system in branch master
+    AND the user attempts to deploy the cluster test-cluster in branch master with options system.location="$DATADIR/test.tar"
+    THEN tarball test.tar contains bin/test
+    AND tarball test.tar contains lib/libtest.so
+    AND tarball test.tar doesn't contain lib/libtest.a
+    AND tarball test.tar doesn't contain man/man3/test.3.gz
+
+Implementations
+---------------
+
+    IMPLEMENTS GIVEN chunk (\S+) includes the default splitting rules
+    # Append default products rules
+    cat <<EOF >>"$DATADIR/gits/$MATCH_1/$MATCH_1.morph"
+    products:
+    - artifact: $MATCH_1-bins
+      include: [ "(usr/)?s?bin/.*" ]
+    - artifact: $MATCH_1-libs
+      include:
+      - (usr/)?lib(32|64)?/lib[^/]*\.so(\.\d+)*
+      - (usr/)?libexec/.*
+    - artifact: $MATCH_1-devel
+      include:
+      - (usr/)?include/.*
+      - (usr/)?lib(32|64)?/lib.*\.a
+      - (usr/)?lib(32|64)?/lib.*\.la
+      - (usr/)?(lib(32|64)?|share)/pkgconfig/.*\.pc
+    - artifact: $MATCH_1-doc
+      include:
+      - (usr/)?share/doc/.*
+      - (usr/)?share/man/.*
+      - (usr/)?share/info/.*
+    - artifact: $MATCH_1-locale
+      include:
+      - (usr/)?share/locale/.*
+      - (usr/)?share/i18n/.*
+      - (usr/)?share/zoneinfo/.*
+    - artifact: $MATCH_1-misc
+      include: [ .* ]
+    EOF
+    run_in "$DATADIR/gits/$MATCH_1" git add "$MATCH_1.morph"
+    run_in "$DATADIR/gits/$MATCH_1" git commit -m 'Add default splitting rules'
+
+    IMPLEMENTS GIVEN stratum (\S+) includes the default splitting rules
+    # Append default products rules
+    cat <<EOF >"$DATADIR/gits/morphs/$MATCH_1.morph"
+    name: $MATCH_1
+    kind: stratum
+    products:
+    - artifact: $MATCH_1-devel
+      include:
+      - .*-devel
+      - .*-debug
+      - .*-doc
+    - artifact: $MATCH_1-runtime
+      include:
+      - .*-bins
+      - .*-libs
+      - .*-locale
+      - .*-misc
+      - .*
+    chunks:
+    -   name: test-chunk
+        repo: test:test-chunk
+        ref: master
+        morph: test-chunk
+        build-mode: test
+        build-depends: []
+        artifacts:
+            test-chunk-bins: $MATCH_1-runtime
+            test-chunk-libs: $MATCH_1-runtime
+            test-chunk-locale: $MATCH_1-runtime
+            test-chunk-misc: $MATCH_1-runtime
+            test-chunk-devel: $MATCH_1-devel
+            test-chunk-doc: $MATCH_1-devel
+    EOF
+    run_in "$DATADIR/gits/morphs" git add "$MATCH_1.morph"
+    run_in "$DATADIR/gits/morphs" git commit -m 'Add default splitting rules'
+
+    IMPLEMENTS GIVEN system (\S+) includes the default splitting rules
+    cat << EOF > "$DATADIR/gits/morphs/$MATCH_1.morph"
+    name: $MATCH_1
+    kind: system
+    arch: $(run_morph print-architecture)
+    strata:
+    -   name: test-stratum
+        repo: test:morphs
+        ref: master
+        morph: test-stratum
+        artifacts:
+        - test-stratum-runtime
+        - test-stratum-devel
+    EOF
+    run_in "$DATADIR/gits/morphs" git add "$MATCH_1.morph"
+    run_in "$DATADIR/gits/morphs" git commit -m 'Add default splitting rules'
+
+    IMPLEMENTS GIVEN system (\S+) only uses (\S+) from (\S+)
+    python -c 'import sys, yaml
+    with open(sys.argv[1], "r") as f:
+        d = yaml.load(f)
+    for spec in d["strata"]:
+        if spec["name"] == sys.argv[3]:
+            spec["artifacts"] = [sys.argv[2]]
+    with open(sys.argv[1], "w") as f:
+        yaml.dump(d, f)
+    ' "$DATADIR/gits/morphs/$MATCH_1.morph" "$MATCH_2" "$MATCH_3"
+    run_in "$DATADIR/gits/morphs" git add "$MATCH_1.morph"
+    run_in "$DATADIR/gits/morphs" git commit -m "Make $MATCH_1 only use $MATCH_2"
