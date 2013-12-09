@@ -1,4 +1,4 @@
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -438,7 +438,7 @@ name: foo
                 'pre-install-commands': [],
                 'post-install-commands': [],
 
-                'chunks': [],
+                'products': [],
                 'devices': [],
                 'max-jobs': None,
             })

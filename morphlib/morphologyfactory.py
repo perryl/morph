@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -167,8 +167,9 @@ class MorphologyFactory(object):
     def _check_and_tweak_chunk(self, morphology, reponame, sha1, filename):
         '''Check and tweak a chunk morphology.'''
 
-        if 'chunks' in morphology and len(morphology['chunks']) > 1:
-            morphology.builds_artifacts = morphology['chunks'].keys()
+        if 'products' in morphology and len(morphology['products']) > 1:
+            morphology.builds_artifacts = [d['artifact']
+                                           for d in morphology['products']]
         else:
             morphology.builds_artifacts = [morphology['name']]
 

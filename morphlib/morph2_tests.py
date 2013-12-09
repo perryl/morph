@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ class MorphologyTests(unittest.TestCase):
         self.assertEqual(m['install-commands'], None)
         self.assertEqual(m['post-install-commands'], None)
         self.assertEqual(m['max-jobs'], None)
-        self.assertEqual(m['chunks'], [])
+        self.assertEqual(m['products'], [])
 
     if morphlib.got_yaml:
         def test_parses_simple_yaml_chunk(self):
@@ -76,7 +76,7 @@ class MorphologyTests(unittest.TestCase):
             self.assertEqual(m['install-commands'], None)
             self.assertEqual(m['post-install-commands'], None)
             self.assertEqual(m['max-jobs'], None)
-            self.assertEqual(m['chunks'], [])
+            self.assertEqual(m['products'], [])
 
     def test_sets_stratum_chunks_repo_and_morph_from_name(self):
         m = Morphology('''

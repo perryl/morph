@@ -14,7 +14,6 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
-import copy
 import re
 
 import morphlib
@@ -45,7 +44,7 @@ class Morphology(object):
             ('install-commands', None),
             ('post-install-commands', None),
             ('devices', None),
-            ('chunks', []),
+            ('products', []),
             ('max-jobs', None),
             ('build-system', 'manual')
         ],

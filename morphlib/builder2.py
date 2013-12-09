@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -423,7 +423,7 @@ class ChunkBuilder(BuilderBase):
         built_artifacts = []
         filenames = []
         with self.build_watch('create-chunks'):
-            specs = self.artifact.source.morphology['chunks']
+            specs = self.artifact.source.morphology['products']
             if len(specs) == 0:
                 specs = {
                     self.artifact.source.morphology['name']: ['.'],

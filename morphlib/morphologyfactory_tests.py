@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -50,10 +50,16 @@ class FakeLocalRepo(object):
                 "name": "chunk-split",
                 "kind": "chunk",
                 "build-system": "bar",
-                "chunks": {
-                    "chunk-split-runtime": [],
-                    "chunk-split-devel": []
-                }
+                "products": [
+                    {
+                        "artifact": "chunk-split-runtime",
+                        "include": []
+                    },
+                    {
+                        "artifact": "chunk-split-devel",
+                        "include": []
+                    }
+                ]
             }''',
         'stratum.morph': '''{
                 "name": "stratum",
