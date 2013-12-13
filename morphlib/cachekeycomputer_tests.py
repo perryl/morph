@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -53,7 +53,8 @@ class CacheKeyComputerTests(unittest.TestCase):
                     {
                         "name": "chunk",
                         "repo": "repo",
-                        "ref": "original/ref"
+                        "ref": "original/ref",
+                        "build-depends": []
                     }
                 ]
             }''',
@@ -64,12 +65,14 @@ class CacheKeyComputerTests(unittest.TestCase):
                     {
                         "name": "chunk2",
                         "repo": "repo",
-                        "ref": "original/ref"
+                        "ref": "original/ref",
+                        "build-depends": []
                     },
                     {
                         "name": "chunk3",
                         "repo": "repo",
-                        "ref": "original/ref"
+                        "ref": "original/ref",
+                        "build-depends": []
                     }
                 ]
             }''',
@@ -118,7 +121,6 @@ class CacheKeyComputerTests(unittest.TestCase):
         for artifact in self.artifacts:
             if artifact.name == name:
                 return artifact
-        raise
 
     def test_compute_key_hashes_all_types(self):
         runcount = {'thing': 0, 'dict': 0, 'list': 0, 'tuple': 0}
@@ -184,8 +186,8 @@ class CacheKeyComputerTests(unittest.TestCase):
         self.assertEqual(old_sha, new_sha)
 
     def test_same_morphology_added_to_source_pool_only_appears_once(self):
-        src = morphlib.source.Source('repo', 'original/ref', 'sha', 'tree',
-                                     '{"name": "chunk", "kind": "chunk"}',
+        m = morphlib.morph2.Morphology('{"name": "chunk", "kind": "chunk"}')
+        src = morphlib.source.Source('repo', 'original/ref', 'sha', 'tree', m,
                                      'chunk.morph')
         sp = morphlib.sourcepool.SourcePool()
         sp.add(src)

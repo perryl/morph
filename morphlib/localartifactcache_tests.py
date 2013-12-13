@@ -1,4 +1,4 @@
-# Copyright (C) 2012,2013  Codethink Limited
+# Copyright (C) 2012,2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ class LocalArtifactCacheTests(unittest.TestCase):
         morph = morphlib.morph2.Morphology(
             '''
             {
-                "chunk": "chunk",
+                "name": "chunk",
                 "kind": "chunk",
                 "artifacts": {
                     "chunk-runtime": [
