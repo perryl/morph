@@ -1,4 +1,4 @@
-# Copyright (C) 2012  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,6 +14,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
+import itertools
 import json
 import unittest
 
@@ -27,16 +28,15 @@ class FakeChunkMorphology(morphlib.morph2.Morphology):
 
         if artifact_names:
             # fake a list of artifacts
-            artifacts = {}
+            artifacts = []
             for artifact_name in artifact_names:
-                artifacts[artifact_name] = [artifact_name]
-            text = ('''
-                    {
-                        "name": "%s",
+                artifacts.append({'artifact': artifact_name,
+                                  'include': artifact_name})
+            text = json.dumps({
+                        "name": name,
                         "kind": "chunk",
-                        "chunks": %s
-                    }
-                    ''' % (name, json.dumps(artifacts)))
+                        "products": artifacts
+                    })
             self.builds_artifacts = artifact_names
         else:
             text = ('''
@@ -61,7 +61,8 @@ class FakeStratumMorphology(morphlib.morph2.Morphology):
                 'name': source_name,
                 'morph': morph,
                 'repo': repo,
-                'ref': ref
+                'ref': ref,
+                'build-depends': [],
             })
         build_depends_list = []
         for morph, repo, ref in build_depends:
@@ -114,33 +115,37 @@ class ArtifactResolverTests(unittest.TestCase):
 
         artifacts = self.resolver.resolve_artifacts(pool)
 
-        self.assertEqual(len(artifacts), 1)
+        self.assertEqual(len(artifacts),
+                         sum(len(s.split_rules.artifacts) for s in pool))
 
-        self.assertEqual(artifacts[0].source, source)
-        self.assertEqual(artifacts[0].name, 'chunk')
-        self.assertEqual(artifacts[0].dependencies, [])
-        self.assertEqual(artifacts[0].dependents, [])
+        for artifact in artifacts:
+            self.assertEqual(artifact.source, source)
+            self.assertTrue(artifact.name.startswith('chunk'))
+            self.assertEqual(artifact.dependencies, [])
+            self.assertEqual(artifact.dependents, [])
 
-    def test_resolve_single_chunk_with_one_artifact(self):
+    def test_resolve_single_chunk_with_one_new_artifact(self):
         pool = morphlib.sourcepool.SourcePool()
 
-        morph = FakeChunkMorphology('chunk', ['chunk-runtime'])
+        morph = FakeChunkMorphology('chunk', ['chunk-foobar'])
         source = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
         pool.add(source)
 
         artifacts = self.resolver.resolve_artifacts(pool)
 
-        self.assertEqual(len(artifacts), 1)
-        self.assertEqual(artifacts[0].source, source)
-        self.assertEqual(artifacts[0].name, 'chunk-runtime')
-        self.assertEqual(artifacts[0].dependencies, [])
-        self.assertEqual(artifacts[0].dependents, [])
+        self.assertEqual(len(artifacts),
+                         sum(len(s.split_rules.artifacts) for s in pool))
 
-    def test_resolve_single_chunk_with_two_artifact(self):
+        foobartifact, = (a for a in artifacts if a.name == 'chunk-foobar')
+        self.assertEqual(foobartifact.source, source)
+        self.assertEqual(foobartifact.dependencies, [])
+        self.assertEqual(foobartifact.dependents, [])
+
+    def test_resolve_single_chunk_with_two_new_artifacts(self):
         pool = morphlib.sourcepool.SourcePool()
 
-        morph = FakeChunkMorphology('chunk', ['chunk-runtime', 'chunk-devel'])
+        morph = FakeChunkMorphology('chunk', ['chunk-baz', 'chunk-qux'])
         source = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
         pool.add(source)
@@ -148,88 +153,16 @@ class ArtifactResolverTests(unittest.TestCase):
         artifacts = self.resolver.resolve_artifacts(pool)
         artifacts.sort(key=lambda a: a.name)
 
-        self.assertEqual(len(artifacts), 2)
+        self.assertEqual(len(artifacts),
+                         sum(len(s.split_rules.artifacts) for s in pool))
 
-        self.assertEqual(artifacts[0].source, source)
-        self.assertEqual(artifacts[0].name, 'chunk-devel')
-        self.assertEqual(artifacts[0].dependencies, [])
-        self.assertEqual(artifacts[0].dependents, [])
+        for name in ('chunk-baz', 'chunk-qux'):
+            artifact, = (a for a in artifacts if a.name == name)
+            self.assertEqual(artifact.source, source)
+            self.assertEqual(artifact.dependencies, [])
+            self.assertEqual(artifact.dependents, [])
 
-        self.assertEqual(artifacts[1].source, source)
-        self.assertEqual(artifacts[1].name, 'chunk-runtime')
-        self.assertEqual(artifacts[1].dependencies, [])
-        self.assertEqual(artifacts[1].dependents, [])
-
-    def test_resolve_a_single_empty_stratum(self):
-        pool = morphlib.sourcepool.SourcePool()
-
-        morph = morphlib.morph2.Morphology(
-            '''
-            {
-                "name": "foo",
-                "kind": "stratum"
-            }
-            ''')
-        morph.builds_artifacts = ['foo']
-        stratum = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'foo.morph')
-        pool.add(stratum)
-
-        artifacts = self.resolver.resolve_artifacts(pool)
-
-        self.assertEqual(artifacts[0].source, stratum)
-        self.assertEqual(artifacts[0].name, 'foo')
-        self.assertEqual(artifacts[0].dependencies, [])
-        self.assertEqual(artifacts[0].dependents, [])
-
-    def test_resolve_a_single_empty_system(self):
-        pool = morphlib.sourcepool.SourcePool()
-
-        morph = morphlib.morph2.Morphology(
-            '''
-            {
-                "name": "foo",
-                "kind": "system"
-            }
-            ''')
-        morph.builds_artifacts = ['foo-rootfs']
-        system = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'foo.morph')
-        pool.add(system)
-
-        artifacts = self.resolver.resolve_artifacts(pool)
-
-        self.assertEqual(artifacts[0].source, system)
-        self.assertEqual(artifacts[0].name, 'foo-rootfs')
-        self.assertEqual(artifacts[0].dependencies, [])
-        self.assertEqual(artifacts[0].dependents, [])
-
-    def test_resolve_a_single_empty_arm_system(self):
-        pool = morphlib.sourcepool.SourcePool()
-
-        morph = morphlib.morph2.Morphology(
-            '''
-            {
-                "name": "foo",
-                "kind": "system",
-                "arch": "armv7"
-            }
-            ''')
-        morph.builds_artifacts = ['foo-rootfs', 'foo-kernel']
-        system = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'foo.morph')
-        pool.add(system)
-
-        artifacts = self.resolver.resolve_artifacts(pool)
-
-        self.assertTrue(any((a.source == system and a.name == 'foo-rootfs' and
-                             a.dependencies == [] and a.dependents == [])
-                            for a in artifacts))
-        self.assertTrue(any((a.source == system and a.name == 'foo-kernel' and
-                             a.dependencies == [] and a.dependents == [])
-                            for a in artifacts))
-
-    def test_resolve_stratum_and_chunk_with_no_subartifacts(self):
+    def test_resolve_stratum_and_chunk(self):
         pool = morphlib.sourcepool.SourcePool()
 
         morph = FakeChunkMorphology('chunk')
@@ -245,22 +178,28 @@ class ArtifactResolverTests(unittest.TestCase):
 
         artifacts = self.resolver.resolve_artifacts(pool)
 
-        self.assertEqual(len(artifacts), 2)
+        self.assertEqual(len(artifacts),
+                         sum(len(s.split_rules.artifacts) for s in pool))
 
-        self.assertEqual(artifacts[0].source, stratum)
-        self.assertEqual(artifacts[0].name, 'stratum')
-        self.assertEqual(artifacts[0].dependencies, [artifacts[1]])
-        self.assertEqual(artifacts[0].dependents, [])
+        stratum_artifacts = set(a for a in artifacts if a.source == stratum)
+        chunk_artifacts = set(a for a in artifacts if a.source == chunk)
 
-        self.assertEqual(artifacts[1].source, chunk)
-        self.assertEqual(artifacts[1].name, 'chunk')
-        self.assertEqual(artifacts[1].dependencies, [])
-        self.assertEqual(artifacts[1].dependents, [artifacts[0]])
+        for stratum_artifact in stratum_artifacts:
+            self.assertTrue(stratum_artifact.name.startswith('stratum'))
+            self.assertEqual(stratum_artifact.dependents, [])
+            self.assertTrue(any(dep in chunk_artifacts
+                                for dep in stratum_artifact.dependencies))
 
-    def test_resolve_stratum_and_chunk_with_two_subartifacts(self):
+        for chunk_artifact in chunk_artifacts:
+            self.assertTrue(chunk_artifact.name.startswith('chunk'))
+            self.assertEqual(chunk_artifact.dependencies, [])
+            self.assertTrue(any(dep in stratum_artifacts
+                                for dep in chunk_artifact.dependents))
+
+    def test_resolve_stratum_and_chunk_with_two_new_artifacts(self):
         pool = morphlib.sourcepool.SourcePool()
 
-        morph = FakeChunkMorphology('chunk', ['chunk-devel', 'chunk-runtime'])
+        morph = FakeChunkMorphology('chunk', ['chunk-foo', 'chunk-bar'])
         chunk = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
         pool.add(chunk)
@@ -268,8 +207,7 @@ class ArtifactResolverTests(unittest.TestCase):
         morph = FakeStratumMorphology(
             'stratum',
             chunks=[
-                ('chunk-devel', 'chunk', 'repo', 'ref'),
-                ('chunk-runtime', 'chunk', 'repo', 'ref')
+                ('chunk', 'chunk', 'repo', 'ref'),
             ])
         stratum = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'stratum.morph')
@@ -277,186 +215,35 @@ class ArtifactResolverTests(unittest.TestCase):
 
         artifacts = self.resolver.resolve_artifacts(pool)
 
-        self.assertEqual(len(artifacts), 3)
+        self.assertEqual(len(artifacts),
+                         sum(len(s.split_rules.artifacts) for s in pool))
 
-        self.assertEqual(artifacts[0].source, stratum)
-        self.assertEqual(artifacts[0].name, 'stratum')
-        self.assertEqual(artifacts[0].dependencies,
-                         [artifacts[1], artifacts[2]])
-        self.assertEqual(artifacts[0].dependents, [])
+        stratum_artifacts = set(a for a in artifacts if a.source == stratum)
+        chunk_artifacts = set(a for a in artifacts if a.source == chunk)
 
-        self.assertEqual(artifacts[1].source, chunk)
-        self.assertEqual(artifacts[1].name, 'chunk-devel')
-        self.assertEqual(artifacts[1].dependencies, [])
-        self.assertEqual(artifacts[1].dependents, [artifacts[0], artifacts[2]])
+        for stratum_artifact in stratum_artifacts:
+            self.assertTrue(stratum_artifact.name.startswith('stratum'))
+            self.assertEqual(stratum_artifact.dependents, [])
+            self.assertTrue(any(dep in chunk_artifacts
+                                for dep in stratum_artifact.dependencies))
 
-        self.assertEqual(artifacts[2].source, chunk)
-        self.assertEqual(artifacts[2].name, 'chunk-runtime')
-        self.assertEqual(artifacts[2].dependencies, [artifacts[1]])
-        self.assertEqual(artifacts[2].dependents, [artifacts[0]])
+        for chunk_artifact in chunk_artifacts:
+            self.assertTrue(chunk_artifact.name.startswith('chunk'))
+            self.assertEqual(chunk_artifact.dependencies, [])
+            self.assertTrue(any(dep in stratum_artifacts
+                                for dep in chunk_artifact.dependents))
 
-    def test_resolve_stratum_and_chunk_with_one_used_subartifacts(self):
+    def test_resolving_artifacts_for_a_system_with_two_dependent_strata(self):
         pool = morphlib.sourcepool.SourcePool()
-
-        morph = FakeChunkMorphology('chunk', ['chunk-devel', 'chunk-runtime'])
-        chunk = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
-        pool.add(chunk)
-
-        morph = FakeStratumMorphology(
-            'stratum',
-            chunks=[('chunk-runtime', 'chunk', 'repo', 'ref')])
-        stratum = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'stratum.morph')
-        pool.add(stratum)
-
-        artifacts = self.resolver.resolve_artifacts(pool)
-
-        self.assertEqual(len(artifacts), 2)
-
-        self.assertEqual(artifacts[0].source, stratum)
-        self.assertEqual(artifacts[0].name, 'stratum')
-        self.assertEqual(artifacts[0].dependencies, [artifacts[1]])
-        self.assertEqual(artifacts[0].dependents, [])
-
-        self.assertEqual(artifacts[1].source, chunk)
-        self.assertEqual(artifacts[1].name, 'chunk-runtime')
-        self.assertEqual(artifacts[1].dependencies, [])
-        self.assertEqual(artifacts[1].dependents, [artifacts[0]])
-
-    def test_resolving_two_different_chunk_artifacts_in_a_stratum(self):
-        pool = morphlib.sourcepool.SourcePool()
-
-        morph = FakeChunkMorphology('foo')
-        foo_chunk = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'foo.morph')
-        pool.add(foo_chunk)
-
-        morph = FakeChunkMorphology('bar')
-        bar_chunk = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'bar.morph')
-        pool.add(bar_chunk)
-
-        morph = FakeStratumMorphology(
-            'stratum',
-            chunks=[
-                ('foo', 'foo', 'repo', 'ref'),
-                ('bar', 'bar', 'repo', 'ref')
-            ])
-        stratum = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'stratum.morph')
-        pool.add(stratum)
-
-        artifacts = self.resolver.resolve_artifacts(pool)
-
-        self.assertEqual(len(artifacts), 3)
-
-        self.assertEqual(artifacts[0].source, stratum)
-        self.assertEqual(artifacts[0].name, 'stratum')
-        self.assertEqual(artifacts[0].dependencies,
-                         [artifacts[1], artifacts[2]])
-        self.assertEqual(artifacts[0].dependents, [])
-
-        self.assertEqual(artifacts[1].source, foo_chunk)
-        self.assertEqual(artifacts[1].name, 'foo')
-        self.assertEqual(artifacts[1].dependencies, [])
-        self.assertEqual(artifacts[1].dependents, [artifacts[0], artifacts[2]])
-
-        self.assertEqual(artifacts[2].source, bar_chunk)
-        self.assertEqual(artifacts[2].name, 'bar')
-        self.assertEqual(artifacts[2].dependencies, [artifacts[1]])
-        self.assertEqual(artifacts[2].dependents, [artifacts[0]])
-
-    def test_resolving_artifacts_for_a_chain_of_two_strata(self):
-        pool = morphlib.sourcepool.SourcePool()
-
-        morph = FakeStratumMorphology('stratum1')
-        stratum1 = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'stratum1.morph')
-        pool.add(stratum1)
-
-        morph = FakeStratumMorphology(
-            'stratum2',
-            chunks=[],
-            build_depends=[('stratum1', 'repo', 'ref')])
-        stratum2 = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'stratum2.morph')
-        pool.add(stratum2)
-
-        artifacts = self.resolver.resolve_artifacts(pool)
-
-        self.assertEqual(len(artifacts), 2)
-
-        self.assertEqual(artifacts[0].source, stratum1)
-        self.assertEqual(artifacts[0].name, 'stratum1')
-        self.assertEqual(artifacts[0].dependencies, [])
-        self.assertEqual(artifacts[0].dependents, [artifacts[1]])
-
-        self.assertEqual(artifacts[1].source, stratum2)
-        self.assertEqual(artifacts[1].name, 'stratum2')
-        self.assertEqual(artifacts[1].dependencies, [artifacts[0]])
-        self.assertEqual(artifacts[1].dependents, [])
-
-    def test_resolving_with_a_stratum_and_chunk_dependency_mix(self):
-        pool = morphlib.sourcepool.SourcePool()
-
-        morph = FakeStratumMorphology('stratum1')
-        stratum1 = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'stratum1.morph')
-        pool.add(stratum1)
-
-        morph = FakeStratumMorphology(
-            'stratum2',
-            chunks=[
-                ('chunk1', 'chunk1', 'repo', 'original/ref'),
-                ('chunk2', 'chunk2', 'repo', 'original/ref')
-            ],
-            build_depends=[('stratum1', 'repo', 'original/ref')])
-        stratum2 = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'stratum2.morph')
-        pool.add(stratum2)
 
         morph = FakeChunkMorphology('chunk1')
         chunk1 = morphlib.source.Source(
             'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk1.morph')
         pool.add(chunk1)
 
-        morph = FakeChunkMorphology('chunk2')
-        chunk2 = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk2.morph')
-        pool.add(chunk2)
-
-        artifacts = self.resolver.resolve_artifacts(pool)
-
-        self.assertEqual(len(artifacts), 4)
-
-        self.assertEqual(artifacts[0].source, stratum1)
-        self.assertEqual(artifacts[0].name, 'stratum1')
-        self.assertEqual(artifacts[0].dependencies, [])
-        self.assertEqual(artifacts[0].dependents,
-                         [artifacts[1], artifacts[2], artifacts[3]])
-
-        self.assertEqual(artifacts[1].source, stratum2)
-        self.assertEqual(artifacts[1].name, 'stratum2')
-        self.assertEqual(artifacts[1].dependencies,
-                         [artifacts[0], artifacts[2], artifacts[3]])
-        self.assertEqual(artifacts[1].dependents, [])
-
-        self.assertEqual(artifacts[2].source, chunk1)
-        self.assertEqual(artifacts[2].name, 'chunk1')
-        self.assertEqual(artifacts[2].dependencies, [artifacts[0]])
-        self.assertEqual(artifacts[2].dependents, [artifacts[1], artifacts[3]])
-
-        self.assertEqual(artifacts[3].source, chunk2)
-        self.assertEqual(artifacts[3].name, 'chunk2')
-        self.assertEqual(artifacts[3].dependencies,
-                         [artifacts[0], artifacts[2]])
-        self.assertEqual(artifacts[3].dependents, [artifacts[1]])
-
-    def test_resolving_artifacts_for_a_system_with_two_strata(self):
-        pool = morphlib.sourcepool.SourcePool()
-
-        morph = FakeStratumMorphology('stratum1')
+        morph = FakeStratumMorphology(
+                'stratum1',
+                chunks=[('chunk1', 'chunk1', 'repo', 'original/ref')])
         stratum1 = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'stratum1.morph')
         pool.add(stratum1)
@@ -485,31 +272,64 @@ class ArtifactResolverTests(unittest.TestCase):
             'repo', 'ref', 'sha1', 'tree', morph, 'system.morph')
         pool.add(system)
 
+        morph = FakeChunkMorphology('chunk2')
+        chunk2 = morphlib.source.Source(
+            'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk2.morph')
+        pool.add(chunk2)
+
         morph = FakeStratumMorphology(
-            'stratum2', chunks=[], build_depends=[('stratum1', 'repo', 'ref')])
+            'stratum2',
+            chunks=[('chunk2', 'chunk2', 'repo', 'original/ref')],
+            build_depends=[('stratum1', 'repo', 'ref')])
         stratum2 = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'stratum2.morph')
         pool.add(stratum2)
 
         artifacts = self.resolver.resolve_artifacts(pool)
 
-        self.assertEqual(len(artifacts), 3)
+        self.assertEqual(len(artifacts),
+                         sum(len(s.split_rules.artifacts) for s in pool))
 
-        self.assertEqual(artifacts[0].source, stratum1)
-        self.assertEqual(artifacts[0].name, 'stratum1')
-        self.assertEqual(artifacts[0].dependencies, [])
-        self.assertEqual(artifacts[0].dependents, [artifacts[1], artifacts[2]])
+        system_artifacts = set(a for a in artifacts if a.source == system)
+        stratum1_artifacts = set(a for a in artifacts if a.source == stratum1)
+        chunk1_artifacts = set(a for a in artifacts if a.source == chunk1)
+        stratum2_artifacts = set(a for a in artifacts if a.source == stratum2)
+        chunk2_artifacts = set(a for a in artifacts if a.source == chunk2)
 
-        self.assertEqual(artifacts[1].source, system)
-        self.assertEqual(artifacts[1].name, 'system-rootfs')
-        self.assertEqual(artifacts[1].dependencies,
-                         [artifacts[0], artifacts[2]])
-        self.assertEqual(artifacts[1].dependents, [])
+        def assert_depended_on_by_some(artifact, parents):
+            self.assertNotEqual(len(artifact.dependents), 0)
+            self.assertTrue(any(a in artifact.dependents for a in parents))
+        def assert_depended_on_by_all(artifact, parents):
+            self.assertNotEqual(len(artifact.dependents), 0)
+            self.assertTrue(all(a in artifact.dependents for a in parents))
+        def assert_depends_on_some(artifact, children):
+            self.assertNotEqual(len(artifact.dependencies), 0)
+            self.assertTrue(any(a in children for a in artifact.dependencies))
+        def assert_depends_on_all(artifact, children):
+            self.assertNotEqual(len(artifact.dependencies), 0)
+            self.assertTrue(all(a in children for a in artifact.dependencies))
 
-        self.assertEqual(artifacts[2].source, stratum2)
-        self.assertEqual(artifacts[2].name, 'stratum2')
-        self.assertEqual(artifacts[2].dependencies, [artifacts[0]])
-        self.assertEqual(artifacts[2].dependents, [artifacts[1]])
+        for c1_a in chunk1_artifacts:
+            self.assertEqual(c1_a.dependencies, [])
+            assert_depended_on_by_some(c1_a, stratum1_artifacts)
+
+        for st1_a in stratum1_artifacts:
+            assert_depends_on_some(st1_a, chunk1_artifacts)
+            assert_depended_on_by_all(st1_a, chunk2_artifacts)
+            assert_depended_on_by_some(st1_a, system_artifacts)
+
+        for c2_a in chunk2_artifacts:
+            assert_depends_on_all(c2_a, stratum1_artifacts)
+            assert_depended_on_by_some(c2_a, stratum2_artifacts)
+
+        for st2_a in stratum2_artifacts:
+            assert_depends_on_some(st2_a, chunk2_artifacts)
+            assert_depended_on_by_some(st2_a, system_artifacts)
+
+        for sy_a in system_artifacts:
+            self.assertEqual(sy_a.dependents, [])
+            assert_depends_on_some(sy_a, stratum1_artifacts)
+            assert_depends_on_some(sy_a, stratum2_artifacts)
 
     def test_resolving_stratum_with_explicit_chunk_dependencies(self):
         pool = morphlib.sourcepool.SourcePool()
@@ -566,49 +386,33 @@ class ArtifactResolverTests(unittest.TestCase):
 
         artifacts = self.resolver.resolve_artifacts(pool)
 
-        self.assertEqual(len(artifacts), 4)
+        self.assertEqual(len(artifacts),
+                         sum(len(s.split_rules.artifacts) for s in pool))
 
-        self.assertEqual(artifacts[0].source, stratum)
-        self.assertEqual(artifacts[0].name, 'stratum')
-        self.assertEqual(artifacts[0].dependencies,
-                         [artifacts[1], artifacts[2], artifacts[3]])
-        self.assertEqual(artifacts[0].dependents, [])
+        stratum_artifacts = set(a for a in artifacts if a.source == stratum)
+        chunk_artifacts = [set(a for a in artifacts if a.source == source)
+                           for source in (chunk1, chunk2, chunk3)]
+        all_chunks = set(itertools.chain.from_iterable(chunk_artifacts))
 
-        self.assertEqual(artifacts[1].source, chunk1)
-        self.assertEqual(artifacts[1].name, 'chunk1')
-        self.assertEqual(artifacts[1].dependencies, [])
-        self.assertEqual(artifacts[1].dependents,
-                         [artifacts[0], artifacts[3]])
+        for st_a in stratum_artifacts:
+            self.assertEqual(st_a.dependents, [])
+            # This stratum depends on some chunk artifacts
+            self.assertTrue(any(a in st_a.dependencies for a in all_chunks))
 
-        self.assertEqual(artifacts[2].source, chunk2)
-        self.assertEqual(artifacts[2].name, 'chunk2')
-        self.assertEqual(artifacts[2].dependencies, [])
-        self.assertEqual(artifacts[2].dependents, [artifacts[0], artifacts[3]])
+        for ca in chunk_artifacts[2]:
+            # There's a stratum dependent on this artifact
+            self.assertTrue(any(a in stratum_artifacts for a in ca.dependents))
+            # chunk3's artifacts depend on chunk1 and chunk2's artifacts
+            self.assertEqual(set(ca.dependencies),
+                             chunk_artifacts[0] | chunk_artifacts[1])
 
-        self.assertEqual(artifacts[3].source, chunk3)
-        self.assertEqual(artifacts[3].name, 'chunk3')
-        self.assertEqual(artifacts[3].dependencies,
-                         [artifacts[1], artifacts[2]])
-        self.assertEqual(artifacts[3].dependents, [artifacts[0]])
-
-    def test_detection_of_invalid_chunk_artifact_references(self):
-        pool = morphlib.sourcepool.SourcePool()
-
-        morph = FakeChunkMorphology('chunk')
-        chunk = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
-        pool.add(chunk)
-
-        morph = FakeStratumMorphology(
-            'stratum',
-            chunks=[('chunk-runtime', 'chunk', 'repo', 'ref')])
-        stratum = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'stratum.morph')
-        pool.add(stratum)
-
-        self.assertRaises(
-            morphlib.artifactresolver.UndefinedChunkArtifactError,
-            self.resolver.resolve_artifacts, pool)
+        for ca in itertools.chain.from_iterable(chunk_artifacts[0:1]):
+            self.assertEqual(ca.dependencies, [])
+            # There's a stratum dependent on this artifact
+            self.assertTrue(any(a in stratum_artifacts for a in ca.dependents))
+            # All chunk3's artifacts depend on this artifact
+            self.assertTrue(all(c3a in ca.dependents
+                                for c3a in chunk_artifacts[2]))
 
     def test_detection_of_mutual_dependency_between_two_strata(self):
         pool = morphlib.sourcepool.SourcePool()
@@ -631,97 +435,6 @@ class ArtifactResolverTests(unittest.TestCase):
 
         self.assertRaises(morphlib.artifactresolver.MutualDependencyError,
                           self.resolver.resolve_artifacts, pool)
-
-    def test_detection_of_mutual_dependency_between_consecutive_chunks(self):
-        pool = morphlib.sourcepool.SourcePool()
-
-        morph = FakeStratumMorphology(
-            'stratum1',
-            chunks=[
-                ('chunk1', 'chunk1', 'repo', 'original/ref'),
-                ('chunk2', 'chunk2', 'repo', 'original/ref')
-            ])
-        stratum1 = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'stratum1.morph')
-        pool.add(stratum1)
-
-        morph = FakeStratumMorphology(
-            'stratum2',
-            chunks=[
-                ('chunk2', 'chunk2', 'repo', 'original/ref'),
-                ('chunk1', 'chunk1', 'repo', 'original/ref')
-            ],
-            build_depends=[('stratum1', 'repo', 'original/ref')])
-        stratum2 = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'stratum2.morph')
-        pool.add(stratum2)
-
-        morph = FakeChunkMorphology('chunk1')
-        chunk1 = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk1.morph')
-        pool.add(chunk1)
-
-        morph = FakeChunkMorphology('chunk2')
-        chunk2 = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk2.morph')
-        pool.add(chunk2)
-
-        self.assertRaises(morphlib.artifactresolver.MutualDependencyError,
-                          self.resolver.resolve_artifacts, pool)
-
-    if 0:
-        # This situation is currently not possible
-        def test_graceful_handling_of_self_dependencies_of_chunks(self):
-            pool = morphlib.sourcepool.SourcePool()
-
-            morph = morphlib.morph2.Morphology(
-                '''
-                {
-                    "name": "stratum",
-                    "kind": "stratum",
-                    "chunks": [
-                        {
-                            "alias": "same-chunk-runtime",
-                            "name": "chunk-runtime",
-                            "morph": "chunk",
-                            "repo": "repo",
-                            "ref": "original/ref"
-                        },
-                        {
-                            "name": "chunk-runtime",
-                            "morph": "chunk",
-                            "repo": "repo",
-                            "ref": "original/ref",
-                            "build-depends": [
-                                "same-chunk-runtime"
-                            ]
-                        }
-                    ]
-                }
-                ''')
-            morph.builds_artifacts = ['stratum']
-            stratum = morphlib.source.Source(
-                'repo', 'original/ref', 'sha1', 'tree', morph, 'stratum.morph')
-            pool.add(stratum)
-
-            morph = FakeChunkMorphology('chunk')
-            chunk = morphlib.source.Source(
-                'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk.morph')
-            pool.add(chunk)
-
-            artifacts = self.resolver.resolve_artifacts(pool)
-
-            self.assertEqual(len(artifacts), 2)
-
-            self.assertEqual(artifacts[0].source, stratum)
-            self.assertEqual(artifacts[0].name, 'stratum')
-            self.assertEqual(artifacts[0].dependencies, [artifacts[1]])
-            self.assertEqual(artifacts[0].dependents, [])
-
-            self.assertEqual(artifacts[1].source, chunk)
-            self.assertEqual(artifacts[1].name, 'chunk')
-            self.assertEqual(artifacts[1].dependencies, [])
-            self.assertEqual(artifacts[1].dependents, [artifacts[0]])
 
     def test_detection_of_chunk_dependencies_in_invalid_order(self):
         pool = morphlib.sourcepool.SourcePool()
@@ -796,3 +509,8 @@ class ArtifactResolverTests(unittest.TestCase):
 
         self.assertRaises(morphlib.artifactresolver.DependencyFormatError,
                           self.resolver.resolve_artifacts, pool)
+
+
+# TODO: Expand test suite to include better dependency checking, many
+#       tests were removed due to the fundamental change in how artifacts
+#       and dependencies are constructed
