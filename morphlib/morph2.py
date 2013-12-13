@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -86,6 +86,14 @@ class Morphology(object):
 
     def __contains__(self, key):
         return key in self._dict
+
+    # Not covered by tests, since it's trivial, morph2 is going away
+    # and only exists so the new morphology validation code can use it.
+    def get(self, key, default=None): # pragma: no cover
+        try:
+            return self[key]
+        except KeyError:
+            return default
 
     def get_commands(self, which):
         '''Return the commands to run from a morphology or the build system'''
