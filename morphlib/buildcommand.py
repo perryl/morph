@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2013  Codethink Limited
+# Copyright (C) 2011-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,6 +20,13 @@ import logging
 import tempfile
 
 import morphlib
+
+
+class MultipleRootArtifactsError(morphlib.Error):
+    def __init__(self, artifacts):
+        self.msg = ('System build has multiple root artifacts: %r'
+                    % [a.name for a in artifacts])
+        self.artifacts = artifacts
 
 
 class BuildCommand(object):
@@ -142,7 +149,14 @@ class BuildCommand(object):
         artifacts = ar.resolve_artifacts(srcpool)
 
         self.app.status(msg='Computing build order', chatty=True)
-        root_artifact = self._find_root_artifact(artifacts)
+        try:
+            root_artifact = self._find_root_artifact(artifacts)
+        except MultipleRootArtifactsError as e:
+            # Validate root artifacts, since we may get a more useful
+            # error out of it.
+            for root_artifact in e.artifacts:
+                self._validate_root_artifact(root_artifact)
+            raise
 
         # Validate the root artifact here, since it's a costly function
         # to finalise it, so any pre finalisation validation is better
@@ -245,7 +259,8 @@ class BuildCommand(object):
             for dep in a.dependencies:
                 if dep in maybe:
                     maybe.remove(dep)
-        assert len(maybe) == 1
+        if len(maybe) != 1:
+            raise MultipleRootArtifactsError(maybe)
         return maybe.pop()
 
     def build_in_order(self, root_artifact):
