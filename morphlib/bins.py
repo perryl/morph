@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2013  Codethink Limited
+# Copyright (C) 2011-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -50,60 +50,7 @@ def safe_makefile(self, tarinfo, targetpath):
 tarfile.TarFile.makefile = safe_makefile
 
 
-def _chunk_filenames(rootdir, regexps, dump_memory_profile=None):
-
-    '''Return the filenames for a chunk from the contents of a directory.
-
-    Only files and directories that match at least one of the regular
-    expressions are accepted. The regular expressions are implicitly
-    anchored to the beginning of the string, but not the end. The
-    filenames are relative to rootdir.
-
-    '''
-
-    dump_memory_profile = dump_memory_profile or (lambda msg: None)
-
-    def matches(filename):
-        return any(x.match(filename) for x in compiled)
-
-    def names_to_root(filename):
-        yield filename
-        while filename != rootdir:
-            filename = os.path.dirname(filename)
-            yield filename
-
-    compiled = [re.compile(x) for x in regexps]
-    include = set()
-    for dirname, subdirs, basenames in os.walk(rootdir):
-        subdirpaths = [os.path.join(dirname, x) for x in subdirs]
-        subdirsymlinks = [x for x in subdirpaths if os.path.islink(x)]
-        filenames = [os.path.join(dirname, x) for x in basenames]
-        for filename in [dirname] + subdirsymlinks + filenames:
-            if matches(os.path.relpath(filename, rootdir)):
-                for name in names_to_root(filename):
-                    if name not in include:
-                        include.add(name)
-            else:
-                logging.debug('regexp MISMATCH: %s' % filename)
-    dump_memory_profile('after walking')
-
-    return sorted(include)  # get dirs before contents
-
-
-def chunk_contents(rootdir, regexps):
-    ''' Return the list of files in a chunk, with the rootdir
-        stripped off.
-    
-    '''
-    
-    filenames = _chunk_filenames(rootdir, regexps)
-    # The first entry is the rootdir directory, which we don't need
-    filenames.pop(0)
-    contents = [str[len(rootdir):] for str in filenames]
-    return contents
-
-
-def create_chunk(rootdir, f, regexps, dump_memory_profile=None):
+def create_chunk(rootdir, f, include, dump_memory_profile=None):
     '''Create a chunk from the contents of a directory.
     
     ``f`` is an open file handle, to which the tar file is written.
@@ -118,14 +65,15 @@ def create_chunk(rootdir, f, regexps, dump_memory_profile=None):
     # does not complain about an implausibly old timestamp.
     normalized_timestamp = 683074800
 
-    include = _chunk_filenames(rootdir, regexps, dump_memory_profile)
     dump_memory_profile('at beginning of create_chunk')
     
+    path_pairs = [(relname, os.path.join(rootdir, relname))
+                  for relname in include]
     tar = tarfile.open(fileobj=f, mode='w')
-    for filename in include:
+    for relname, filename in path_pairs:
         # Normalize mtime for everything.
         tarinfo = tar.gettarinfo(filename,
-                                 arcname=os.path.relpath(filename, rootdir))
+                                 arcname=relname)
         tarinfo.ctime = normalized_timestamp
         tarinfo.mtime = normalized_timestamp
         if tarinfo.isreg():
@@ -135,11 +83,9 @@ def create_chunk(rootdir, f, regexps, dump_memory_profile=None):
             tar.addfile(tarinfo)
     tar.close()
 
-    include.remove(rootdir)
-    for filename in reversed(include):
+    for relname, filename in reversed(path_pairs):
         if os.path.isdir(filename) and not os.path.islink(filename):
-            if not os.listdir(filename):
-                os.rmdir(filename)
+            continue
         else:
             os.remove(filename)
     dump_memory_profile('after removing in create_chunks')

@@ -422,33 +422,51 @@ class ChunkBuilder(BuilderBase):
     def assemble_chunk_artifacts(self, destdir):  # pragma: no cover
         built_artifacts = []
         filenames = []
+        source = self.artifact.source
+        split_rules = source.split_rules
+
+        def filepaths(destdir):
+            for dirname, subdirs, basenames in os.walk(destdir):
+                subdirsymlinks = [os.path.join(dirname, x) for x in subdirs
+                                  if os.path.islink(x)]
+                filenames = [os.path.join(dirname, x) for x in basenames]
+                for relpath in (os.path.relpath(x, destdir) for x in
+                                [dirname] + subdirsymlinks + filenames):
+                    yield relpath
+
+        with self.build_watch('determine-splits'):
+            matches, overlaps, unmatched = \
+                split_rules.partition(filepaths(destdir))
+
         with self.build_watch('create-chunks'):
-            specs = self.artifact.source.morphology['products']
-            if len(specs) == 0:
-                specs = {
-                    self.artifact.source.morphology['name']: ['.'],
-                }
-            names = specs.keys()
-            names.sort(key=lambda name: [ord(c) for c in name])
-            for artifact_name in names:
-                artifact = self.new_artifact(artifact_name)
-                patterns = specs[artifact_name]
-                patterns += [r'baserock/%s\.' % artifact_name]
+            for chunk_artifact_name, chunk_artifact \
+                in source.artifacts.iteritems():
+                file_paths = matches[chunk_artifact_name]
+                chunk_artifact = source.get_artifact(chunk_artifact_name)
 
-                with self.local_artifact_cache.put(artifact) as f:
-                    contents = morphlib.bins.chunk_contents(destdir, patterns)
-                    self.write_metadata(destdir, artifact_name, contents)
+                def all_parents(path):
+                    while path != '':
+                        yield path
+                        path = os.path.dirname(path)
+                def parentify(filenames):
+                    names = set()
+                    for name in filenames:
+                        names.update(all_parents(name))
+                    return sorted(names)
+                parented_paths = \
+                    parentify(file_paths +
+                              ['baserock/%s.meta' % chunk_artifact_name])
 
-                    self.app.status(msg='assembling chunk %s' % artifact_name,
-                                    chatty=True)
-                    self.app.status(msg='assembling into %s' % f.name,
-                                    chatty=True)
+                with self.local_artifact_cache.put(chunk_artifact) as f:
+                    self.write_metadata(destdir, chunk_artifact_name,
+                                        parented_paths)
+
                     self.app.status(msg='Creating chunk artifact %(name)s',
-                                    name=artifact.name)
-                    morphlib.bins.create_chunk(destdir, f, patterns)
-                built_artifacts.append(artifact)
+                                    name=chunk_artifact_name)
+                    morphlib.bins.create_chunk(destdir, f, parented_paths)
+                built_artifacts.append(chunk_artifact)
 
-            files = os.listdir(destdir)
+        for dirname, subdirs, files in os.walk(destdir):
             if files:
                 raise Exception('DESTDIR %s is not empty: %s' %
                                 (destdir, files))
