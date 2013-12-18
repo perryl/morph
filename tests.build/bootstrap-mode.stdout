@@ -1,12 +1,11 @@
-build-essential stratum:
-["xxxx.chunk.cc"]
+build-essential strata:
+./5bbfd4cb94017e7b72e20ee4f91a76bed8085aa96176cf87ecce54ec71d5ddae.stratum.build-essential-devel
+["xxxx.chunk.cc-devel", "xxxx.chunk.cc-doc"]
+./c8fe8efd4f8c6edcd309bb2cf0a308c93dfd905bbff64be98c5b07f350951fde.stratum.build-essential-runtime
+["xxxx.chunk.cc-bins", "xxxx.chunk.cc-libs", "xxxx.chunk.cc-locale", "xxxx.chunk.cc-misc"]
 
 hello-system:
 ./
-baserock/
-baserock/hello-stratum.meta
-baserock/hello-system-rootfs.meta
-baserock/hello.meta
 etc/
 etc/fstab
 etc/os-release

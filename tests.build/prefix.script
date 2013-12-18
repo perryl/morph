@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -82,6 +82,6 @@ git commit -q -m "Update stratum"
     test:morphs-repo master hello-system
 
 cd "$DATADIR/cache/artifacts"
-first_chunk=$(ls -1 *.chunk.xyzzy | cut -c -64)
-second_chunk=$(ls -1 *.chunk.plugh | cut -c -64)
+first_chunk=$(ls -1 *.chunk.xyzzy-* | head -n1 | cut -c -64)
+second_chunk=$(ls -1 *.chunk.plugh-* | head -n1 | cut -c -64)
 cat $first_chunk.build-log $second_chunk.build-log

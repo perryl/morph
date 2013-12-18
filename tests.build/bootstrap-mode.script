@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2011-2013  Codethink Limited
+# Copyright (C) 2011-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,11 +29,15 @@ set -eu
     test:morphs-repo master hello-system
 
 cd "$DATADIR/cache/artifacts"
-echo "build-essential stratum:"
-stratum=$(ls *.stratum.build-essential)
-cat $stratum | sed 's/[a-f0-9]\{64\}/xxxx/g'
-echo
+echo "build-essential strata:"
+for stratum in $(find . -regex '.*\.stratum\.build-essential-[^.]*$' | sort)
+do
+    echo "$stratum"
+    sed 's/[a-f0-9]\{64\}/xxxx/g' "$stratum"
+    echo
+done
 echo
 echo "hello-system:"
 system=$(ls *hello-system-rootfs)
-tar tf "$system" | LC_ALL=C sort | sed '/^\.\/./s:^\./::'
+tar tf "$system" | LC_ALL=C sort -u | sed '/^\.\/./s:^\./::' \
+    | grep -v '^baserock'

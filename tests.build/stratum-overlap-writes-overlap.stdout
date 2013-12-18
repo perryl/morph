@@ -1,4 +1,4 @@
-overlap-foo-baz overlap-foobar overlap-fooqux
+overlap-foo-baz-bins overlap-foobar-bins overlap-fooqux-bins
 bin/foo
-overlap-foo-baz overlap-foobar
+overlap-foo-baz-bins overlap-foobar-bins
 bin/bar

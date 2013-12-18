@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2011-2013  Codethink Limited
+# Copyright (C) 2011-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ cache="$DATADIR/cache/artifacts"
  git checkout --quiet farrokh &&
  git checkout --quiet -b rebuild-cached-stratum)
 
-# Make a branch in the morphs repo and modify the stratum to refer to 
+# Make a branch in the morphs repo and modify the stratum to refer to
 # the new chunk branch.
 (cd "$DATADIR/morphs-repo" &&
  git checkout --quiet -b rebuild-cached-stratum &&
@@ -42,18 +42,18 @@ cache="$DATADIR/cache/artifacts"
 "$SRCDIR/scripts/test-morph" build-morphology \
     test:morphs-repo rebuild-cached-stratum hello-system
 echo "first build:"
-(cd "$cache" && ls *.chunk.*  *hello-stratum | sed 's/^[^.]*\./ /' | 
- LC_ALL=C sort)
+(cd "$cache" && ls *.chunk.*  *hello-stratum-* | sed 's/^[^.]*\./ /' |
+ LC_ALL=C sort -u)
 
 # Change the chunk.
-(cd "$DATADIR/chunk-repo" && 
- echo >> hello.c && 
+(cd "$DATADIR/chunk-repo" &&
+ echo >> hello.c &&
  git commit --quiet -am change)
 
 # Rebuild.
 "$SRCDIR/scripts/test-morph" build-morphology \
     test:morphs-repo rebuild-cached-stratum hello-system
 echo "second build:"
-(cd "$cache" && ls *.chunk.*  *hello-stratum | sed 's/^[^.]*\./ /' | 
- LC_ALL=C sort)
+(cd "$cache" && ls *.chunk.*  *hello-stratum-* | sed 's/^[^.]*\./ /' |
+ LC_ALL=C sort -u)
 

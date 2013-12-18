@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2011-2013  Codethink Limited
+# Copyright (C) 2011-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,9 +27,9 @@ cache="$DATADIR/cache/artifacts"
 "$SRCDIR/scripts/test-morph" build-morphology \
     test:morphs-repo overlap hello-system > /dev/null
 "$SRCDIR/scripts/list-overlaps" groups \
-        "$cache"/*.stratum.hello-stratum.overlaps |
+        "$cache"/*.stratum.hello-stratum-*.overlaps |
 while IFS='\n' read overlaps; do
     echo $overlaps
     "$SRCDIR/scripts/list-overlaps" list-files \
-        "$cache"/*.stratum.hello-stratum.overlaps $overlaps
+        "$cache"/*.stratum.hello-stratum-*.overlaps $overlaps
 done

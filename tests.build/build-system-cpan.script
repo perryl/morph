@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2011-2013  Codethink Limited
+# Copyright (C) 2011-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -81,7 +81,5 @@ git commit -q -m "Set custom install prefix for hello"
 
 for chunk in "$DATADIR/cache/artifacts/"*.chunk.*
 do
-    echo "$chunk:" | sed 's/[^.]*//'
-    tar -tf "$chunk" | LC_ALL=C sort |
-            sed -e '/^\.\/./s:^\./::' | grep -F "bin/hello"
-done
+    tar -tf "$chunk"
+done | LC_ALL=C sort | sed '/^\.\/./s:^\./::' | grep -F 'bin/hello'

@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -44,7 +44,5 @@ git commit -q -m "Convert hello into an autodetectable chunk"
 
 for chunk in "$DATADIR/cache/artifacts/"*.chunk.*
 do
-    echo "$chunk:" | sed 's/[^.]*//'
-    tar -tf "$chunk" | LC_ALL=C sort | sed '/^\.\/./s:^\./::'
-    echo
-done
+    tar -tf "$chunk"
+done | cat >/dev/null # No files get installed apart from metadata

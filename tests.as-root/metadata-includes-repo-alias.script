@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -39,11 +39,11 @@ cd "$extracted/baserock"
 
 # Check for test:morphs in System and Stratum
 #grep -q -F -e test:morphs hello-tarball.meta # tarball bug
-grep -q -F -e test:morphs hello-stratum.meta
-grep -q -F -e test:morphs linux-stratum.meta
+grep -q -F -e test:morphs hello-stratum-runtime.meta
+grep -q -F -e test:morphs linux-stratum-runtime.meta
 
 # Check for test:kernel-repo in linux
-grep -q -F -e test:kernel-repo linux.meta
+grep -q -F -e test:kernel-repo linux-misc.meta
 
 # Check for test:chunk-repo in hello
-grep -q -F -e test:chunk-repo hello.meta
+grep -q -F -e test:chunk-repo hello-bins.meta

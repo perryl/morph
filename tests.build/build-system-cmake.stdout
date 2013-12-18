@@ -1,8 +1,2 @@
-.chunk.hello:
-./
-baserock/
-baserock/hello.meta
-usr/
 usr/bin/
 usr/bin/hello
-

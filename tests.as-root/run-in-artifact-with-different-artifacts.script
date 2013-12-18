@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,9 +27,9 @@ set -eu
     test:morphs master linux-system
 
 system=$(find "$DATADIR/cache/artifacts" -maxdepth 1 -name '*.system.*-rootfs')
-chunk=$(find "$DATADIR/cache/artifacts" -maxdepth 1 -name '*.chunk.linux')
+chunk=$(find "$DATADIR/cache/artifacts" -maxdepth 1 -name '*.chunk.linux-misc')
 stratum=$(find "$DATADIR/cache/artifacts" -maxdepth 1 \
-    -name '*.stratum.linux-stratum')
+    -name '*.stratum.linux-stratum-runtime')
 
 # Run 'run-in-artifact' with the system artifact.
 echo "System:"
