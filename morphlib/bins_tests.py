@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2013  Codethink Limited
+# Copyright (C) 2011-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -107,42 +107,33 @@ class ChunkTests(BinsTest):
 
         self.instdir_orig_files = self.recursive_lstat(self.instdir)
 
-    def create_chunk(self, regexps):
+    def create_chunk(self, includes):
         self.populate_instdir()
-        morphlib.bins.create_chunk(self.instdir, self.chunk_f, regexps)
+        morphlib.bins.create_chunk(self.instdir, self.chunk_f, includes)
         self.chunk_f.flush()
-
-    def chunk_contents(self, regexps):
-        self.populate_instdir()
-        return morphlib.bins.chunk_contents(self.instdir, regexps)
 
     def unpack_chunk(self):
         os.mkdir(self.unpacked)
         morphlib.bins.unpack_binary(self.chunk_file, self.unpacked)
 
-    def test_empties_everything(self):
-        self.create_chunk(['.'])
+    def test_empties_files(self):
+        self.create_chunk(['bin/foo', 'lib/libfoo.so'])
         self.assertEqual([x for x, y in self.recursive_lstat(self.instdir)],
-                         ['.'])
+                         ['.', 'bin', 'lib'])
 
     def test_creates_and_unpacks_chunk_exactly(self):
-        self.create_chunk(['.'])
+        self.create_chunk(['bin', 'bin/foo', 'lib', 'lib/libfoo.so'])
         self.unpack_chunk()
         self.assertEqual(self.instdir_orig_files,
                          self.recursive_lstat(self.unpacked))
 
     def test_uses_only_matching_names(self):
-        self.create_chunk(['bin'])
+        self.create_chunk(['bin/foo'])
         self.unpack_chunk()
         self.assertEqual([x for x, y in self.recursive_lstat(self.unpacked)],
                          ['.', 'bin', 'bin/foo'])
         self.assertEqual([x for x, y in self.recursive_lstat(self.instdir)],
-                         ['.', 'lib', 'lib/libfoo.so'])
-
-    def test_list_chunk_contents(self):
-        contents = self.chunk_contents(['.'])
-        self.assertEqual(contents,
-                         ['/bin', '/bin/foo', '/lib', '/lib/libfoo.so'])
+                         ['.', 'bin', 'lib', 'lib/libfoo.so'])
 
     def test_does_not_compress_artifact(self):
         self.create_chunk(['bin'])
@@ -176,13 +167,13 @@ class ExtractTests(unittest.TestCase):
             with open(os.path.join(basedir, 'babar'), 'w') as f:
                 pass
             os.symlink('babar', os.path.join(basedir, 'bar'))
-            return ['.']
+            return ['babar']
         linktar = self.create_chunk(make_linkfile)
 
         def make_file(basedir):
             with open(os.path.join(basedir, 'bar'), 'w') as f:
                 pass
-            return ['.']
+            return ['bar']
         filetar = self.create_chunk(make_file)
 
         os.mkdir(self.unpacked)
@@ -194,12 +185,12 @@ class ExtractTests(unittest.TestCase):
     def test_extracted_dirs_keep_links(self):
         def make_usrlink(basedir):
             os.symlink('.', os.path.join(basedir, 'usr'))
-            return ['.']
+            return ['usr']
         linktar = self.create_chunk(make_usrlink)
 
         def make_usrdir(basedir):
             os.mkdir(os.path.join(basedir, 'usr'))
-            return ['.']
+            return ['usr']
         dirtar = self.create_chunk(make_usrdir)
 
         morphlib.bins.unpack_binary_from_file(linktar, self.unpacked)
@@ -210,14 +201,14 @@ class ExtractTests(unittest.TestCase):
     def test_extracted_files_follow_links(self):
         def make_usrlink(basedir):
             os.symlink('.', os.path.join(basedir, 'usr'))
-            return ['.']
+            return ['usr']
         linktar = self.create_chunk(make_usrlink)
 
         def make_usrdir(basedir):
             os.mkdir(os.path.join(basedir, 'usr'))
             with open(os.path.join(basedir, 'usr', 'foo'), 'w') as f:
                 pass
-            return ['.']
+            return ['usr', 'usr/foo']
         dirtar = self.create_chunk(make_usrdir)
 
         morphlib.bins.unpack_binary_from_file(linktar, self.unpacked)
