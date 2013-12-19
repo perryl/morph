@@ -30,6 +30,14 @@ we can test it later in a THEN step.
         0) die "Morph should have failed, but didn't. Unexpected success!" ;;
     esac
 
+    IMPLEMENTS THEN morph succeeded
+    case $(cat "$DATADIR/morph-exit") in
+    0)  echo "Morph succeeded!"
+        ;;
+    *)  die "Morph should have succeeded, but didn't. Unexpected failure!"
+        ;;
+    esac
+
 We need to check that a workspace creation worked. This requires the
 directory to exist, and its `.morph` subdirectory to exist, and nothing
 else.
@@ -603,11 +611,40 @@ Implementation sections for cross-bootstraping
 Implementation sections for deployment
 ======================================
 
-    IMPLEMENTS WHEN the user (attempts to deploy|deploys) the (system|cluster) (\S+) in branch (\S+)
+Defaults are set in the cluster morphology, so we can deploy without
+setting any extra parameters, but we also need to be able to override
+them, so they can be added to the end of the implements section.
+
+    IMPLEMENTS WHEN the user (attempts to deploy|deploys) the (system|cluster) (\S+) in branch (\S+)( with options (.*))?
     cd "$DATADIR/workspace/$MATCH_4"
-    set build "$MATCH_3"
+    set -- deploy "$MATCH_3"
+    if [ "$MATCH_5" != '' ]; then
+        # eval used so word splitting in the text is preserved
+        eval set -- '"$@"' $MATCH_6
+    fi
     if [ $MATCH_1 == "deploys" ]; then run_morph "$@"
-    else attempt_morph deploy "$MATCH_3"; fi
+    else attempt_morph "$@"; fi
+
+To successfully deploy systems, we need a cluster morphology. Since the
+common case is to just have one system, we generate a stub morphology
+with only the minimal information.
+
+    IMPLEMENTS GIVEN a cluster called (\S+) for deploying only the (\S+) system as type (\S+) in system branch (\S+)
+    name="$MATCH_1"
+    system="$MATCH_2"
+    type="$MATCH_3"
+    branch="$MATCH_4"
+    cat << EOF > "$DATADIR/workspace/$branch/test:morphs/$name.morph"
+    name: $name
+    kind: cluster
+    systems:
+    - morph: $system
+      repo: test:morphs
+      ref: $branch
+      deploy:
+        system:
+          type: $type
+    EOF
 
 Implementations sections for reading error messages
 ===================================================

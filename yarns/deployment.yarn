@@ -8,3 +8,12 @@ Morph Deployment Tests
     AND the user attempts to deploy the system test-system in branch master
     THEN morph failed
     AND the deploy error message includes the string "morph deploy is only supported for cluster morphologies"
+
+    SCENARIO deploying a cluster morphology
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    GIVEN a cluster called test-cluster for deploying only the test-system system as type tar in system branch master
+    WHEN the user builds the system test-system in branch master
+    AND the user attempts to deploy the cluster test-cluster in branch master with options system.location=test.tar
+    THEN morph succeeded
