@@ -3,6 +3,30 @@ NEWS for Morph
 
 This file contains high-level summaries of what's changed in each release.
 
+Version 13, released 2014-NO-IDEA
+-------------------------------
+
+* Code reduction through the use of pyfilesystem objects.
+* Added support fo ppc64 architecture (POWER PC 64-bit)
+* morph build and morph deploy will now strip .morph extensions from arguments
+* The build and deploy subcommands' implementations were reworked to aid
+  comprehensibility, the old implementation for build is still available as
+  old-build, but there is no old-deploy.
+* The test suite prints error messages during scenario tests to the terminal
+  more often, run faster tests before slower ones, and correctly returns
+  failure when inspecting files for style errors.
+* GitDirectory was extended to have .get_index([name]) and .get_remote(name)
+  methods, which return GitIndex and GitRemote objects. GitIndex is for
+  querying the status of the working tree, or adding files to the index.
+  GitRemote is mostly about pushing refspecs, but can also query and set
+  push/pull urls.
+* LocalRefManager and RemoteRefManager are built on the GitDirectory classes
+  and allow transactional updating of refs, so you can rollback if an update
+  fails, or a build fails with the updated refs.
+* BuildBranch is built on top of those and the SystemBranchDirectory class to
+  tie a bunch of changes that come from a workspace and manage pushing,
+  rolling back and using the right repository+ref when building.
+
 Version 12, released 2013-11-15
 -------------------------------
 
