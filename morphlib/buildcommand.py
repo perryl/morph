@@ -254,11 +254,10 @@ class BuildCommand(object):
         
         '''
 
-        maybe = set(artifacts)
+        maybe = set()
         for a in artifacts:
-            for dep in a.dependencies:
-                if dep in maybe:
-                    maybe.remove(dep)
+            if not a.dependents:
+                maybe.add(a)
         if len(maybe) != 1:
             raise MultipleRootArtifactsError(maybe)
         return maybe.pop()
