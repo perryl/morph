@@ -486,43 +486,51 @@ class StratumBuilder(BuilderBase):
                 artifact.source.build_mode != 'bootstrap')
 
     def build_and_cache(self):  # pragma: no cover
+        source = self.artifact.source
+        built_artifacts = []
+
         with self.build_watch('overall-build'):
-            constituents = [d for d in self.artifact.dependencies
-                            if self.is_constituent(d)]
+            for stratum_artifact_name, stratum_artifact in \
+                source.artifacts.iteritems():
 
-            # the only reason the StratumBuilder has to download chunks is to
-            # check for overlap now that strata are lists of chunks
-            with self.build_watch('check-chunks'):
-                # download the chunk artifact if necessary
-                download_depends(constituents,
-                                 self.local_artifact_cache,
-                                 self.remote_artifact_cache)
-                # check for chunk overlaps
-                overlaps = get_overlaps(self.artifact, constituents,
-                                        self.local_artifact_cache)
-                if len(overlaps) > 0:
-                    logging.warning('Overlaps in stratum artifact %s detected'
-                                    % self.artifact.name)
-                    log_overlaps(overlaps)
-                    self.app.status(msg='Overlaps in stratum artifact '
-                                        '%(stratum_name)s detected',
-                                    stratum_name=self.artifact.name,
-                                    error=True)
-                    write_overlap_metadata(self.artifact, overlaps,
-                                           self.local_artifact_cache)
+                constituents = [d for d in stratum_artifact.dependencies
+                                if self.is_constituent(d)]
 
-            with self.build_watch('create-chunk-list'):
-                lac = self.local_artifact_cache
-                artifact_name = self.artifact.source.morphology['name']
-                artifact = self.new_artifact(artifact_name)
-                contents = [x.name for x in constituents]
-                meta = self.create_metadata(artifact_name, contents)
-                with lac.put_artifact_metadata(artifact, 'meta') as f:
-                    json.dump(meta, f, indent=4, sort_keys=True)
-                with self.local_artifact_cache.put(artifact) as f:
-                    json.dump([c.basename() for c in constituents], f)
+                # the only reason the StratumBuilder has to download
+                # chunks is to check for overlap now that strata are
+                # lists of chunks
+                with self.build_watch('check-chunks'):
+                    # download the chunk artifact if necessary
+                    download_depends(constituents,
+                                     self.local_artifact_cache,
+                                     self.remote_artifact_cache)
+                    # check for chunk overlaps
+                    overlaps = get_overlaps(stratum_artifact, constituents,
+                                            self.local_artifact_cache)
+                    if len(overlaps) > 0:
+                        logging.warning(
+                            'Overlaps in stratum artifact %s detected'
+                            % stratum_artifact_name)
+                        log_overlaps(overlaps)
+                        self.app.status(msg='Overlaps in stratum artifact '
+                                            '%(stratum_name)s detected',
+                                        stratum_name=stratum_artifact_name,
+                                        error=True)
+                        write_overlap_metadata(stratum_artifact, overlaps,
+                                               self.local_artifact_cache)
+
+                with self.build_watch('create-chunk-list'):
+                    lac = self.local_artifact_cache
+                    meta = self.create_metadata(stratum_artifact_name,
+                                                [x.name for x in constituents])
+                    with lac.put_artifact_metadata(stratum_artifact, 'meta') \
+                        as f:
+                        json.dump(meta, f, indent=4, sort_keys=True)
+                    with self.local_artifact_cache.put(stratum_artifact) as f:
+                        json.dump([c.basename() for c in constituents], f)
+                    built_artifacts.append(stratum_artifact)
         self.save_build_times()
-        return [artifact]
+        return built_artifacts
 
 
 class SystemBuilder(BuilderBase):  # pragma: no cover
