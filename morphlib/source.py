@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,6 +30,9 @@ class Source(object):
     * ``tree`` -- the SHA1 of the tree corresponding to the commit
     * ``morphology`` -- the in-memory representation of the morphology we use
     * ``filename`` -- basename of the morphology filename
+    * ``artifacts`` -- the set of artifacts this source produces, or
+                       None if it has not yet been set by the
+                       ArtifactResolver.
 
     '''
 
@@ -42,8 +45,32 @@ class Source(object):
         self.tree = tree
         self.morphology = morphology
         self.filename = filename
+        self.artifacts = None
 
     def __str__(self):  # pragma: no cover
         return '%s|%s|%s' % (self.repo_name,
                              self.original_ref,
                              self.filename[:-len('.morph')])
+
+    def get_artifact(self, name): # pragma: no cover
+        '''Get the artifact of this source named ``name``.
+
+        This initialises a new Artifact object with this source as a
+        parent, if it does not already exist.
+
+        The same Artifact object is returned if the same name is given
+        later.
+
+        The set of Artifacts a Source has may be iterated over with the
+        ``artifacts`` field, which has the sentinel value of ``None``
+        if no Artifacts have been initialised yet.
+
+        '''
+        if self.artifacts is None:
+            self.artifacts = {}
+        try:
+            return self.artifacts[name]
+        except KeyError:
+            a = morphlib.artifact.Artifact(self, name)
+            self.artifacts[name] = a
+            return a
