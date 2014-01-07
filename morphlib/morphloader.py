@@ -44,16 +44,33 @@ class UnknownKindError(morphlib.Error):
 
 class MissingFieldError(morphlib.Error):
 
-    def __init__(self, field, morphology):
+    def __init__(self, field, morphology_name):
+        self.field = field
+        self.morphology_name = morphology_name
         self.msg = (
-            'Missing field %s from morphology %s' % (field, morphology))
+            'Missing field %s from morphology %s' % (field, morphology_name))
 
 
 class InvalidFieldError(morphlib.Error):
 
-    def __init__(self, field, morphology):
+    def __init__(self, field, morphology_name):
+        self.field = field
+        self.morphology_name = morphology_name
         self.msg = (
-            'Field %s not allowed in morphology %s' % (field, morphology))
+            'Field %s not allowed in morphology %s' % (field, morphology_name))
+
+
+class InvalidTypeError(morphlib.Error):
+
+    def __init__(self, field, expected, actual, morphology_name):
+        self.field = field
+        self.expected = expected
+        self.actual = actual
+        self.morphology_name = morphology_name
+        self.msg = (
+            'Field %s expected type %s, got %s in morphology %s' %
+            (field, expected, actual, morphology_name))
+
 
 class ObsoleteFieldsError(morphlib.Error):
 
@@ -140,6 +157,16 @@ class EmptySystemError(morphlib.Error):
             self, 'System %(system_name)s has no strata.' % locals())
 
 
+class MultipleValidationErrors(morphlib.Error):
+
+    def __init__(self, name, errors):
+        self.name = name
+        self.errors = errors
+        self.msg = 'Multiple errors when validating %(name)s:'
+        for error in errors:
+            self.msg += ('\t' + str(error))
+
+
 class MorphologyLoader(object):
 
     '''Load morphologies from disk, or save them back to disk.'''
@@ -193,6 +220,7 @@ class MorphologyLoader(object):
             'chunks': [],
             'description': '',
             'build-depends': [],
+            'products': [],
         },
         'system': {
             'description': '',
@@ -356,8 +384,64 @@ class MorphologyLoader(object):
                     spec.get('alias', spec['name']),
                     morph.filename)
 
-    def _validate_chunk(self, morph):
-        pass
+    @classmethod
+    def _validate_chunk(cls, morph):
+        errors = []
+        products = morph.get('products')
+        if products is None:
+            return
+        name = morph['name']
+        if (not isinstance(products, collections.Iterable)
+            or isinstance(products, collections.Mapping)):
+
+            raise InvalidTypeError('products', list,
+                                   type(products), name)
+
+        product_spec_required_fields = set(('artifact', 'include'))
+        for i, spec in enumerate(products):
+
+            if not isinstance(spec, collections.Mapping):
+                errors.append(InvalidTypeError('products[%d]' % i, dict,
+                                               type(spec), name))
+                continue
+
+            fields = set(spec.iterkeys())
+            missing = product_spec_required_fields - fields
+            for field in missing:
+                errors.append(
+                    MissingFieldError('products[%d].%s' % (i, field), name))
+            unexpected = fields - product_spec_required_fields
+            for field in unexpected:
+                errors.append(
+                    InvalidFieldError('products[%d].%s' % (i, field), name))
+
+            if 'include' in spec:
+                include_patterns = spec['include']
+                # Allow include to be most iterables, but not a mapping
+                # or a string, since iter of a mapping is just the keys,
+                # and the iter of a string is a 1 character length string,
+                # which would also validate as an iterable of strings.
+                if (not isinstance(include_patterns, collections.Iterable)
+                    or isinstance(include_patterns, collections.Mapping)
+                    or isinstance(include_patterns, basestring)):
+
+                    errors.append(
+                        InvalidTypeError(
+                            'products[%d].include' % i, list,
+                            type(include_patterns), name))
+                else:
+                    for j, pattern in enumerate(include_patterns):
+                        if not isinstance(pattern, basestring):
+                            errors.append(
+                                InvalidTypeError(
+                                    'products[%d].include[%d]' % (i, j),
+                                    str, type(pattern), name))
+
+        if len(errors) == 1:
+            raise errors[0]
+        elif errors:
+            raise MultipleValidationErrors(name, errors)
+
 
     def _require_field(self, field, morphology):
         if field not in morphology:
