@@ -174,3 +174,5 @@ class MorphologyFactory(object):
             morphology.builds_artifacts = [morphology['name']]
 
         morphology.needs_artifact_metadata_cached = False
+
+        morphlib.morphloader.MorphologyLoader._validate_chunk(morphology)
