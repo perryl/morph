@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -71,13 +71,11 @@ class ArtifactResolver(object):
     '''
 
     def __init__(self):
-        self._cached_artifacts = None
         self._added_artifacts = None
         self._source_pool = None
 
     def resolve_artifacts(self, source_pool):
         self._source_pool = source_pool
-        self._cached_artifacts = {}
         self._added_artifacts = set()
 
         artifacts = self._resolve_artifacts_recursively()
@@ -93,7 +91,7 @@ class ArtifactResolver(object):
             source = queue.popleft()
 
             if source.morphology['kind'] == 'system':
-                systems = [self._get_artifact(source, a)
+                systems = [source.get_artifact(a)
                            for a in source.morphology.builds_artifacts]
 
                 if any(a not in self._added_artifacts for a in systems):
@@ -109,8 +107,8 @@ class ArtifactResolver(object):
                         self._added_artifacts.add(artifact)
             elif source.morphology['kind'] == 'stratum':
                 assert len(source.morphology.builds_artifacts) == 1
-                artifact = self._get_artifact(
-                    source, source.morphology.builds_artifacts[0])
+                artifact = source.get_artifact(
+                    source.morphology.builds_artifacts[0])
 
                 if not artifact in self._added_artifacts:
                     artifacts.append(artifact)
@@ -126,7 +124,7 @@ class ArtifactResolver(object):
             elif source.morphology['kind'] == 'chunk':
                 names = source.morphology.builds_artifacts
                 for name in names:
-                    artifact = self._get_artifact(source, name)
+                    artifact = source.get_artifact(name)
                     if not artifact in self._added_artifacts:
                         artifacts.append(artifact)
                         self._added_artifacts.add(artifact)
@@ -141,15 +139,6 @@ class ArtifactResolver(object):
                        if x.morphology['kind'] != 'chunk']
             return collections.deque(sources)
 
-    def _get_artifact(self, source, name):
-        info = (source, name)
-        if info in self._cached_artifacts:
-            return self._cached_artifacts[info]
-        else:
-            artifact = morphlib.artifact.Artifact(info[0], info[1])
-            self._cached_artifacts[info] = artifact
-            return artifact
-
     def _resolve_system_dependencies(self, systems, source, queue):
         artifacts = []
 
@@ -160,7 +149,7 @@ class ArtifactResolver(object):
                 '%s.morph' % info['morph'])
 
             stratum_name = stratum_source.morphology.builds_artifacts[0]
-            stratum = self._get_artifact(stratum_source, stratum_name)
+            stratum = stratum_source.get_artifact(stratum_name)
 
             for system in systems:
                 system.add_dependency(stratum)
@@ -182,8 +171,8 @@ class ArtifactResolver(object):
                     stratum_info['ref'] or stratum.source.original_ref,
                     '%s.morph' % stratum_info['morph'])
 
-                other_stratum = self._get_artifact(
-                    other_source, other_source.morphology.builds_artifacts[0])
+                other_stratum = other_source.get_artifact(
+                    other_source.morphology.builds_artifacts[0])
 
                 strata.append(other_stratum)
 
@@ -210,7 +199,7 @@ class ArtifactResolver(object):
             if not info['name'] in possible_names:
                 raise UndefinedChunkArtifactError(stratum.source, info['name'])
 
-            chunk_artifact = self._get_artifact(chunk_source, info['name'])
+            chunk_artifact = chunk_source.get_artifact(info['name'])
             chunk_artifacts.append(chunk_artifact)
 
             artifacts.append(chunk_artifact)
