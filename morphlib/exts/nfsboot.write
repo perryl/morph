@@ -206,8 +206,7 @@ mv "$temp" "$target"
                 ['sh', '-c', exports_append_sh, '--', exports_path],
                 feed_stdin=exports_string)
             cliapp.ssh_runcmd(
-                'root@%s' % location, ['systemctl', 'restart',
-                                       'nfs-server.service'])
+                'root@%s' % location, ['exportfs', '-a'])
 
     def test_good_server(self, server):
         # Can be ssh'ed into
@@ -222,13 +221,13 @@ mv "$temp" "$target"
             cliapp.ssh_runcmd(
                 'root@%s' % server, ['test', '-e', '/etc/exports'])
         except cliapp.AppException:
-            raise cliapp.AppException('server %s is not an nfs server'
-                                      % server)
+            raise cliapp.AppException('Server %s is not exporting any file '
+                                      'systems' % server)
+
         try:
             cliapp.ssh_runcmd(
-                'root@%s' % server, ['systemctl', 'is-enabled',
+                'root@%s' % server, ['systemctl', 'is-active',
                                      'nfs-server.service'])
-
         except cliapp.AppException:
             raise cliapp.AppException('server %s does not control its '
                                       'nfs server by systemd' % server)
