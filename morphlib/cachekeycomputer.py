@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -90,6 +90,8 @@ class CacheKeyComputer(object):
             keys['build-mode'] = artifact.source.build_mode
             keys['prefix'] = artifact.source.prefix
             keys['tree'] = artifact.source.tree
+            keys['split-rules'] = [(a, [rgx.pattern for rgx in r._regexes])
+                                   for (a, r) in artifact.source.split_rules]
         elif kind in ('system', 'stratum'):
             morphology = artifact.source.morphology
             le_dict = dict((k, morphology[k]) for k in morphology.keys())
