@@ -30,6 +30,7 @@ class Source(object):
     * ``tree`` -- the SHA1 of the tree corresponding to the commit
     * ``morphology`` -- the in-memory representation of the morphology we use
     * ``filename`` -- basename of the morphology filename
+    * ``split_rules`` -- rules for splitting the source's produced artifacts
     * ``artifacts`` -- the set of artifacts this source produces, or
                        None if it has not yet been set by the
                        ArtifactResolver.
@@ -45,6 +46,11 @@ class Source(object):
         self.tree = tree
         self.morphology = morphology
         self.filename = filename
+
+        kind = morphology['kind']
+        unifier = getattr(morphlib.artifactsplitrule,
+                          'unify_%s_matches' % kind)
+        self.split_rules = unifier(morphology)
         self.artifacts = None
 
     def __str__(self):  # pragma: no cover

@@ -1,5 +1,6 @@
 morphlib/__init__.py
 morphlib/artifactcachereference.py
+morphlib/artifactsplitrule.py
 morphlib/builddependencygraph.py
 morphlib/tester.py
 morphlib/git.py
