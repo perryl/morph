@@ -33,7 +33,15 @@ class MorphologyLoaderTests(unittest.TestCase):
         self.tempdir = tempfile.mkdtemp()
         self.filename = os.path.join(self.tempdir, 'foo.morph')
 
+        # It's very useful to be able to compare exceptions directly when
+        # making assertions, so we make it possible with a monkey patch.
+        def compare_exceptions(a, b):
+            return type(a) == type(b) and a.__dict__ == b.__dict__
+        self._morphlib_error_eq = morphlib.Error.__eq__
+        morphlib.Error.__eq__ = compare_exceptions
+
     def tearDown(self):
+        morphlib.Error.__eq__ == self._morphlib_error_eq
         shutil.rmtree(self.tempdir)
 
     def test_parses_yaml_from_string(self):
@@ -101,28 +109,40 @@ build-system: dummy
         self.assertRaises(
             InvalidFieldError, self.loader.validate, m)
 
+    def assert_validation_error(self, morphology, expected_error):
+        '''Check the error raised by morphloader.validate()'''
+        with self.assertRaises(type(expected_error)) as context:
+            self.loader.validate(morphology)
+        self.assertEqual(context.exception, expected_error)
+
+    def assert_multiple_validation_errors(self, morphology, expected_errors):
+        '''Check for multiple errors raised by morphloader.validate()'''
+        with self.assertRaises(MultipleValidationErrors) as context:
+            self.loader.validate(morphology)
+        self.assertEqual(
+            sorted(context.exception.errors, key=str),
+            sorted(expected_errors, key=str))
+
     def test_validate_requires_products_list(self):
         m = self.chunk_morph(
             products={
                 'foo-runtime': ['.'],
                 'foo-devel': ['.'],
             })
-        with self.assertRaises(InvalidTypeError) as cm:
-            self.loader.validate(m)
-        e = cm.exception
-        self.assertEqual((e.field, e.expected, e.actual, e.morphology_name),
-                         ('products', list, dict, 'foo'))
+        self.assert_validation_error(m,
+            InvalidTypeError(
+                field='products', expected=list, actual=dict,
+                morphology_name='foo'))
 
     def test_validate_requires_products_list_of_mappings(self):
         m = self.chunk_morph(
             products={
                 'foo-runtime',
             })
-        with self.assertRaises(InvalidTypeError) as cm:
-            self.loader.validate(m)
-        e = cm.exception
-        self.assertEqual((e.field, e.expected, e.actual, e.morphology_name),
-                         ('products[0]', dict, str, 'foo'))
+        self.assert_validation_error(m,
+            InvalidTypeError(
+                field='products[0]', expected=dict, actual=str,
+                morphology_name='foo'))
 
     def test_validate_requires_products_list_required_fields(self):
         m = self.chunk_morph(
@@ -132,23 +152,12 @@ build-system: dummy
                     'cludein': [],
                 }
             ])
-        with self.assertRaises(MultipleValidationErrors) \
-        as cm:
-            self.loader.validate(m)
-        exs = cm.exception.errors
-        self.assertEqual(
-            sorted((type(ex), ex.field) for ex in exs),
-            sorted((
-                (MissingFieldError,
-                 'products[0].artifact'),
-                (MissingFieldError,
-                 'products[0].include'),
-                (InvalidFieldError,
-                 'products[0].cludein'),
-                (InvalidFieldError,
-                 'products[0].factiart'),
-            ))
-        )
+        self.assert_multiple_validation_errors(m, [
+            MissingFieldError('products[0].artifact', 'foo'),
+            MissingFieldError('products[0].include', 'foo'),
+            InvalidFieldError('products[0].cludein', 'foo'),
+            InvalidFieldError('products[0].factiart', 'foo')
+        ])
 
     def test_validate_requires_products_list_include_is_list(self):
         m = self.chunk_morph(
@@ -158,12 +167,10 @@ build-system: dummy
                     'include': '.*',
                 }
             ])
-        with self.assertRaises(InvalidTypeError) as cm:
-            self.loader.validate(m)
-        ex = cm.exception
-        self.assertEqual(('products[0].include', list, str, 'foo'),
-                         (ex.field, ex.expected, ex.actual,
-                          ex.morphology_name))
+        self.assert_validation_error(m,
+            InvalidTypeError(
+                field='products[0].include', expected=list, actual=str,
+                morphology_name='foo'))
 
     def test_validate_requires_products_list_include_is_list_of_strings(self):
         m = self.chunk_morph(
@@ -175,13 +182,10 @@ build-system: dummy
                     ]
                 }
             ])
-        with self.assertRaises(InvalidTypeError) as cm:
-            self.loader.validate(m)
-        ex = cm.exception
-        self.assertEqual(('products[0].include[0]', str, int, 'foo'),
-                         (ex.field, ex.expected, ex.actual,
-                          ex.morphology_name))
-
+        self.assert_validation_error(m,
+            InvalidTypeError(
+                field='products[0].include[0]', expected=str, actual=int,
+                morphology_name='foo'))
 
     def test_fails_to_validate_stratum_with_no_fields(self):
         m = morphlib.morph3.Morphology({
