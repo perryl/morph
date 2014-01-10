@@ -31,3 +31,5 @@ morphlib/plugins/branch_and_merge_new_plugin.py
 morphlib/plugins/print_architecture_plugin.py
 # Not unit tested, since it needs a full system branch
 morphlib/buildbranch.py
+
+morphlib/morphloader_errors.py
