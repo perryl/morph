@@ -69,19 +69,38 @@ build-system: dummy
         self.assertRaises(
             morphlib.morphloader.MissingFieldError, self.loader.validate, m)
 
+    def chunk_morph(self, name='foo', **kwargs):
+        '''Create an example chunk morphology'''
+        return morphlib.morph3.Morphology(
+            kind='chunk', name=name, **kwargs)
+
+    def stratum_morph(self, name='foo', **kwargs):
+        '''Create an example stratum morphology'''
+        return morphlib.morph3.Morphology(
+            kind='stratum', name=name, **kwargs)
+
+    def system_morph(self, name='foo', arch='testarch', strata='unset',
+                     **kwargs):
+        '''Create an example system morphology'''
+        if strata == 'unset':
+            strata = [
+                {'morph': 'bar'}
+            ]
+        return morphlib.morph3.Morphology(
+            kind='system', name=name, arch=arch, strata=strata, **kwargs)
+
+    def cluster_morph(self, name='foo', **kwargs):
+        '''Create an example cluster morphology'''
+        return morphlib.morph3.Morphology(
+            kind='cluster', name=name, **kwargs)
+
     def test_fails_to_validate_chunk_with_invalid_field(self):
-        m = morphlib.morph3.Morphology({
-            'kind': 'chunk',
-            'name': 'foo',
-            'invalid': 'field',
-        })
+        m = self.chunk_morph(invalid='field')
         self.assertRaises(
             morphlib.morphloader.InvalidFieldError, self.loader.validate, m)
 
     def test_validate_requires_products_list(self):
-        m = morphlib.morph3.Morphology(
-            kind='chunk',
-            name='foo',
+        m = self.chunk_morph(
             products={
                 'foo-runtime': ['.'],
                 'foo-devel': ['.'],
@@ -93,12 +112,10 @@ build-system: dummy
                          ('products', list, dict, 'foo'))
 
     def test_validate_requires_products_list_of_mappings(self):
-        m = morphlib.morph3.Morphology(
-            kind='chunk',
-            name='foo',
-            products=[
+        m = self.chunk_morph(
+            products={
                 'foo-runtime',
-            ])
+            })
         with self.assertRaises(morphlib.morphloader.InvalidTypeError) as cm:
             self.loader.validate(m)
         e = cm.exception
@@ -106,9 +123,7 @@ build-system: dummy
                          ('products[0]', dict, str, 'foo'))
 
     def test_validate_requires_products_list_required_fields(self):
-        m = morphlib.morph3.Morphology(
-            kind='chunk',
-            name='foo',
+        m = self.chunk_morph(
             products=[
                 {
                     'factiart': 'foo-runtime',
@@ -134,9 +149,7 @@ build-system: dummy
         )
 
     def test_validate_requires_products_list_include_is_list(self):
-        m = morphlib.morph3.Morphology(
-            kind='chunk',
-            name='foo',
+        m = self.chunk_morph(
             products=[
                 {
                     'artifact': 'foo-runtime',
@@ -151,9 +164,7 @@ build-system: dummy
                           ex.morphology_name))
 
     def test_validate_requires_products_list_include_is_list_of_strings(self):
-        m = morphlib.morph3.Morphology(
-            kind='chunk',
-            name='foo',
+        m = self.chunk_morph(
             products=[
                 {
                     'artifact': 'foo-runtime',
@@ -178,35 +189,19 @@ build-system: dummy
             morphlib.morphloader.MissingFieldError, self.loader.validate, m)
 
     def test_fails_to_validate_stratum_with_invalid_field(self):
-        m = morphlib.morph3.Morphology({
-            'kind': 'stratum',
-            'name': 'foo',
-            'invalid': 'field',
-        })
+        m = self.stratum_morph(invalid='field')
         self.assertRaises(
             morphlib.morphloader.InvalidFieldError, self.loader.validate, m)
 
     def test_fails_to_validate_system_with_obsolete_system_kind_field(self):
-        m = morphlib.morph3.Morphology({
-            'kind': 'system',
-            'name': 'foo',
-            'arch': 'x86_64',
-            'strata': [
-                {'morph': 'bar'},
-            ],
+        m = self.system_morph(**{
             'system-kind': 'foo',
         })
         self.assertRaises(
             morphlib.morphloader.ObsoleteFieldsError, self.loader.validate, m)
 
     def test_fails_to_validate_system_with_obsolete_disk_size_field(self):
-        m = morphlib.morph3.Morphology({
-            'kind': 'system',
-            'name': 'foo',
-            'arch': 'x86_64',
-            'strata': [
-                {'morph': 'bar'},
-            ],
+        m = self.system_morph(**{
             'disk-size': 'over 9000',
         })
         self.assertRaises(
@@ -220,14 +215,7 @@ build-system: dummy
             morphlib.morphloader.MissingFieldError, self.loader.validate, m)
 
     def test_fails_to_validate_system_with_invalid_field(self):
-        m = morphlib.morph3.Morphology(
-            kind="system",
-            name="foo",
-            arch="blah",
-            strata=[
-                {'morph': 'bar'},
-            ],
-            invalid='field')
+        m = self.system_morph(invalid='field')
         self.assertRaises(
             morphlib.morphloader.InvalidFieldError, self.loader.validate, m)
 
@@ -239,106 +227,75 @@ build-system: dummy
             morphlib.morphloader.UnknownKindError, self.loader.validate, m)
 
     def test_validate_requires_unique_stratum_names_within_a_system(self):
-        m = morphlib.morph3.Morphology(
-            {
-                "kind": "system",
-                "name": "foo",
-                "arch": "x86-64",
-                "strata": [
-                    {
-                        "morph": "stratum",
-                        "repo": "test1",
-                        "ref": "ref"
-                    },
-                    {
-                        "morph": "stratum",
-                        "repo": "test2",
-                        "ref": "ref"
-                    }
-                ]
-            })
+        m = self.system_morph(
+            strata=[
+                {
+                    "morph": "stratum",
+                    "repo": "test1",
+                    "ref": "ref"
+                },
+                {
+                    "morph": "stratum",
+                    "repo": "test2",
+                    "ref": "ref"
+                }
+            ])
         self.assertRaises(morphlib.morphloader.DuplicateStratumError,
                           self.loader.validate, m)
 
     def test_validate_requires_unique_chunk_names_within_a_stratum(self):
-        m = morphlib.morph3.Morphology(
-            {
-                "kind": "stratum",
-                "name": "foo",
-                "chunks": [
-                    {
-                        "name": "chunk",
-                        "repo": "test1",
-                        "ref": "ref"
-                    },
-                    {
-                        "name": "chunk",
-                        "repo": "test2",
-                        "ref": "ref"
-                    }
-                ]
-            })
+        m = self.stratum_morph(
+            chunks=[
+                {
+                    "name": "chunk",
+                    "repo": "test1",
+                    "ref": "ref"
+                },
+                {
+                    "name": "chunk",
+                    "repo": "test2",
+                    "ref": "ref"
+                }
+            ])
         self.assertRaises(morphlib.morphloader.DuplicateChunkError,
                           self.loader.validate, m)
 
     def test_validate_requires_a_valid_architecture(self):
-        m = morphlib.morph3.Morphology(
-            kind="system",
-            name="foo",
-            arch="blah",
-            strata=[
-                {'morph': 'bar'},
-            ])
+        m = self.system_morph(arch="blah")
         self.assertRaises(
             morphlib.morphloader.UnknownArchitectureError,
             self.loader.validate, m)
 
     def test_validate_normalises_architecture_armv7_to_armv7l(self):
-        m = morphlib.morph3.Morphology(
-            kind="system",
-            name="foo",
-            arch="armv7",
-            strata=[
-                {'morph': 'bar'},
-            ])
+        m = self.system_morph(arch="armv7")
         self.loader.validate(m)
         self.assertEqual(m['arch'], 'armv7l')
 
     def test_validate_requires_build_deps_for_chunks_in_strata(self):
-        m = morphlib.morph3.Morphology(
-            {
-                "kind": "stratum",
-                "name": "foo",
-                "chunks": [
-                    {
-                        "name": "foo",
-                        "repo": "foo",
-                        "ref": "foo",
-                        "morph": "foo",
-                        "build-mode": "bootstrap",
-                    }
-                ],
-            })
-
+        m = self.stratum_morph(
+            chunks=[
+                {
+                    "name": "foo",
+                    "repo": "foo",
+                    "ref": "foo",
+                    "morph": "foo",
+                    "build-mode": "bootstrap",
+                }
+            ])
         self.assertRaises(
             morphlib.morphloader.NoBuildDependenciesError,
             self.loader.validate, m)
 
     def test_validate_requires_build_deps_or_bootstrap_mode_for_strata(self):
-        m = morphlib.morph3.Morphology(
-            {
-                "name": "stratum-no-bdeps-no-bootstrap",
-                "kind": "stratum",
-                "chunks": [
-                    {
-                        "name": "chunk",
-                        "repo": "test:repo",
-                        "ref": "sha1",
-                        "build-depends": []
-                    }
-                ]
-            })
-
+        m = self.stratum_morph(
+            chunks=[
+                {
+                    "name": "chunk",
+                    "repo": "test:repo",
+                    "ref": "sha1",
+                    "build-depends": []
+                }
+            ])
         self.assertRaises(
             morphlib.morphloader.NoStratumBuildDependenciesError,
             self.loader.validate, m)
@@ -357,21 +314,15 @@ build-system: dummy
         self.loader.validate(m)
 
     def test_validate_requires_chunks_in_strata(self):
-        m = morphlib.morph3.Morphology(
-            {
-                "name": "stratum",
-                "kind": "stratum",
-                "chunks": [
-                ],
-                "build-depends": [
-                    {
-                        "repo": "foo",
-                        "ref": "foo",
-                        "morph": "foo",
-                    },
-                ],
-            })
-
+        m = self.stratum_morph(**{
+            'chunks': [],
+            'build-depends': [
+                {
+                    "repo": "foo",
+                    "ref": "foo",
+                    "morph": "foo",
+                },
+            ]})
         self.assertRaises(
             morphlib.morphloader.EmptyStratumError,
             self.loader.validate, m)
@@ -387,11 +338,7 @@ build-system: dummy
 
     def test_validate_requires_list_of_strata_in_system(self):
         for v in (None, {}):
-            m = morphlib.morph3.Morphology(
-                name='system',
-                kind='system',
-                arch='testarch',
-                strata=v)
+            m = self.system_morph(strata=v)
             with self.assertRaises(
                 morphlib.morphloader.SystemStrataNotListError) as cm:
 
@@ -399,21 +346,13 @@ build-system: dummy
             self.assertEqual(cm.exception.strata_type, type(v))
 
     def test_validate_requires_non_empty_strata_in_system(self):
-        m = morphlib.morph3.Morphology(
-            name='system',
-            kind='system',
-            arch='testarch',
-            strata=[])
+        m = self.system_morph(strata=[])
         self.assertRaises(
             morphlib.morphloader.EmptySystemError,
             self.loader.validate, m)
 
     def test_validate_requires_stratum_specs_in_system(self):
-        m = morphlib.morph3.Morphology(
-            name='system',
-            kind='system',
-            arch='testarch',
-            strata=["foo"])
+        m = self.system_morph(strata=["foo"])
         with self.assertRaises(
             morphlib.morphloader.SystemStratumSpecsNotMappingError) as cm:
 
@@ -492,18 +431,12 @@ name: foo
 ''')
 
     def test_validate_does_not_set_defaults(self):
-        m = morphlib.morph3.Morphology({
-            'kind': 'chunk',
-            'name': 'foo',
-        })
+        m = self.chunk_morph()
         self.loader.validate(m)
         self.assertEqual(sorted(m.keys()), sorted(['kind', 'name']))
 
     def test_sets_defaults_for_chunks(self):
-        m = morphlib.morph3.Morphology({
-            'kind': 'chunk',
-            'name': 'foo',
-        })
+        m = self.chunk_morph()
         self.loader.set_defaults(m)
         self.loader.validate(m)
         self.assertEqual(
@@ -536,11 +469,7 @@ name: foo
             })
 
     def test_unsets_defaults_for_chunks(self):
-        m = morphlib.morph3.Morphology({
-            'kind': 'chunk',
-            'name': 'foo',
-            'build-system': 'manual',
-        })
+        m = self.chunk_morph(**{'build-system': 'manual'})
         self.loader.unset_defaults(m)
         self.assertEqual(
             dict(m),
@@ -550,10 +479,8 @@ name: foo
             })
 
     def test_sets_defaults_for_strata(self):
-        m = morphlib.morph3.Morphology({
-            'kind': 'stratum',
-            'name': 'foo',
-            'chunks': [
+        m = self.stratum_morph(
+            chunks=[
                 {
                     'name': 'bar',
                     'repo': 'bar',
@@ -561,9 +488,7 @@ name: foo
                     'morph': 'bar',
                     'build-mode': 'bootstrap',
                     'build-depends': [],
-                },
-            ],
-        })
+                }])
         self.loader.set_defaults(m)
         self.loader.validate(m)
         self.assertEqual(
@@ -590,14 +515,12 @@ name: foo
         test_dict = {
             'kind': 'stratum',
             'name': 'foo',
-            'chunks': [
-                {
+            'chunks': {
                     'name': 'bar',
                     "ref": "bar",
                     'build-mode': 'bootstrap',
                     'build-depends': [],
-                },
-            ],
+            }
         }
         test_dict_with_build_depends = dict(test_dict)
         test_dict_with_build_depends["build-depends"] = []
@@ -608,13 +531,7 @@ name: foo
             test_dict)
 
     def test_sets_defaults_for_system(self):
-        m = morphlib.morph3.Morphology(
-            kind='system',
-            name='foo',
-            arch='testarch',
-            strata=[
-                {'morph': 'bar'},
-            ])
+        m = self.system_morph()
         self.loader.set_defaults(m)
         self.loader.validate(m)
         self.assertEqual(
@@ -631,15 +548,8 @@ name: foo
             })
 
     def test_unsets_defaults_for_system(self):
-        m = morphlib.morph3.Morphology(
-            {
+        m = self.system_morph(**{
                 'description': '',
-                'kind': 'system',
-                'name': 'foo',
-                'arch': 'testarch',
-                'strata': [
-                    {'morph': 'bar'},
-                ],
                 'configuration-extensions': [],
             })
         self.loader.unset_defaults(m)
@@ -655,9 +565,7 @@ name: foo
             })
 
     def test_sets_defaults_for_cluster(self):
-        m = morphlib.morph3.Morphology(
-            name='foo',
-            kind='cluster',
+        m = self.cluster_morph(
             systems=[
                 {'morph': 'foo'},
                 {'morph': 'bar'}])
@@ -672,9 +580,7 @@ name: foo
               'deploy': {}}])
 
     def test_unsets_defaults_for_cluster(self):
-        m = morphlib.morph3.Morphology(
-            name='foo',
-            kind='cluster',
+        m = self.cluster_morph(
             description='',
             systems=[
                 {'morph': 'foo',
@@ -690,18 +596,14 @@ name: foo
                           {'morph': 'bar'}])
 
     def test_sets_stratum_chunks_repo_and_morph_from_name(self):
-        m = morphlib.morph3.Morphology(
-            {
-                "name": "foo",
-                "kind": "stratum",
-                "chunks": [
-                    {
-                        "name": "le-chunk",
-                        "ref": "ref",
-                        "build-depends": [],
-                    }
-                ]
-            })
+        m = self.stratum_morph(
+            chunks=[
+                {
+                    "name": "le-chunk",
+                    "ref": "ref",
+                    "build-depends": [],
+                }
+            ])
 
         self.loader.set_defaults(m)
         self.loader.validate(m)
@@ -709,32 +611,25 @@ name: foo
         self.assertEqual(m['chunks'][0]['morph'], 'le-chunk')
 
     def test_collapses_stratum_chunks_repo_and_morph_from_name(self):
-        m = morphlib.morph3.Morphology(
-            {
-                "name": "foo",
-                "kind": "stratum",
-                "chunks": [
-                    {
-                        "name": "le-chunk",
-                        "repo": "le-chunk",
-                        "morph": "le-chunk",
-                        "ref": "ref",
-                        "build-depends": [],
-                    }
-                ]
-            })
+        m = self.stratum_morph(
+            chunks=[
+                {
+                    "name": "le-chunk",
+                    "repo": "le-chunk",
+                    "morph": "le-chunk",
+                    "ref": "ref",
+                    "build-depends": [],
+                }
+            ])
 
         self.loader.unset_defaults(m)
         self.assertTrue('repo' not in m['chunks'][0])
         self.assertTrue('morph' not in m['chunks'][0])
 
     def test_convertes_max_jobs_to_an_integer(self):
-        m = morphlib.morph3.Morphology(
-            {
-                "name": "foo",
-                "kind": "chunk",
-                "max-jobs": "42"
-            })
+        m = self.chunk_morph(**{
+            'max-jobs': '42'
+        })
         self.loader.set_defaults(m)
         self.assertEqual(m['max-jobs'], 42)
 
