@@ -6,6 +6,7 @@ morphlib/tester.py
 morphlib/git.py
 morphlib/app.py
 morphlib/mountableimage.py
+morphlib/extensions.py
 morphlib/extractedtarball.py
 morphlib/plugins/artifact_inspection_plugin.py
 morphlib/plugins/cross-bootstrap_plugin.py

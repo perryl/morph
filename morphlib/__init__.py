@@ -59,6 +59,7 @@ import buildsystem
 import builder2
 import cachedrepo
 import cachekeycomputer
+import extensions
 import extractedtarball
 import fsutils
 import git

@@ -403,7 +403,6 @@ class DeployPlugin(cliapp.Plugin):
             for name in names:
                 self._run_extension(
                     root_repo_dir,
-                    ref,
                     name,
                     '.configure',
                     [system_tree],
@@ -413,7 +412,6 @@ class DeployPlugin(cliapp.Plugin):
             self.app.status(msg='Writing to device')
             self._run_extension(
                 root_repo_dir,
-                ref,
                 deployment_type,
                 '.write',
                 [system_tree, location],
@@ -426,7 +424,7 @@ class DeployPlugin(cliapp.Plugin):
 
         self.app.status(msg='Finished deployment')
 
-    def _run_extension(self, gd, ref, name, kind, args, env):
+    def _run_extension(self, gd, name, kind, args, env):
         '''Run an extension.
         
         The ``kind`` should be either ``.configure`` or ``.write``,
@@ -437,39 +435,12 @@ class DeployPlugin(cliapp.Plugin):
         
         '''
         
-        # Look for extension in the system morphology's repository.
-        try:
-            ext = gd.get_file_from_ref(ref, name + kind)
-        except cliapp.AppException:
-            # Not found: look for it in the Morph code.
-            code_dir = os.path.dirname(morphlib.__file__)
-            ext_filename = os.path.join(code_dir, 'exts', name + kind)
-            if not os.path.exists(ext_filename):
-                raise morphlib.Error(
-                    'Could not find extension %s%s' % (name, kind))
-            if not self._is_executable(ext_filename):
-                raise morphlib.Error(
-                    'Extension not executable: %s' % ext_filename)
-            delete_ext = False
-        else:
-            # Found it in the system morphology's repository.
-            fd, ext_filename = tempfile.mkstemp()
-            os.write(fd, ext)
-            os.close(fd)
-            os.chmod(ext_filename, 0700)
-            delete_ext = True
-
-        self.app.status(msg='Running extension %(name)s%(kind)s',
-                        name=name, kind=kind)
-        self.app.runcmd(
-            [ext_filename] + args,
-            ['sh', '-c', 'while read l; do echo `date "+%F %T"` $l; done'],
-            cwd=gd.dirname, env=env, stdout=None, stderr=None)
-        
-        if delete_ext:
-            os.remove(ext_filename)
-
-    def _is_executable(self, filename):
-        st = os.stat(filename)
-        mask = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
-        return (stat.S_IMODE(st.st_mode) & mask) != 0
+        build_ref_prefix = self.app.settings['build-ref-prefix']
+        with morphlib.extensions.get_extension_filename(
+                build_ref_prefix, name, kind) as ext_filename:
+            self.app.status(msg='Running extension %(name)s%(kind)s',
+                            name=name, kind=kind)
+            self.app.runcmd(
+                [ext_filename] + args,
+                ['sh', '-c', 'while read l; do echo `date "+%F %T"` $l; done'],
+                cwd=gd.dirname, env=env, stdout=None, stderr=None)
