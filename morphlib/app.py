@@ -22,6 +22,7 @@ import sys
 import time
 import urlparse
 import warnings
+import extensions
 
 import morphlib
 
@@ -60,10 +61,9 @@ class Morph(cliapp.Application):
                               'show no output unless there is an error')
 
         self.settings.boolean(['help', 'h'],
-                             'show this help message and exit')
-
+                              'show this help message and exit') 
         self.settings.boolean(['help-all'],
-                             'show help message including hidden subcommands')
+                              'show help message including hidden subcommands')
 
         self.settings.string(['build-ref-prefix'],
                              'Prefix to use for temporary build refs',
@@ -197,6 +197,8 @@ class Morph(cliapp.Application):
 
     def setup(self):
         self.status_prefix = ''
+
+        self.add_subcommand('help-extensions', self.help_extensions)
 
     def process_args(self, args):
         self.check_time()
@@ -473,41 +475,52 @@ class Morph(cliapp.Application):
                          compute_setting_values=self.compute_setting_values,
                          add_help_option=False)
 
-    class IdentityFormat():
-        def format(self, text):
-            return text
+    def _help(self, show_all):
+        pp = self.settings.build_parser(
+            configs_only=True,
+            arg_synopsis=self.arg_synopsis,
+            cmd_synopsis=self.cmd_synopsis,
+            all_options=show_all,
+            add_help_option=False)
+        text = pp.format_help()
+        self.output.write(text)
 
-    def _help_helper(self, args, show_all):
-        try:
-            width = int(os.environ.get('COLUMNS', '78'))
-        except ValueError:
-            width = 78
-
-        if args:
-            cmd = args[0]
-            if cmd not in self.subcommands:
-                raise cliapp.AppException('Unknown subcommand %s' % cmd)
-                # TODO Search for other things we might want help on
-                # such as write or configuration extensions.
-            usage = self._format_usage_for(cmd)
-            fmt = self.IdentityFormat()
-            description = fmt.format(self._format_subcommand_help(cmd))
+    def _help_topic(self, topic):
+        build_ref_prefix = self.settings['build-ref-prefix']
+        if topic in self.subcommands:
+            usage = self._format_usage_for(topic)
+            description = self._format_subcommand_help(topic)
             text = '%s\n\n%s' % (usage, description)
             self.output.write(text)
+        elif topic in extensions.list_extensions(build_ref_prefix):
+            name, kind = os.path.splitext(topic)
+            with extensions.get_extension_filename(build_ref_prefix,
+                                                   name,
+                                                   kind) as fname:
+                status, output, error = \
+                        self.runcmd_unchecked([fname, '--help'])
+                if status == 0 and output:
+                    self.output.write(output)
+                else:
+                    raise cliapp.AppException(
+                            'Help not available for extension %s' % topic)
         else:
-            pp = self.settings.build_parser(
-                configs_only=True,
-                arg_synopsis=self.arg_synopsis,
-                cmd_synopsis=self.cmd_synopsis,
-                all_options=show_all,
-                add_help_option=False)
-            text = pp.format_help()
-            self.output.write(text)
+            raise cliapp.AppException(
+                    'Unknown subcommand or extension %s' % topic)
 
     def help(self, args): # pragma: no cover
         '''Print help.'''
-        self._help_helper(args, False)
+        if args:
+            self._help_topic(args[0])
+        else:
+            self._help(False)
 
     def help_all(self, args): # pragma: no cover
         '''Print help, including hidden subcommands.'''
-        self._help_helper(args, True)
+        self._help(True)
+
+    def help_extensions(self, args):
+        exts = extensions.list_extensions(self.settings['build-ref-prefix'])
+        template = "Extensions:\n    %s\n"
+        ext_string = '\n    '.join(exts)
+        self.output.write(template % (ext_string))
