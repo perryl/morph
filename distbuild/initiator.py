@@ -121,8 +121,6 @@ class Initiator(distbuild.StateMachine):
         filename = 'build-step-%s.log' % msg['step_name']
         f = open(filename, 'a')
         self._step_outputs[msg['step_name']] = f
-        worker = msg['worker']
-        f.write('Worker: %s\n%s\n\n' % (worker, '-' * len(worker)))
 
     def _close_output(self, msg):
         self._step_outputs[msg['step_name']].close()
