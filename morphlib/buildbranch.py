@@ -217,7 +217,7 @@ class BuildBranch(object):
         # current HEAD
         if self._push_temporary:
             with morphlib.branchmanager.RemoteRefManager(False) as rrm:
-                for gd, build_ref in self._to_push.iterkeys():
+                for gd, (build_ref, index) in self._to_push.iteritems():
                     remote = gd.get_remote('origin')
                     yield gd, build_ref, remote
                     refspec = morphlib.gitdir.RefSpec(build_ref)
