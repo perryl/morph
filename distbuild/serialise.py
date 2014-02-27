@@ -19,6 +19,7 @@
 import json
 
 import morphlib
+import logging
 
 
 morphology_attributes = [
@@ -36,6 +37,21 @@ def serialise_artifact(artifact):
         for x in morphology_attributes:
             result['__%s' % x] = getattr(morphology, x)
         return result
+
+    def encode_artifact(artifact):
+        artifact_dic = {
+            # source? - that will be constructed during deserialisation
+            'name': artifact.name,
+            'cache_id': artifact.cache_id,
+            'cache_key': artifact.cache_key,
+            'dependencies': artifact.dependencies,
+            'dependants': artifact.dependants,
+            'metadata_version': artifact.metadata_version,
+        }
+
+    def encode_artifacts(artifacts):
+        return {name: encode_artifact(artifact) 
+            for (name, artifact) in artifacts.iteritems()}
     
     def encode_source(source):
         source_dic = {
@@ -46,6 +62,7 @@ def serialise_artifact(artifact):
             'tree': source.tree,
             'morphology': encode_morphology(source.morphology),
             'filename': source.filename,
+            'artifacts': encode_artifacts(source.artifacts),
         }
         if source.morphology['kind'] == 'chunk':
             source_dic['build_mode'] = source.build_mode
@@ -121,7 +138,17 @@ def deserialise_artifact(encoded):
             setattr(morphology, x, le_dict['__%s' % x])
             del morphology['__%s' % x]
         return morphology
-        
+    
+    def unserialise_source_artifacts(source, artifacts_dict):
+        '''Convert this dict into a list of artifacts'''
+        return {a['name']: Artifact(source, 
+            a['name'],
+            a['cache_id'],
+            a['cache_key'],
+            a['dependencies'],
+            a['dependents'],
+            a['metadata_version']) for a in artifacts_dict}
+
     def unserialise_source(le_dict):
         '''Convert a dict into a Source object.'''
 
@@ -132,6 +159,10 @@ def deserialise_artifact(encoded):
                                         le_dict['tree'],
                                         morphology,
                                         le_dict['filename'])
+
+        source.artifacts = unserialise_source_artifacts(source,
+            le_dict['artifacts'])
+
         if morphology['kind'] == 'chunk':
             source.build_mode = le_dict['build_mode']
             source.prefix = le_dict['prefix']
@@ -151,6 +182,9 @@ def deserialise_artifact(encoded):
         artifact.arch = le_dict['arch']
         return artifact
 
+    with open('/tmp/%s', 'w') as f:
+        f.write(encoded)
+
     le_dicts = json.loads(encoded)
     cache_keys = [k for k in le_dicts.keys() if k != '_root']
     artifacts = {}
@@ -161,6 +195,9 @@ def deserialise_artifact(encoded):
         le_dict = le_dicts[cache_key]
         artifact = artifacts[cache_key]
         artifact.dependencies = [artifacts[k] for k in le_dict['dependencies']]
+
+    thing = artifacts[le_dicts['_root']]
+    logging.debug('thing.basename(): %s' % thing.basename())
 
     return artifacts[le_dicts['_root']]
 

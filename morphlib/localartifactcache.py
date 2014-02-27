@@ -50,6 +50,7 @@ class LocalArtifactCache(object):
 
     def put(self, artifact):
         filename = self.artifact_filename(artifact)
+        logging.debug('Artifact cache put() has filename: ', filename)
         return morphlib.savefile.SaveFile(filename, mode='w')
 
     def put_artifact_metadata(self, artifact, name):
