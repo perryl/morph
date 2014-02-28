@@ -165,8 +165,8 @@ def deserialise_artifact(encoded):
                                         morphology,
                                         le_dict['filename'])
 
-        source.artifacts = unserialise_source_artifacts(source,
-            le_dict['artifacts'])
+        #source.artifacts = unserialise_source_artifacts(source,
+        #    le_dict['artifacts'])
 
         if morphology['kind'] == 'chunk':
             source.build_mode = le_dict['build_mode']
