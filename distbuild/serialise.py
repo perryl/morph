@@ -48,11 +48,11 @@ def serialise_artifact(artifact):
             'metadata_version': artifact.metadata_version,
         }
 
-    def encode_artifacts(artifacts):
-        return {name: encode_single_artifact(artifact)
+    def encode_artifacts(artifacts, encoded):
+        return {name: encode_single_artifact(artifact, encoded)
             for (name, artifact) in artifacts.iteritems()}
     
-    def encode_source(source):
+    def encode_source(source, encoded):
         source_dic = {
             'repo': None,
             'repo_name': source.repo_name,
@@ -61,7 +61,7 @@ def serialise_artifact(artifact):
             'tree': source.tree,
             'morphology': encode_morphology(source.morphology),
             'filename': source.filename,
-            'artifacts': encode_artifacts(source.artifacts),
+            'artifacts': encode_artifacts(source.artifacts, encoded),
         }
         if source.morphology['kind'] == 'chunk':
             source_dic['build_mode'] = source.build_mode
@@ -74,7 +74,7 @@ def serialise_artifact(artifact):
         else:
             arch = artifact.arch
         return {
-            'source': encode_source(a.source),
+            'source': encode_source(a.source, encoded),
             'name': a.name,
             'cache_id': a.cache_id,
             'cache_key': a.cache_key,
