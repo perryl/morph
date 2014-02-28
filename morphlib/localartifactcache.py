@@ -19,6 +19,7 @@ import os
 import time
 
 import morphlib
+import logging
 
 
 class LocalArtifactCache(object):
