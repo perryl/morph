@@ -45,7 +45,7 @@ def serialise_artifact(artifact):
             'cache_id': artifact.cache_id,
             'cache_key': artifact.cache_key,
             'dependencies': artifact.dependencies,
-            'dependants': artifact.dependants,
+            'dependents': artifact.dependents,
             'metadata_version': artifact.metadata_version,
         }
 
