@@ -101,7 +101,8 @@ def serialise_artifact(artifact):
 
     encoded['_root'] = artifact.cache_key
 
-    logging.debug('in serialise_artifact(): encoded: %s' % encoded)
+    logging.debug('in serialise_artifact(): encoded: %s' %
+        json.dumps(encoded))
 
     return json.dumps(encoded)
 
