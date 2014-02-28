@@ -39,8 +39,7 @@ def serialise_artifact(artifact):
         return result
 
     def encode_artifact(artifact):
-        artifact_dic = {
-            # source? - that will be constructed during deserialisation
+        return {
             'name': artifact.name,
             'cache_id': artifact.cache_id,
             'cache_key': artifact.cache_key,
@@ -62,7 +61,7 @@ def serialise_artifact(artifact):
             'tree': source.tree,
             'morphology': encode_morphology(source.morphology),
             'filename': source.filename,
-            #'artifacts': encode_artifacts(source.artifacts),
+            'artifacts': encode_artifacts(source.artifacts),
         }
         if source.morphology['kind'] == 'chunk':
             source_dic['build_mode'] = source.build_mode
