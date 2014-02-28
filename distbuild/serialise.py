@@ -62,7 +62,7 @@ def serialise_artifact(artifact):
             'tree': source.tree,
             'morphology': encode_morphology(source.morphology),
             'filename': source.filename,
-            'artifacts': encode_artifacts(source.artifacts),
+            #'artifacts': encode_artifacts(source.artifacts),
         }
         if source.morphology['kind'] == 'chunk':
             source_dic['build_mode'] = source.build_mode
@@ -82,6 +82,7 @@ def serialise_artifact(artifact):
             'dependencies': [encoded[d.cache_key]['cache_key']
                              for d in a.dependencies],
             'arch': arch,
+            'bacon': 'chunky',
         }
 
     visited = set()
