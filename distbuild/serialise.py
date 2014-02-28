@@ -61,25 +61,24 @@ def serialise_artifact(artifact):
             'tree': source.tree,
             'morphology': encode_morphology(source.morphology),
             'filename': source.filename,
-            'artifacts': encode_artifacts(source.artifacts, encoded),
         }
+
         if source.morphology['kind'] == 'chunk':
             source_dic['build_mode'] = source.build_mode
             source_dic['prefix'] = source.prefix
         return source_dic
 
-    def encode_single_artifact(a, encoded):
+    def encode_single_artifact(a, artifacts, source_id):
         if artifact.source.morphology['kind'] == 'system':
             arch = artifact.source.morphology['arch']
         else:
             arch = artifact.arch
         return {
-            'source': encode_source(a.source, encoded),
+            'source': source_id,
             'name': a.name,
             'cache_id': a.cache_id,
             'cache_key': a.cache_key,
-            'dependencies': [encoded[d.cache_key]['cache_key']
-                             for d in a.dependencies],
+            'dependencies': [id(artifacts[id(d)]) for d in a.dependencies],
             'arch': arch,
             'bacon': 'chunky',
         }
@@ -95,11 +94,14 @@ def serialise_artifact(artifact):
         yield a
     
     encoded = {}
+    sources = {}
+    artifacts = {}
     for a in traverse(artifact):
-        if a.cache_key not in encoded:
-            encoded[a.cache_key] = encode_single_artifact(a, encoded)
+        source_id = id(a.source)
+        sources[source_id] = a.source
+        artifacts[(id(a))] = encode_single_artifact(a, source_id)
 
-    encoded['_root'] = artifact.cache_key
+    artifacts['_root'] = id(artifact)
 
     logging.debug('in serialise_artifact(): encoded: %s' %
         json.dumps(encoded))
