@@ -40,14 +40,15 @@ def serialise_artifact(artifact):
 
     def encode_artifact(artifact):
         artifact_dic = {
-            # source? - that will be constructed during deserialisation
             'name': artifact.name,
             'cache_id': artifact.cache_id,
             'cache_key': artifact.cache_key,
             'dependencies': artifact.dependencies,
-            'dependants': artifact.dependants,
+            'dependents': artifact.dependents,
             'metadata_version': artifact.metadata_version,
         }
+
+        return artifact_dic
 
     def encode_artifacts(artifacts):
         return {name: encode_artifact(artifact) 
@@ -62,8 +63,12 @@ def serialise_artifact(artifact):
             'tree': source.tree,
             'morphology': encode_morphology(source.morphology),
             'filename': source.filename,
-            'artifacts': encode_artifacts(source.artifacts),
+            'artifacts': 'Blix the cat'
+            #'artifacts': encode_artifacts(source.artifacts),
         }
+
+        logging.debug('source_dic: %s' % source_dic)
+
         if source.morphology['kind'] == 'chunk':
             source_dic['build_mode'] = source.build_mode
             source_dic['prefix'] = source.prefix
@@ -100,6 +105,9 @@ def serialise_artifact(artifact):
             encoded[a.cache_key] = encode_single_artifact(a, encoded)
 
     encoded['_root'] = artifact.cache_key
+
+    logging.debug('encoded: %s' % encoded)
+
     return json.dumps(encoded)
 
 
@@ -152,6 +160,8 @@ def deserialise_artifact(encoded):
     def unserialise_source(le_dict):
         '''Convert a dict into a Source object.'''
 
+        logging.debug('unserialise_source: le_dict: %s' % le_dict)
+
         morphology = unserialise_morphology(le_dict['morphology'])
         source = morphlib.source.Source(le_dict['repo_name'],
                                         le_dict['original_ref'],
@@ -184,6 +194,8 @@ def deserialise_artifact(encoded):
 
     with open('/tmp/%s', 'w') as f:
         f.write(encoded)
+
+    logging.debug('encoded: %s' % encoded)
 
     le_dicts = json.loads(encoded)
     cache_keys = [k for k in le_dicts.keys() if k != '_root']
