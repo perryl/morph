@@ -179,7 +179,7 @@ class BuildCommand(object):
             artifact.cache_id = ckc.get_cache_id(artifact)
 
             logging.debug('artifact.cache_key: %s\tartifact.cache_id: %s'
-                % artifact.cache_key, artifact.cache_id)
+                % (artifact.cache_key, artifact.cache_id))
 
         root_artifact.build_env = build_env
         return root_artifact
