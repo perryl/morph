@@ -100,6 +100,9 @@ def serialise_artifact(artifact):
             encoded[a.cache_key] = encode_single_artifact(a, encoded)
 
     encoded['_root'] = artifact.cache_key
+
+    logging.debug('in serialise_artifact(): encoded: %s' % encoded)
+
     return json.dumps(encoded)
 
 
@@ -181,6 +184,8 @@ def deserialise_artifact(encoded):
         artifact.cache_key = le_dict['cache_key']
         artifact.arch = le_dict['arch']
         return artifact
+
+    logging.debug('in deserialise_artifact() encoded: %s' % encoded)
 
     with open('/tmp/%s', 'w') as f:
         f.write(encoded)
