@@ -49,7 +49,7 @@ def serialise_artifact(artifact):
         }
 
     def encode_artifacts(artifacts):
-        return {name: encode_artifact(artifact) 
+        return {name: encode_single_artifact(artifact)
             for (name, artifact) in artifacts.iteritems()}
     
     def encode_source(source):
