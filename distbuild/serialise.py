@@ -61,7 +61,7 @@ def serialise_artifact(artifact):
             'tree': source.tree,
             'morphology': encode_morphology(source.morphology),
             'filename': source.filename,
-            'artifacts': encode_artifacts(source.artifacts, encoded),
+            #'artifacts': encode_artifacts(source.artifacts, encoded),
         }
         if source.morphology['kind'] == 'chunk':
             source_dic['build_mode'] = source.build_mode
