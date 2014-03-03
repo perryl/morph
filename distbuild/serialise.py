@@ -95,14 +95,23 @@ def serialise_artifact(artifact):
         yield a
     
     encoded = {}
+    sources = {}
+    artifacts = {}
     for a in traverse(artifact):
+        source_id = id(a.source)
+        sources[source_id] = a.source
+        artifacts[(id(a))] = encode_single_artifact(a, source_id)
+
         if a.cache_key not in encoded:
             encoded[a.cache_key] = encode_single_artifact(a, encoded)
 
     encoded['_root'] = artifact.cache_key
+    artifacts['_root'] = id(artifact)
 
     logging.debug('in serialise_artifact(): encoded: %s' %
         json.dumps(encoded))
+
+    logging.debug('artifacts: %s' % json.dumps(artifacts))
 
     return json.dumps(encoded)
 
