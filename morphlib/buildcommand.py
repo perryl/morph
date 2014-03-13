@@ -375,7 +375,7 @@ class BuildCommand(object):
                                 repo_name=repo_name)
                 artifact.source.repo.update()
         else:
-            self.app.status(msg='Cloning %(repo_name)s',
+            self.app.status(msg='Caching %(repo_name)s',
                             repo_name=repo_name)
             artifact.source.repo = self.lrc.cache_repo(repo_name)
 
