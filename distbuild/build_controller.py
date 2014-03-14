@@ -278,8 +278,10 @@ class BuildController(distbuild.StateMachine):
 
             error_text = self._artifact_error.peek()
             if event.msg['exit'] != 0 or error_text:
-                notify_failure(
-                    'Problem with serialise-artifact: %s' % error_text)
+                notify_failure('Problem with serialise-artifact: %s'
+                    % error_text)
+
+            if event.msg['exit'] != 0:
                 return
             
             text = self._artifact_data.peek()
@@ -384,18 +386,32 @@ class BuildController(distbuild.StateMachine):
                         '    depends on %s which is %s' % 
                             (dep.name, dep.state))
 
-        ready = self._find_artifacts_that_are_ready_to_build()
-        if len(ready) == 0:
-            logging.debug('No new artifacts queued for building')
+        while True:
+            ready = self._find_artifacts_that_are_ready_to_build()
 
-        for artifact in ready:
+            if len(ready) == 0:
+                logging.debug('No new artifacts queued for building')
+                break
+
+            artifact = ready[0]
+
             logging.debug(
                 'Requesting worker-build of %s (%s)' %
                     (artifact.name, artifact.cache_key))
             request = distbuild.WorkerBuildRequest(artifact,
                                                    self._request['id'])
             self.mainloop.queue_event(distbuild.WorkerBuildQueuer, request)
+
             artifact.state = BUILDING
+            if artifact.source.morphology['kind'] == 'chunk':
+                # Chunk artifacts are not built independently
+                # so when we're building any chunk artifact
+                # we're also building all the chunk artifacts
+                # in this source
+                for a in ready:
+                    if a.source == artifact.source:
+                        a.state = BUILDING
+
 
     def _notify_initiator_disconnected(self, event_source, disconnect):
         if disconnect.id == self._request['id']:
@@ -479,6 +495,18 @@ class BuildController(distbuild.StateMachine):
         self.mainloop.queue_event(BuildController, finished)
 
         artifact.state = BUILT
+
+        def set_state(a):
+            if a.source == artifact.source:
+                a.state = BUILT
+
+        if artifact.source.morphology['kind'] == 'chunk':
+            # Building a single chunk artifact
+            # yields all chunk artifacts for the given source
+            # so we set the state of this source's artifacts
+            # to BUILT
+            map_build_graph(self._artifact, set_state)
+
         self._queue_worker_builds(None, event)
 
     def _notify_build_failed(self, event_source, event):
