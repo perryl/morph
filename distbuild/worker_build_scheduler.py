@@ -327,17 +327,22 @@ class WorkerConnection(distbuild.StateMachine):
 
         logging.debug('Requesting shared artifact cache to get artifacts')
 
-        filename = ('%s.%s' % 
-            (self._artifact.source.morphology['kind'],
-             self._artifact.name))
-        suffixes = [filename]
         kind = self._artifact.source.morphology['kind']
-        if kind == 'stratum':
-            suffixes.append(filename + '.meta')
-        elif kind == 'system':
-            # FIXME: This is a really ugly hack.
-            if filename.endswith('-rootfs'):
-                suffixes.append(filename[:-len('-rootfs')] + '-kernel')
+
+        if kind == 'chunk':
+            source_artifacts = self._artifact.source.artifacts
+
+            suffixes = ['%s.%s' % (kind, name) for name in source_artifacts]
+        else:
+            filename = '%s.%s' % (kind, self._artifact.name)
+            suffixes = [filename]
+
+            if kind == 'stratum':
+                suffixes.append(filename + '.meta')
+            elif kind == 'system':
+                # FIXME: This is a really ugly hack.
+                if filename.endswith('-rootfs'):
+                    suffixes.append(filename[:-len('-rootfs')] + '-kernel')
         
         suffixes = [urllib.quote(x) for x in suffixes]
         suffixes = ','.join(suffixes)
