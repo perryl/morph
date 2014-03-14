@@ -317,6 +317,14 @@ class Remote(object):
                                    self._parse_push_output(out), err)
         return self._parse_push_output(out)
 
+    def pull(self, branch=None):
+        if branch:
+            repo = self.get_fetch_url()
+            ret = self.gd._runcmd(['git', 'pull', repo, branch])
+        else:
+            ret = self.gd._runcmd(['git', 'pull'])
+        return ret
+
 
 class GitDirectory(object):
 
@@ -330,7 +338,8 @@ class GitDirectory(object):
     '''
 
     def __init__(self, dirname):
-        self.dirname = dirname
+        self.dirname = cliapp.runcmd(
+                ['git', 'rev-parse', '--show-toplevel'], cwd=dirname).strip()
 
     def _runcmd(self, argv, **kwargs):
         '''Run a command at the root of the git directory.
@@ -615,6 +624,24 @@ class GitDirectory(object):
         version = self._runcmd(
             ['git', 'describe', '--always', '--dirty=-unreproducible'])
         return version.strip()
+
+    def fat_init(self):
+        return self._runcmd(['git', 'fat', 'init'])
+
+    def fat_push(self):
+        return self._runcmd(['git', 'fat', 'push'])
+
+    def fat_pull(self):
+        return self._runcmd(['git', 'fat', 'pull'])
+
+    def has_fat(self):
+        return '.gitfat' in self.list_files()
+
+    def join_path(self, path):
+        return os.path.join(self.dirname, path)
+
+    def get_relpath(self, path):
+        return os.path.relpath(path, self.dirname)
 
 
 def init(dirname):
