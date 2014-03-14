@@ -359,6 +359,9 @@ class GitDirectory(object):
     def checkout(self, branch_name): # pragma: no cover
         '''Check out a git branch.'''
         self._runcmd(['git', 'checkout', branch_name])
+        if self.has_fat():
+            self.fat_init()
+            self.fat_pull()
 
     def branch(self, new_branch_name, base_ref): # pragma: no cover
         '''Create a git branch based on an existing ref.
