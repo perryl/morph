@@ -1,4 +1,4 @@
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013, 2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -383,7 +383,8 @@ class DeployPlugin(cliapp.Plugin):
             if build_command.lac.has(artifact):
                 f = build_command.lac.get(artifact)
             elif build_command.rac.has(artifact):
-                f = build_command.rac.get(artifact)
+                build_command.cache_artifacts_locally([artifact])
+                f = build_command.lac.get(artifact)
             else:
                 raise cliapp.AppException('Deployment failed as system is'
                                           ' not yet built.\nPlease ensure'
