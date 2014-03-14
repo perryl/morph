@@ -423,6 +423,9 @@ class ChunkBuilder(BuilderBase):
         built_artifacts = []
         filenames = []
         source = self.artifact.source
+
+        logging.debug('source: %s' % source)
+
         split_rules = source.split_rules
 
         def filepaths(destdir):
@@ -458,6 +461,9 @@ class ChunkBuilder(BuilderBase):
                 parented_paths = \
                     parentify(file_paths +
                               ['baserock/%s.meta' % chunk_artifact_name])
+
+                logging.debug('chunk_artifact.basename(): %s' 
+                    % chunk_artifact.basename())
 
                 with self.local_artifact_cache.put(chunk_artifact) as f:
                     self.write_metadata(destdir, chunk_artifact_name,

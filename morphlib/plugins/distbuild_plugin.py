@@ -87,6 +87,8 @@ class WorkerBuild(cliapp.Plugin):
 
         serialized = sys.stdin.readline()
         artifact = distbuild.deserialise_artifact(serialized)
+
+        logging.debug("artifact.basename(): %s" % artifact.basename())
         
         bc = morphlib.buildcommand.BuildCommand(self.app)
         
