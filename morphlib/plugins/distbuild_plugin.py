@@ -250,6 +250,7 @@ class InitiatorBuildCommand(morphlib.buildcommand.BuildCommand):
         self.addr = addr
         self.port = port
         self.app.settings['push-build-branches'] = True
+        super(InitiatorBuildCommand, self).__init__(app)
 
     def build(self, args):
         '''Initiate a distributed build on a controller'''
