@@ -1,4 +1,4 @@
-# Copyright (C) 2011, 2012, 2013  Codethink Limited
+# Copyright (C) 2011 - 2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -151,8 +151,8 @@ FIXME
       author='Codethink Limited',
       author_email='baserock-dev@baserock.org',
       url='http://www.baserock.org/',
-      scripts=['morph'],
-      packages=['morphlib', 'morphlib.plugins'],
+      scripts=['morph', 'distbuild-helper'],
+      packages=['morphlib', 'morphlib.plugins', 'distbuild'],
       package_data={
           'morphlib': [
               'exts/*',
