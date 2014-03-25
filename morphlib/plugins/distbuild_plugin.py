@@ -251,7 +251,7 @@ class ControllerDaemon(cliapp.Plugin):
 class InitiatorBuildCommand(morphlib.buildcommand.BuildCommand):
 
     def __init__(self, app, addr, port, arch,
-        is_disabled, local_build_command):
+        is_disabled, local_build_command, build_outside_workspace):
         self.app = app
         self.addr = addr
         self.port = port
@@ -260,6 +260,7 @@ class InitiatorBuildCommand(morphlib.buildcommand.BuildCommand):
         self.local_build_command = local_build_command
         self.app.settings['push-build-branches'] = True
         super(InitiatorBuildCommand, self).__init__(app)
+        self.build_outside_workspace = build_outside_workspace
 
     def build(self, args):
         '''Initiate a distributed build on a controller'''
@@ -270,12 +271,21 @@ class InitiatorBuildCommand(morphlib.buildcommand.BuildCommand):
             raise cliapp.AppException(
                 'Need repo, ref, morphology triplet to build')
 
-        system_name = morphlib.util.strip_morph_extension(args[2])
-        ws = morphlib.workspace.open('.')
-        sb = morphlib.sysbranchdir.open_from_within('.')
-        loader = morphlib.morphloader.MorphologyLoader()
-        morph = loader.load_from_file(
-            sb.get_filename(sb.root_repository_url, system_name + '.morph'))
+        if self.build_outside_workspace:
+            mf = morphlib.morphologyfactory.MorphologyFactory(self.lrc, self.rrc, self.app)
+
+            repo = args[0]
+            ref = args[1]
+            #system_name = morphlib.util.strip_morph_extension(args[2])
+            system_name = args[2]
+
+            morph = mf.get_morphology(repo, ref, system_name + '.morph')
+        else:
+            system_name = morphlib.util.strip_morph_extension(args[2])
+            sb = morphlib.sysbranchdir.open_from_within('.')
+            loader = morphlib.morphloader.MorphologyLoader()
+            morph = loader.load_from_file(
+                sb.get_filename(sb.root_repository_url, system_name + '.morph'))
 
         if morph['arch'] != self.arch or self.addr == '' or self.is_disabled:
             self.app.status(msg='Starting local build')
@@ -306,9 +316,11 @@ class Initiator(cliapp.Plugin):
         port = self.app.settings['controller-initiator-port']
         arch = self.app.settings['controller-initiator-arch']
         is_disabled = self.app.settings['disable-distbuild']
+        build_outside_workspace = local_build_command.build_outside_workspace
 
         return InitiatorBuildCommand(self.app, addr, port,
-            arch, is_disabled, local_build_command)
+            arch, is_disabled, local_build_command,
+            build_outside_workspace)
 
 
 class GraphStateMachines(cliapp.Plugin):
