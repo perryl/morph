@@ -809,3 +809,14 @@ Altering morphologies in the workspace
     cd "$DATADIR/workspace/$MATCH_2/test:morphs"
     "$SRCDIR/scripts/edit-morph" set-stratum-match-rules \
       "$MATCH_1.morph" "$MATCH_3"
+
+Local build
+------------
+
+    IMPLEMENTS GIVEN we are not using distbuild
+    if [[ ! -e "$DATADIR/morph.conf" ]] || [[ -s "$DATADIR/morph.conf" ]]
+    then
+        echo "[config]" > "$DATADIR/morph.conf"
+    fi
+
+    echo "controller-initiator-address = " >> "$DATADIR/morph.conf"
