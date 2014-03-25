@@ -270,8 +270,11 @@ class InitiatorBuildCommand(morphlib.buildcommand.BuildCommand):
             raise cliapp.AppException(
                 'Need repo, ref, morphology triplet to build')
 
+        system_name = morphlib.util.strip_morph_extension(args[2])
+        sb = morphlib.sysbranchdir.open_from_within('.')
         loader = morphlib.morphloader.MorphologyLoader()
-        morph = loader.load_from_file(args[2] + '.morph')
+        morph = loader.load_from_file(
+            sb.get_filename(sb.root_repository_url, system_name + '.morph'))
 
         if morph['arch'] != self.arch or self.addr == '' or self.is_disabled:
             self.app.status(msg='Starting local build')
