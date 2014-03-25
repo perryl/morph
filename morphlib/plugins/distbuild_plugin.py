@@ -271,6 +271,7 @@ class InitiatorBuildCommand(morphlib.buildcommand.BuildCommand):
                 'Need repo, ref, morphology triplet to build')
 
         system_name = morphlib.util.strip_morph_extension(args[2])
+        ws = morphlib.workspace.open('.')
         sb = morphlib.sysbranchdir.open_from_within('.')
         loader = morphlib.morphloader.MorphologyLoader()
         morph = loader.load_from_file(
