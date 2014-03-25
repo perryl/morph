@@ -251,7 +251,7 @@ class ControllerDaemon(cliapp.Plugin):
 class InitiatorBuildCommand(morphlib.buildcommand.BuildCommand):
 
     def __init__(self, app, addr, port, arch,
-        is_disabled, local_build_command):
+        is_disabled, local_build_command, build_outside_workspace):
         self.app = app
         self.addr = addr
         self.port = port
@@ -259,6 +259,8 @@ class InitiatorBuildCommand(morphlib.buildcommand.BuildCommand):
         self.is_disabled = is_disabled
         self.local_build_command = local_build_command
         self.app.settings['push-build-branches'] = True
+        super(InitiatorBuildCommand, self).__init__(app)
+        self.build_outside_workspace = build_outside_workspace
 
     def build(self, args):
         '''Initiate a distributed build on a controller'''
@@ -313,9 +315,11 @@ class Initiator(cliapp.Plugin):
         port = self.app.settings['controller-initiator-port']
         arch = self.app.settings['controller-initiator-arch']
         is_disabled = self.app.settings['disable-distbuild']
+        build_outside_workspace = self.build_outside_workspace
 
         return InitiatorBuildCommand(self.app, addr, port,
-            arch, is_disabled, local_build_command)
+            arch, is_disabled, local_build_command,
+            build_outside_workspace)
 
 
 class GraphStateMachines(cliapp.Plugin):
