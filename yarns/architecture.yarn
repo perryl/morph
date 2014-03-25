@@ -2,7 +2,8 @@ Morph Cross-Building Tests
 ==========================
 
     SCENARIO building a system for a different architecture
-    GIVEN a workspace
+    GIVEN we are not using distbuild
+    AND a workspace
     AND a git server
     AND a system called base-system-testarch for the test architecture in the git server
     WHEN the user checks out the system branch called master
