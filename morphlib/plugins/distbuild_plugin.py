@@ -148,6 +148,11 @@ class ControllerDaemon(cliapp.Plugin):
             'listen for initiator connections on PORT',
             default=7878,
             group=group_distbuild)
+        self.app.settings.string(
+            ['controller-initiator-arch'],
+            'architecture of distbuild cluster',
+            default='',
+            group=group_distbuild)
 
         self.app.settings.string(
             ['controller-helper-address'],
@@ -245,10 +250,14 @@ class ControllerDaemon(cliapp.Plugin):
 
 class InitiatorBuildCommand(morphlib.buildcommand.BuildCommand):
 
-    def __init__(self, app, addr, port):
+    def __init__(self, app, addr, port, arch,
+        is_disabled, local_build_command):
         self.app = app
         self.addr = addr
         self.port = port
+        self.arch = arch
+        self.is_disabled = is_disabled
+        self.local_build_command = local_build_command
         self.app.settings['push-build-branches'] = True
         super(InitiatorBuildCommand, self).__init__(app)
 
@@ -261,12 +270,19 @@ class InitiatorBuildCommand(morphlib.buildcommand.BuildCommand):
             raise cliapp.AppException(
                 'Need repo, ref, morphology triplet to build')
 
-        self.app.status(msg='Starting distributed build')
-        loop = distbuild.MainLoop()
-        cm = distbuild.ConnectionMachine(
-            self.addr, self.port, distbuild.Initiator, [self.app] + args)
-        loop.add_state_machine(cm)
-        loop.run()
+        loader = morphlib.morphloader.MorphologyLoader()
+        morph = loader.load_from_file(args[2] + '.morph')
+
+        if morph['arch'] != self.arch or self.addr == '' or self.is_disabled:
+            self.app.status(msg='Starting local build')
+            self.local_build_command.build(args)
+        else:
+            self.app.status(msg='Starting distributed build')
+            loop = distbuild.MainLoop()
+            cm = distbuild.ConnectionMachine(
+                self.addr, self.port, distbuild.Initiator, [self.app] + args)
+            loop.add_state_machine(cm)
+            loop.run()
 
 
 class Initiator(cliapp.Plugin):
@@ -281,14 +297,14 @@ class Initiator(cliapp.Plugin):
     def disable(self):
         pass
 
-    def create_build_command(self, old_build_command):
+    def create_build_command(self, local_build_command):
         addr = self.app.settings['controller-initiator-address']
         port = self.app.settings['controller-initiator-port']
+        arch = self.app.settings['controller-initiator-arch']
+        is_disabled = self.app.settings['disable-distbuild']
 
-        if addr != '' and not self.app.settings['disable-distbuild']:
-            return InitiatorBuildCommand(self.app, addr, port)
-        else:
-            return old_build_command
+        return InitiatorBuildCommand(self.app, addr, port,
+            arch, is_disabled, local_build_command)
 
 
 class GraphStateMachines(cliapp.Plugin):
