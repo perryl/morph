@@ -315,7 +315,7 @@ class Initiator(cliapp.Plugin):
         port = self.app.settings['controller-initiator-port']
         arch = self.app.settings['controller-initiator-arch']
         is_disabled = self.app.settings['disable-distbuild']
-        build_outside_workspace = self.build_outside_workspace
+        build_outside_workspace = local_build_command.build_outside_workspace
 
         return InitiatorBuildCommand(self.app, addr, port,
             arch, is_disabled, local_build_command,
