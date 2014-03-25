@@ -272,7 +272,7 @@ class InitiatorBuildCommand(morphlib.buildcommand.BuildCommand):
                 'Need repo, ref, morphology triplet to build')
 
         if self.build_outside_workspace:
-            mf = morplib.MorphologyFactory(self.lrc, self.rrc, self.app)
+            mf = morphlib.MorphologyFactory(self.lrc, self.rrc, self.app)
 
             repo = args[0]
             ref = args[1]
