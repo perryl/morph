@@ -65,6 +65,7 @@ class BuildPlugin(cliapp.Plugin):
             self.app.settings['cachedir-min-space'])
 
         build_command = morphlib.buildcommand.BuildCommand(self.app)
+        build_command.build_outside_workspace = True
         build_command = self.app.hookmgr.call('new-build-command',
                                               build_command)
         build_command.build(args)
