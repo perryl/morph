@@ -33,7 +33,6 @@
 ./boot/System.map
 ./boot/vmlinuz
 ./etc/
-./etc/fstab
 ./etc/os-release
 ./extlinux.conf
 NAME="Baserock"

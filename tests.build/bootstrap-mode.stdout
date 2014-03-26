@@ -7,7 +7,6 @@ build-essential strata:
 hello-system:
 ./
 etc/
-etc/fstab
 etc/os-release
 usr/
 usr/bin/

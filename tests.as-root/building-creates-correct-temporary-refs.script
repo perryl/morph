@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -35,10 +35,10 @@ cd "$DATADIR/workspace"
 
 # Verify that the right temporary refs were created.
 echo "Refs of morphs repo after first build:"
-"$SRCDIR/scripts/run-git-in" "$DATADIR/workspace/branch1/test:morphs" \
+"$SRCDIR/scripts/run-git-in" "$DATADIR/workspace/branch1/test/morphs" \
     show-ref | cut -d' ' -f2
 echo "Refs of kernel repo after first build:"
-"$SRCDIR/scripts/run-git-in" "$DATADIR/workspace/branch1/test:kernel-repo" \
+"$SRCDIR/scripts/run-git-in" "$DATADIR/workspace/branch1/test/kernel-repo" \
     show-ref | cut -d' ' -f2
 echo
 
@@ -48,8 +48,8 @@ cd "$DATADIR/workspace"
 
 # Verify that the right temporary refs were created.
 echo "Refs of morphs repo after second build:"
-"$SRCDIR/scripts/run-git-in" "$DATADIR/workspace/branch1/test:morphs" \
+"$SRCDIR/scripts/run-git-in" "$DATADIR/workspace/branch1/test/morphs" \
     show-ref | cut -d' ' -f2
 echo "Refs of kernel repo after second build:"
-"$SRCDIR/scripts/run-git-in" "$DATADIR/workspace/branch1/test:kernel-repo" \
+"$SRCDIR/scripts/run-git-in" "$DATADIR/workspace/branch1/test/kernel-repo" \
     show-ref | cut -d' ' -f2

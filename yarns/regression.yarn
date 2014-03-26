@@ -58,11 +58,14 @@ source it depended on.
     AND      system test-system uses test-stratum-runtime from test-stratum
     AND      stratum test-stratum has match rules: [{artifact: test-stratum-runtime, include: [.*-(bins|libs|locale)]}, {artifact: test-stratum-devel, include: [.*-(devel|doc|misc)]}]
     WHEN     the user checks out the system branch called master
-    GIVEN    a cluster called test-cluster for deploying only the test-system system as type tar in system branch master
+    GIVEN    a cluster called test-cluster in system branch master
+    AND      a system in cluster test-cluster in branch master called test-system
+    AND      system test-system in cluster test-cluster in branch master builds test-system
+    AND      system test-system in cluster test-cluster in branch master has deployment type: tar
     WHEN     the user builds the system test-system in branch master
     GIVEN    stratum test-stratum in system branch master has match rules: [{artifact: test-stratum-runtime, include: [.*-(bins|libs|misc)]}, {artifact: test-stratum-devel, include: [.*-(devel|doc|locale)]}]
     WHEN     the user builds the system test-system in branch master
-    AND      the user deploys the cluster test-cluster in branch master with options system.location="$DATADIR/test.tar"
+    AND      the user deploys the cluster test-cluster in branch master with options test-system.location="$DATADIR/test.tar"
     THEN     tarball test.tar contains baserock/test-chunk-misc.meta
 
 

@@ -1,4 +1,4 @@
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -149,7 +149,7 @@ class SystemBranchDirectoryTests(unittest.TestCase):
             self.system_branch_name)
         self.assertEqual(
             sb.get_git_directory_name('baserock:baserock/morph'),
-            os.path.join(self.root_directory, 'baserock:baserock/morph'))
+            os.path.join(self.root_directory, 'baserock/baserock/morph'))
 
     def test_reports_correct_name_for_git_directory_from_real_url(self):
         stripped = 'git.baserock.org/baserock/baserock/morph'
@@ -169,7 +169,7 @@ class SystemBranchDirectoryTests(unittest.TestCase):
             self.system_branch_name)
         self.assertEqual(
             sb.get_filename('test:chunk', 'foo'),
-            os.path.join(self.root_directory, 'test:chunk/foo'))
+            os.path.join(self.root_directory, 'test/chunk/foo'))
 
     def test_reports_correct_name_for_git_directory_from_file_url(self):
         stripped = 'foobar/morphs'

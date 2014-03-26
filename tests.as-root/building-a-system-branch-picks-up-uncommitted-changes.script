@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -32,13 +32,13 @@ cd "$DATADIR/workspace"
 "$SRCDIR/scripts/test-morph" build linux-system
 
 # Print tree SHA1s of the build ref of morphs and kernel.
-cd "$DATADIR/workspace/branch1/test:morphs"
+cd "$DATADIR/workspace/branch1/test/morphs"
 MORPHS_SHA1="$(git rev-parse baserock/builds/123456789/987654321)"
-cd "$DATADIR/workspace/branch1/test:kernel-repo"
+cd "$DATADIR/workspace/branch1/test/kernel-repo"
 KERNEL_SHA1="$(git rev-parse baserock/builds/123456789/AABBCCDDE)"
 
 # Make an uncommitted change to the linux morphology.
-cd "$DATADIR/workspace/branch1/test:kernel-repo"
+cd "$DATADIR/workspace/branch1/test/kernel-repo"
 sed -i -e 's@touch@touch foo@g' linux.morph
 
 # Build the linux system again without comitting.
@@ -49,7 +49,7 @@ cd "$DATADIR/workspace"
 # This time the tree SHA1 of morphs should be the same
 # but that of the kernel repo should be different because we
 # made a change.
-cd "$DATADIR/workspace/branch1/test:morphs"
+cd "$DATADIR/workspace/branch1/test/morphs"
 [ "$(git rev-parse baserock/builds/123456789/987654321)" != "$MORPHS_SHA1" ]
-cd "$DATADIR/workspace/branch1/test:kernel-repo"
+cd "$DATADIR/workspace/branch1/test/kernel-repo"
 [ "$(git rev-parse baserock/builds/123456789/AABBCCDDE)" != "$KERNEL_SHA1" ]

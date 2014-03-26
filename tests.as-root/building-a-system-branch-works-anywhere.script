@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -41,13 +41,13 @@ cd "$DATADIR/workspace/branch1"
 rm -rf "$DATADIR/cache/artifacts"/*
 
 # Build form the branch root repository.
-cd "$DATADIR/workspace/branch1/test:morphs"
+cd "$DATADIR/workspace/branch1/test/morphs"
 "$SRCDIR/scripts/test-morph" build linux-system
 "$SRCDIR/scripts/list-tree" "$DATADIR/cache/artifacts" > "$DATADIR/output3"
 rm -rf "$DATADIR/cache/artifacts"/*
 
 # Build from the linux directory.
-cd "$DATADIR/workspace/branch1/test:kernel-repo"
+cd "$DATADIR/workspace/branch1/test/kernel-repo"
 "$SRCDIR/scripts/test-morph" build linux-system
 "$SRCDIR/scripts/list-tree" "$DATADIR/cache/artifacts" > "$DATADIR/output4"
 rm -rf "$DATADIR/cache/artifacts"/*

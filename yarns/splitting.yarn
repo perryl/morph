@@ -47,9 +47,12 @@ The best way to test that only using some stratum artifacts works is
 to check which files the output has, so we deploy a tarball and inspect
 its contents.
 
-    GIVEN a cluster called test-cluster for deploying only the test-system system as type tar in system branch master
+    GIVEN a cluster called test-cluster in system branch master
+    AND a system in cluster test-cluster in branch master called test-system
+    AND system test-system in cluster test-cluster in branch master builds test-system
+    AND system test-system in cluster test-cluster in branch master has deployment type: tar
     WHEN the user builds the system test-system in branch master
-    AND the user attempts to deploy the cluster test-cluster in branch master with options system.location="$DATADIR/test.tar"
+    AND the user attempts to deploy the cluster test-cluster in branch master with options test-system.location="$DATADIR/test.tar"
 
 The -runtime artifacts include executables and shared libraries.
 

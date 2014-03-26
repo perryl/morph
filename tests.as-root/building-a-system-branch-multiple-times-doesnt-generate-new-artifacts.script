@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -38,6 +38,6 @@ cd "$DATADIR/workspace/branch1"
 [ "$ARTIFACT_COUNT" -eq $(ls "$DATADIR/cache/artifacts" | wc -l) ]
 
 # Build thrice, and that should be enough.
-cd "$DATADIR/workspace/branch1/test:morphs"
+cd "$DATADIR/workspace/branch1/test/morphs"
 "$SRCDIR/scripts/test-morph" build linux-system
 [ "$ARTIFACT_COUNT" -eq $(ls "$DATADIR/cache/artifacts" | wc -l) ]

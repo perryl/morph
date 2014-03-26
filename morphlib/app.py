@@ -59,6 +59,12 @@ class Morph(cliapp.Application):
         self.settings.boolean(['quiet', 'q'],
                               'show no output unless there is an error')
 
+        self.settings.boolean(['help', 'h'],
+                             'show this help message and exit')
+
+        self.settings.boolean(['help-all'],
+                             'show help message including hidden subcommands')
+
         self.settings.string(['build-ref-prefix'],
                              'Prefix to use for temporary build refs',
                              metavar='PREFIX',
@@ -194,6 +200,14 @@ class Morph(cliapp.Application):
 
     def process_args(self, args):
         self.check_time()
+
+        if self.settings['help']:
+            self.help(args)
+            sys.exit(0)
+
+        if self.settings['help-all']:
+            self.help_all(args)
+            sys.exit(0)
 
         if self.settings['build-ref-prefix'] is None:
             if self.settings['trove-id']:
@@ -345,7 +359,10 @@ class Morph(cliapp.Application):
             morphology = resolved_morphologies[reference]
 
             visit(reponame, ref, filename, absref, tree, morphology)
-            if morphology['kind'] == 'system':
+            if morphology['kind'] == 'cluster':
+                raise cliapp.AppException(
+                    "Cannot build a morphology of type 'cluster'.")
+            elif morphology['kind'] == 'system':
                 queue.extend((s.get('repo') or reponame,
                               s.get('ref') or ref,
                               '%s.morph' % s['morph'])
@@ -451,27 +468,49 @@ class Morph(cliapp.Application):
         # run the command line
         return cliapp.Application.runcmd(self, argv, *args, **kwargs)
 
-    # FIXME: This overrides a private method in cliapp. We need
-    # get cliapp to provide the necessary hooks to do this cleanly.
-    # As it is, this is a copy of the method in cliapp, with the
-    # single change that for subcommand helps, the formatting is
-    # not used.
-    def _help_helper(self, args, show_all): # pragma: no cover
+    def parse_args(self, args, configs_only=False):
+        return self.settings.parse_args(args,
+                         configs_only=configs_only,
+                         arg_synopsis=self.arg_synopsis,
+                         cmd_synopsis=self.cmd_synopsis,
+                         compute_setting_values=self.compute_setting_values,
+                         add_help_option=False)
+
+    class IdentityFormat():
+        def format(self, text):
+            return text
+
+    def _help_helper(self, args, show_all):
         try:
             width = int(os.environ.get('COLUMNS', '78'))
         except ValueError:
             width = 78
 
-        fmt = cliapp.TextFormat(width=width)
-
         if args:
-            usage = self._format_usage_for(args[0])
-            description = self._format_subcommand_help(args[0])
+            cmd = args[0]
+            if cmd not in self.subcommands:
+                raise cliapp.AppException('Unknown subcommand %s' % cmd)
+                # TODO Search for other things we might want help on
+                # such as write or configuration extensions.
+            usage = self._format_usage_for(cmd)
+            fmt = self.IdentityFormat()
+            description = fmt.format(self._format_subcommand_help(cmd))
             text = '%s\n\n%s' % (usage, description)
+            self.output.write(text)
         else:
-            usage = self._format_usage(all=show_all)
-            description = fmt.format(self._format_description(all=show_all))
-            text = '%s\n\n%s' % (usage, description)
+            pp = self.settings.build_parser(
+                configs_only=True,
+                arg_synopsis=self.arg_synopsis,
+                cmd_synopsis=self.cmd_synopsis,
+                all_options=show_all,
+                add_help_option=False)
+            text = pp.format_help()
+            self.output.write(text)
 
-        text = self.settings.progname.join(text.split('%prog'))
-        self.output.write(text)
+    def help(self, args): # pragma: no cover
+        '''Print help.'''
+        self._help_helper(args, False)
+
+    def help_all(self, args): # pragma: no cover
+        '''Print help, including hidden subcommands.'''
+        self._help_helper(args, True)

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,7 +20,6 @@
 
 set -eu
 
-
 . "$SRCDIR/tests.deploy/setup-build"
 
 cd "$DATADIR/workspace/branch1"
@@ -29,12 +28,15 @@ cd "$DATADIR/workspace/branch1"
 
 "$SRCDIR/scripts/test-morph" build linux-system
 
+GIT_DIR=test/morphs/.git git tag -a my-test-tag -m "Example tag" HEAD
+
 "$SRCDIR/scripts/test-morph" --log "$DATADIR/deploy.log" \
     deploy test_cluster \
+    linux-system-2.EXAMPLE_PASSWORD="secret" \
     linux-system-2.HOSTNAME="baserock-rocks-even-more" \
     > /dev/null
 
-outputdir=test:morphs
+outputdir=test/morphs
 test -e $outputdir/hello-system.img
 test -e $outputdir/linux-system-1.tar
 test -e $outputdir/linux-system-2.tar
@@ -44,3 +46,15 @@ hostname2=$(tar -xf $outputdir/linux-system-2.tar ./etc/hostname -O)
 
 [ "$hostname1" = baserock-rocks ]
 [ "$hostname2" = baserock-rocks-even-more ]
+
+tar -xf $outputdir/linux-system-2.tar ./baserock/deployment.meta
+metadata=baserock/deployment.meta
+
+# Check that 'git describe' of definitions repo was stored correctly
+echo -n "definitions-version: "
+"$SRCDIR/scripts/yaml-extract" $metadata definitions-version
+
+echo -n "configuration.HOSTNAME: "
+"$SRCDIR/scripts/yaml-extract" $metadata configuration HOSTNAME
+
+! (grep -q "EXAMPLE_PASSWORD" $metadata)

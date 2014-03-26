@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -35,23 +35,23 @@ cd "$DATADIR/workspace"
 # Edit one chunk
 cd "me/readme-fixes"
 "$SRCDIR/scripts/test-morph" edit hello-system stratum2 hello
-cd "$DATADIR/workspace/me/readme-fixes/test:stratum2-hello"
+cd "$DATADIR/workspace/me/readme-fixes/test/stratum2-hello"
 echo > README yoyoyo
 git add README
 git commit -m "Fix README in hello" --quiet
 
 # Edit the other chunk too
 "$SRCDIR/scripts/test-morph" edit hello-system stratum3 hello
-cd "$DATADIR/workspace/me/readme-fixes/test:stratum3-hello"
+cd "$DATADIR/workspace/me/readme-fixes/test/stratum3-hello"
 echo > README yoyoyo
 git add README
 git commit -m "Fix README in hello" --quiet
 
 # Update the morphology repos
-cd ../test:external-strata
+cd ../test/external-strata
 git commit --quiet --all -m "Commit changes for system branch"
 
-cd ../test:morphs
+cd ../test/morphs
 git commit --quiet --all -m "Commit changes for system branch"
 
 # Merge our system branch into master
@@ -60,13 +60,13 @@ cd master
 "$SRCDIR/scripts/test-morph" merge me/readme-fixes
 
 # Check the changes have appeared
-cd test:morphs
+cd test/morphs
 [ $(git rev-parse HEAD) = $(git rev-parse master) ]
 
-cd ../test:stratum2-hello
+cd ../test/stratum2-hello
 [ -e README ]
 [ $(git rev-parse HEAD) = $(git rev-parse master) ]
 
-cd ../test:stratum3-hello
+cd ../test/stratum3-hello
 [ -e README ]
 [ $(git rev-parse HEAD) = $(git rev-parse master) ]

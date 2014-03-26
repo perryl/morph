@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -34,7 +34,7 @@ cd "$DATADIR/workspace"
 "$SRCDIR/scripts/test-morph" tag example-tag -- -m First
 
 # Check out the tag.
-"$SRCDIR/scripts/run-git-in" master/test:morphs checkout -b example-tag \
+"$SRCDIR/scripts/run-git-in" master/test/morphs checkout -b example-tag \
     2>/dev/null
 
 # Tag the tag.

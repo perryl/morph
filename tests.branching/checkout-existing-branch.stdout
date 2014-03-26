@@ -3,10 +3,11 @@ d .
 d ./.morph
 d ./master
 d ./master/.morph-system-branch
-d ./master/test:morphs
-d ./master/test:morphs/.git
+d ./master/test
+d ./master/test/morphs
+d ./master/test/morphs/.git
 f ./master/.morph-system-branch/config
-f ./master/test:morphs/hello-stratum.morph
-f ./master/test:morphs/hello-system.morph
+f ./master/test/morphs/hello-stratum.morph
+f ./master/test/morphs/hello-system.morph
 Current branches:
 * master

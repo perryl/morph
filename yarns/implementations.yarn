@@ -340,9 +340,9 @@ Attempt to check out a system branch from a root that has no systems.
 We also need to verify that a system branch has been checked out.
 
     IMPLEMENTS THEN the system branch (\S+) is checked out
-    is_dir "$DATADIR/workspace/$MATCH_1/test:morphs"
-    is_file "$DATADIR/workspace/$MATCH_1/test:morphs/test-system.morph"
-    is_file "$DATADIR/workspace/$MATCH_1/test:morphs/test-stratum.morph"
+    is_dir "$DATADIR/workspace/$MATCH_1/test/morphs"
+    is_file "$DATADIR/workspace/$MATCH_1/test/morphs/test-system.morph"
+    is_file "$DATADIR/workspace/$MATCH_1/test/morphs/test-stratum.morph"
 
 We can create a new branch, off master.
 
@@ -368,7 +368,7 @@ Pushing all changes in a system branch checkout to the git server.
 
     IMPLEMENTS WHEN the user pushes the system branch called (\S+) to the git server
     # FIXME: For now, this is just the morphs checkout.
-    run_in "$DATADIR/workspace/$MATCH_1/test:morphs" git push origin HEAD
+    run_in "$DATADIR/workspace/$MATCH_1/test/morphs" git push origin HEAD
 
 Report workspace path.
 
@@ -411,7 +411,7 @@ Editing morphologies with `morph edit`.
 
     IMPLEMENTS THEN in branch (\S+), stratum (\S+) refs (\S+) in (\S+)
     "$SRCDIR/scripts/yaml-extract" \
-        "$DATADIR/workspace/$MATCH_1/test:morphs/$MATCH_2.morph" \
+        "$DATADIR/workspace/$MATCH_1/test/morphs/$MATCH_2.morph" \
         chunks name="$MATCH_3" ref > "$DATADIR/ref.actual"
     echo "$MATCH_4" > "$DATADIR/ref.wanted"
     diff -u "$DATADIR/ref.wanted" "$DATADIR/ref.actual"
@@ -419,21 +419,22 @@ Editing morphologies with `morph edit`.
     IMPLEMENTS THEN in branch (\S+), (system|stratum) (\S+) refers to (\S+) without (\S+)
     if [ $MATCH_2 == system ]; then field=strata; else field=build-depends; fi
     { ! "$SRCDIR/scripts/yaml-extract" \
-        "$DATADIR/workspace/$MATCH_1/test:morphs/$MATCH_3.morph" \
+        "$DATADIR/workspace/$MATCH_1/test/morphs/$MATCH_3.morph" \
         "$field" name="$MATCH_4" "$MATCH_5"; } 2>&1 |
         grep -qFe "Object does not contain $MATCH_5"
 
     IMPLEMENTS WHEN the user edits the stratum (\S+) in the system (\S+) in branch (\S+)
-    cd "$DATADIR/workspace/$MATCH_3/test:morphs"
+    cd "$DATADIR/workspace/$MATCH_3/test/morphs"
     run_morph edit "$MATCH_2" "$MATCH_1"
 
     IMPLEMENTS WHEN the user edits the chunk (\S+) in the stratum (\S+) in the system (\S+) in branch (\S+)
-    cd "$DATADIR/workspace/$MATCH_4/test:morphs"
+    cd "$DATADIR/workspace/$MATCH_4/test/morphs"
     run_morph edit "$MATCH_3" "$MATCH_2" "$MATCH_1"
 
     IMPLEMENTS THEN the edited chunk (\S+) has git branch (\S+)
     ls -l "$DATADIR/workspace/$MATCH_2"
-    cd "$DATADIR/workspace/$MATCH_2/$MATCH_1"
+    chunkdir="$(slashify_colons "$MATCH_1")"
+    cd "$DATADIR/workspace/$MATCH_2/$chunkdir"
     git branch | awk '$1 == "*" { print $2 }' > "$DATADIR/git-branch.actual"
     echo "$MATCH_2" > "$DATADIR/git-branch.wanted"
     diff -u "$DATADIR/git-branch.wanted" "$DATADIR/git-branch.actual"
@@ -448,7 +449,7 @@ print-architecture` to get a value appropriate for morph.
 
     IMPLEMENTS WHEN the user creates an uncommitted system morphology called (\S+) for our architecture in system branch (\S+)
     arch=$(morph print-architecture)
-    cat << EOF > "$DATADIR/workspace/$MATCH_2/test:morphs/$MATCH_1.morph"
+    cat << EOF > "$DATADIR/workspace/$MATCH_2/test/morphs/$MATCH_1.morph"
     arch: $arch
     configuration-extensions: []
     description: A system called $MATCH_1 for architectures $arch
@@ -494,11 +495,12 @@ Reporting status of checked out repositories:
     touch "$DATADIR/workspace/$MATCH_3/$MATCH_2/$MATCH_1"
 
     IMPLEMENTS WHEN adding file (\S+) in (\S+) in branch (\S+) to git
-    cd "$DATADIR/workspace/$MATCH_3/$MATCH_2"
+    chunkdir="$(slashify_colons "$MATCH_2")"
+    cd "$DATADIR/workspace/$MATCH_3/$chunkdir"
     git add "$MATCH_1"
 
     IMPLEMENTS WHEN committing changes in (\S+) in branch (\S+)
-    cd "$DATADIR/workspace/$MATCH_2/$MATCH_1"
+    cd "$DATADIR/workspace/$MATCH_2/$(slashify_colons "$MATCH_1")"
     git commit -a -m test-commit
 
 Running shell command in each checked out repository:
@@ -514,11 +516,11 @@ Running shell command in each checked out repository:
 Petrification and unpetrification:
 
     IMPLEMENTS WHEN remembering all refs in (\S+)
-    cd "$DATADIR/workspace/$MATCH_1/test:morphs"
+    cd "$DATADIR/workspace/$MATCH_1/test/morphs"
     list_refs *.morph > "$DATADIR/refs.remembered"
 
     IMPLEMENTS THEN (\S+) refs are as remembered
-    cd "$DATADIR/workspace/$MATCH_1/test:morphs"
+    cd "$DATADIR/workspace/$MATCH_1/test/morphs"
 
     # FIXME: petrify/unpetrify doesn't work quite right at this time:
     # petrify can change a ref to a stratum to point at the system
@@ -548,41 +550,41 @@ Petrification and unpetrification:
     done
 
     IMPLEMENTS WHEN petrifying (\S+)
-    cd "$DATADIR/workspace/$MATCH_1/test:morphs"
+    cd "$DATADIR/workspace/$MATCH_1/test/morphs"
     run_morph petrify
 
     IMPLEMENTS WHEN unpetrifying (\S+)
-    cd "$DATADIR/workspace/$MATCH_1/test:morphs"
+    cd "$DATADIR/workspace/$MATCH_1/test/morphs"
     run_morph unpetrify
 
     IMPLEMENTS THEN (\S+) is petrified
-    cd "$DATADIR/workspace/$MATCH_1/test:morphs"
+    cd "$DATADIR/workspace/$MATCH_1/test/morphs"
     assert_morphologies_are_petrified "$MATCH_1" *.morph
 
     IMPLEMENTS THEN (\S+) is not petrified
-    cd "$DATADIR/workspace/$MATCH_1/test:morphs"
+    cd "$DATADIR/workspace/$MATCH_1/test/morphs"
     ! assert_morphologies_are_petrified "$MATCH_1" *.morph
 
 Tagging.
 
     IMPLEMENTS WHEN the user tags the system branch called (\S+) as (\S+)
-    cd "$DATADIR/workspace/$MATCH_1/test:morphs"
+    cd "$DATADIR/workspace/$MATCH_1/test/morphs"
     set tag "$MATCH_2" -- -m "testing morph tagging"
     run_morph tag "$MATCH_2" -- -m "testing morph tagging"
 
     IMPLEMENTS WHEN the user attempts to tag the system branch called (\S+) as (\S+)
-    cd "$DATADIR/workspace/$MATCH_1/test:morphs"
+    cd "$DATADIR/workspace/$MATCH_1/test/morphs"
     attempt_morph tag "$MATCH_2" -- -m "testing morph tagging"
 
     IMPLEMENTS THEN morph tag (\S+) in (\S+) is an annotated git tag
-    cd "$DATADIR/workspace/$MATCH_2/test:morphs"
+    cd "$DATADIR/workspace/$MATCH_2/test/morphs"
     if git show "$MATCH_1" | head -n1 | grep -v '^tag '
     then
         die "git tag $MATCH_1 is not an annotated tag"
     fi
 
     IMPLEMENTS THEN morph tag (\S+) in (\S+) refers to a petrified commit
-    cd "$DATADIR/workspace/$MATCH_2/test:morphs"
+    cd "$DATADIR/workspace/$MATCH_2/test/morphs"
     git ls-tree "$MATCH_1" |
     awk '$NF ~ /\.morph$/ { print $NF }' |
     while read x
@@ -663,26 +665,15 @@ them, so they can be added to the end of the implements section.
     if [ $MATCH_1 == "deploys" ]; then run_morph "$@"
     else attempt_morph "$@"; fi
 
-To successfully deploy systems, we need a cluster morphology. Since the
-common case is to just have one system, we generate a stub morphology
-with only the minimal information.
-
-    IMPLEMENTS GIVEN a cluster called (\S+) for deploying only the (\S+) system as type (\S+) in system branch (\S+)
-    name="$MATCH_1"
-    system="$MATCH_2"
-    type="$MATCH_3"
-    branch="$MATCH_4"
-    cat << EOF > "$DATADIR/workspace/$branch/test:morphs/$name.morph"
-    name: $name
-    kind: cluster
-    systems:
-    - morph: $system
-      repo: test:morphs
-      ref: $branch
-      deploy:
-        system:
-          type: $type
-    EOF
+    IMPLEMENTS WHEN the user (attempts to upgrade|upgrades) the (system|cluster) (\S+) in branch (\S+)( with options (.*))?
+    cd "$DATADIR/workspace/$MATCH_4"
+    set -- deploy --upgrade "$MATCH_3"
+    if [ "$MATCH_5" != '' ]; then
+        # eval used so word splitting in the text is preserved
+        eval set -- '"$@"' $MATCH_6
+    fi
+    if [ $MATCH_1 == "upgrades" ]; then run_morph "$@"
+    else attempt_morph "$@"; fi
 
 Implementations sections for reading error messages
 ===================================================
@@ -805,7 +796,61 @@ Altering morphologies in their source repositories
 Altering morphologies in the workspace
 --------------------------------------
 
+### Altering strata ###
+
     IMPLEMENTS GIVEN stratum (\S+) in system branch (\S+) has match rules: (.*)
-    cd "$DATADIR/workspace/$MATCH_2/test:morphs"
+    cd "$DATADIR/workspace/$MATCH_2/test/morphs"
     "$SRCDIR/scripts/edit-morph" set-stratum-match-rules \
       "$MATCH_1.morph" "$MATCH_3"
+
+### Altering clusters ###
+
+    IMPLEMENTS GIVEN a cluster called (\S+) in system branch (\S+)
+    name="$MATCH_1"
+    branch="$MATCH_2"
+    "$SRCDIR/scripts/edit-morph" cluster-init \
+        "$DATADIR/workspace/$branch/test/morphs/$name.morph"
+
+    IMPLEMENTS GIVEN a (sub)?system in cluster (\S+) in branch (\S+) called (\S+)
+    cluster="$MATCH_2"
+    branch="$MATCH_3"
+    name="$MATCH_4"
+    "$SRCDIR/scripts/edit-morph" cluster-system-init \
+        "$DATADIR/workspace/$branch/test/morphs/$cluster.morph" "$name"
+
+    IMPLEMENTS GIVEN (sub)?system (\S+) in cluster (\S+) in branch (\S+) builds (\S+)
+    name="$MATCH_2"
+    cluster="$MATCH_3"
+    branch="$MATCH_4"
+    morphology="$MATCH_5"
+    "$SRCDIR/scripts/edit-morph" cluster-system-set-morphology \
+        "$DATADIR/workspace/$branch/test/morphs/$cluster.morph" "$name" \
+        "$morphology"
+
+    IMPLEMENTS GIVEN (sub)?system (\S+) in cluster (\S+) in branch (\S+) has deployment type: (\S+)
+    name="$MATCH_2"
+    cluster="$MATCH_3"
+    branch="$MATCH_4"
+    type="$MATCH_5"
+    "$SRCDIR/scripts/edit-morph" cluster-system-set-deploy-type \
+        "$DATADIR/workspace/$branch/test/morphs/$cluster.morph" "$name" \
+        "$type"
+
+    IMPLEMENTS GIVEN (sub)?system (\S+) in cluster (\S+) in branch (\S+) has deployment location: (\S+)
+    name="$MATCH_2"
+    cluster="$MATCH_3"
+    branch="$MATCH_4"
+    location="$MATCH_5"
+    "$SRCDIR/scripts/edit-morph" cluster-system-set-deploy-location \
+        "$DATADIR/workspace/$branch/test/morphs/$cluster.morph" "$name" \
+        "$location"
+
+    IMPLEMENTS GIVEN (sub)?system (\S+) in cluster (\S+) in branch (\S+) has deployment variable: ([^=]+)=(.*)
+    name="$MATCH_2"
+    cluster="$MATCH_3"
+    branch="$MATCH_4"
+    key="$MATCH_5"
+    val="$MATCH_6"
+    "$SRCDIR/scripts/edit-morph" cluster-system-set-deploy-variable \
+        "$DATADIR/workspace/$branch/test/morphs/$cluster.morph" "$name" \
+        "$key" "$val"

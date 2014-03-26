@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -160,6 +160,9 @@ class StagingArea(object):
         unpacked_artifact = os.path.join(
             chunk_cache_dir, os.path.basename(handle.name) + '.d')
         if not os.path.exists(unpacked_artifact):
+            self._app.status(
+                msg='Unpacking chunk from cache %(filename)s',
+                filename=os.path.basename(handle.name))
             savedir = tempfile.mkdtemp(dir=chunk_cache_dir)
             try:
                 morphlib.bins.unpack_binary_from_file(

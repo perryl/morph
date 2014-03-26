@@ -114,6 +114,6 @@ class CacheKeyComputer(object):
         if kind == 'stratum':
             keys['stratum-format-version'] = 1
         elif kind == 'system':
-            keys['system-compatibility-version'] = "1~ (temporary, root rw)"
+            keys['system-compatibility-version'] = "2~ (upgradable, root rw)"
 
         return keys

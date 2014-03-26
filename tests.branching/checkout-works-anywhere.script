@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (C) 2012  Codethink Limited
+# Copyright (C) 2012,2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -41,7 +41,7 @@ cd workspace
 # This time, create a new branch and check out the master branch
 # from within that branch.
 "$SRCDIR/scripts/test-morph" branch test:morphs newbranch
-cd newbranch/test:morphs
+cd newbranch/test/morphs
 "$SRCDIR/scripts/test-morph" checkout test:morphs master
 
 echo "Workspace after checking out master from within a new branch:"

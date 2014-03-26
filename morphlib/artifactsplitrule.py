@@ -300,4 +300,4 @@ def unify_system_matches(morphology):
 
 
 def unify_cluster_matches(_):
-    return None
+    return SplitRules()

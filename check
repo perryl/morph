@@ -2,7 +2,7 @@
 #
 # Run test suite for morph.
 #
-# Copyright (C) 2011-2013  Codethink Limited
+# Copyright (C) 2011-2014  Codethink Limited
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -71,10 +71,21 @@ fi
 python setup.py clean check
 
 # Run scenario tests with yarn, if yarn is available.
+#
+# Yarn cleans up the environment when it runs tests, and this removes
+# PYTHONPATH from the environment. However, we need our tests to have
+# the PYTHONPATH, so that we can get them to, for example, use the right
+# versions of updated dependencies.  The immediate current need is to
+# be able to get them to use an updated version of cliapp, but it is
+# a general need.
+#
+# We solve this by using the yarn --env option, allowing us to tell yarn
+# explicitly which environment variables to set in addition to the set
+# it sets anyway.
 
 if command -v yarn > /dev/null
 then
-    yarn -s yarns/morph.shell-lib yarns/*.yarn
+    yarn --env "PYTHONPATH=$PYTHONPATH" -s yarns/morph.shell-lib yarns/*.yarn
 fi
 
 # cmdtest tests.

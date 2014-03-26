@@ -50,7 +50,7 @@ workspace="$DATADIR/workspace"
 cd "$workspace"
 "$SRCDIR/scripts/test-morph" branch-from-image  mybranch \
                              --metadata-dir="$extracted/baserock"
-cd mybranch/test:morphs
+cd mybranch/test/morphs
 grep -qFe "$hello_chunk_commit" hello-stratum.morph
 tar=$("$SRCDIR/scripts/test-morph" --find-system-artifact  build hello-tarball)
 tar -xf "$tar" bin/hello

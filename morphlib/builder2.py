@@ -555,7 +555,6 @@ class SystemBuilder(BuilderBase):  # pragma: no cover
                 fs_root = self.staging_area.destdir(self.artifact.source)
                 self.unpack_strata(fs_root)
                 self.write_metadata(fs_root, rootfs_name)
-                self.create_fstab(fs_root)
                 self.copy_kernel_into_artifact_cache(fs_root)
                 unslashy_root = fs_root[1:]
                 def uproot_info(info):
@@ -654,30 +653,6 @@ class SystemBuilder(BuilderBase):  # pragma: no cover
             f.write('BUG_REPORT_URL="http://wiki.baserock.org/mailinglist"\n')
 
         os.chmod(os_release_file, 0644)
-
-    def create_fstab(self, path):
-        '''Create an /etc/fstab inside a system tree.
-
-        The fstab is created using assumptions of the disk layout.
-        If the assumptions are wrong, extend this code so it can deal
-        with other cases.
-
-        '''
-
-        self.app.status(msg='Creating fstab in %(path)s',
-                        path=path, chatty=True)
-        with self.build_watch('create-fstab'):
-            fstab = os.path.join(path, 'etc', 'fstab')
-            if not os.path.exists(fstab):
-                # FIXME: should exist
-                if not os.path.exists(os.path.dirname(fstab)):
-                    os.makedirs(os.path.dirname(fstab))
-                # We create an empty fstab: systemd does not require
-                # /sys and /proc entries, and we can't know what the
-                # right entry for / is. The fstab gets built during
-                # deployment instead, when that information is available.
-                with open(fstab, 'w'):
-                    pass
 
     def copy_kernel_into_artifact_cache(self, path):
         '''Copy the installed kernel image into the local artifact cache.

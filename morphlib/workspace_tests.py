@@ -1,4 +1,4 @@
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -97,7 +97,7 @@ class WorkspaceTests(unittest.TestCase):
         url = 'test:morphs'
         branch = 'my/new/thing'
         sb = ws.create_system_branch_directory(url, branch)
-        self.assertTrue(type(sb), morphlib.sysbranchdir.SystemBranchDirectory)
+        self.assertEqual(type(sb), morphlib.sysbranchdir.SystemBranchDirectory)
 
     def test_lists_created_system_branches(self):
         self.create_it()

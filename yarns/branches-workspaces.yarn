@@ -112,7 +112,7 @@ We leak a little bit of the implementation here, to keep things simple:
 the (mocked) git server the implementation sets up has the `test:morphs`
 repository, which is the system branch root repository.
 
-    WHEN        the user reports the workspace from the directory  master/test:morphs
+    WHEN        the user reports the workspace from the directory  master/test/morphs
     THEN        the workspace is reported correctly
 
 However, running it outside a workspace should fail.
@@ -134,7 +134,7 @@ current working directory, it will find it and report it correctly.
     AND         the user reports the system branch from the directory master
     THEN        the system branch is reported as master
 
-    WHEN        the user reports the system branch from the directory master/test:morphs
+    WHEN        the user reports the system branch from the directory master/test/morphs
     THEN        the system branch is reported as master
 
     WHEN        the user reports the system branch from the directory .
@@ -230,7 +230,7 @@ repositories referenced in the system branch.
     AND the user edits the chunk test-chunk in the stratum test-stratum in the system test-system in branch foo
     THEN morph reports changes in foo in test:morphs only
 
-    WHEN        creating file foo in test:test-chunk in branch foo
+    WHEN        creating file foo in test/test-chunk in branch foo
     THEN        morph reports changes in foo in test:morphs only
 
     WHEN        adding file foo in test:test-chunk in branch foo to git
@@ -254,8 +254,8 @@ branch checkout.
     WHEN  the user creates a system branch called foo
     AND   the user edits the chunk test-chunk in the stratum test-stratum in the system test-system in branch foo
     AND   running shell command in each repo in foo
-    THEN  morph ran command in test:morphs in foo
-    AND   morph ran command in test:test-chunk in foo
+    THEN  morph ran command in test/morphs in foo
+    AND   morph ran command in test/test-chunk in foo
 
 Explicit petrification
 ----------------------

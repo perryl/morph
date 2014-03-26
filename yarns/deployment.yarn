@@ -9,11 +9,96 @@ Morph Deployment Tests
     THEN morph failed
     AND the deploy error message includes the string "morph deploy is only supported for cluster morphologies"
 
-    SCENARIO deploying a cluster morphology
+    SCENARIO deploying a cluster morphology as a tarfile
     GIVEN a workspace
     AND a git server
     WHEN the user checks out the system branch called master
-    GIVEN a cluster called test-cluster for deploying only the test-system system as type tar in system branch master
+    GIVEN a cluster called test-cluster in system branch master
+    AND a system in cluster test-cluster in branch master called test-system
+    AND system test-system in cluster test-cluster in branch master builds test-system
+    AND system test-system in cluster test-cluster in branch master has deployment type: tar
+    AND system test-system in cluster test-cluster in branch master has deployment location: test.tar
     WHEN the user builds the system test-system in branch master
-    AND the user attempts to deploy the cluster test-cluster in branch master with options system.location=test.tar
+    AND the user attempts to deploy the cluster test-cluster in branch master
     THEN morph succeeded
+
+Some deployment types support upgrades, but some do not and Morph needs to make
+this clear.
+
+    SCENARIO attempting to upgrade a tarfile deployment
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    GIVEN a cluster called test-cluster in system branch master
+    AND a system in cluster test-cluster in branch master called test-system
+    AND system test-system in cluster test-cluster in branch master builds test-system
+    AND system test-system in cluster test-cluster in branch master has deployment type: tar
+    AND system test-system in cluster test-cluster in branch master has deployment location: test.tar
+    WHEN the user builds the system test-system in branch master
+    AND the user attempts to upgrade the cluster test-cluster in branch master
+    THEN morph failed
+
+The rawdisk write extension supports both initial deployment and subsequent
+upgrades. Note that the rawdisk upgrade code needs bringing up to date to use
+the new Baserock OS version manager tool. Also, the test deploys an identical
+base OS as an upgrade. While pointless, this is permitted and does exercise
+the same code paths as a real upgrade.
+
+    SCENARIO deploying a cluster morphology as rawdisk and then upgrading it
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    GIVEN a cluster called test-cluster in system branch master
+    AND a system in cluster test-cluster in branch master called test-system
+    AND system test-system in cluster test-cluster in branch master builds test-system
+    AND system test-system in cluster test-cluster in branch master has deployment type: rawdisk
+    AND system test-system in cluster test-cluster in branch master has deployment location: test.tar
+    WHEN the user builds the system test-system in branch master
+    AND the user attempts to deploy the cluster test-cluster in branch master with options test-system.DISK_SIZE=10M test-system.VERSION_LABEL=test1
+    THEN morph succeeded
+    WHEN the user attempts to upgrade the cluster test-cluster in branch master with options test-system.VERSION_LABEL=test2
+    THEN morph succeeded
+
+Nested deployments
+==================
+
+For the use-cases of:
+
+1.  Installer CD/USB
+2.  NFS/VM host
+3.  System with multiple containerised applications
+4.  System with a toolchain targetting the sysroot of another target
+5.  Any nested combination of the above
+
+It is convenient to be able to deploy one system inside another.
+
+    SCENARIO deploying a cluster morphology with nested systems
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    GIVEN a cluster called test-cluster in system branch master
+    AND a system in cluster test-cluster in branch master called test-system
+    AND system test-system in cluster test-cluster in branch master builds test-system
+    AND system test-system in cluster test-cluster in branch master has deployment type: tar
+
+After the usual setup, we also add a subsystem to the cluster.
+
+    GIVEN a subsystem in cluster test-cluster in branch master called test-system.sysroot
+    AND subsystem test-system.sysroot in cluster test-cluster in branch master builds test-system
+    AND subsystem test-system.sysroot in cluster test-cluster in branch master has deployment type: sysroot
+
+We specify the location as a file path, this is relative to the parent
+system's extracted rootfs, before it is configured.
+
+    AND subsystem test-system.sysroot in cluster test-cluster in branch master has deployment location: var/lib/sysroots/test-system
+    WHEN the user builds the system test-system in branch master
+    AND the user attempts to deploy the cluster test-cluster in branch master with options test-system.location="$DATADIR/test.tar"
+    THEN morph succeeded
+
+Morph succeeding alone is not sufficient to check whether it actually
+worked, since if it ignored the subsystems field, or got the location
+wrong for the subsystem. To actually test it, we have to check that our
+deployed system contains the other. Since the baserock directory is in
+every system, we can check for that.
+
+    AND tarball test.tar contains var/lib/sysroots/test-system/baserock

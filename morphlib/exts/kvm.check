@@ -1,6 +1,5 @@
-#!/bin/sh
-#
-# Copyright (C) 2012-2014  Codethink Limited
+#!/usr/bin/python
+# Copyright (C) 2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,19 +14,22 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+'''Preparatory checks for Morph 'kvm' write extension'''
 
-## 'morph edit' should set up git URL rewriting correctly so that submodule
-## commands function as usual, despite our prefixing and mirroring.
+import cliapp
 
-set -eu
+import morphlib.writeexts
 
-cd "$DATADIR/workspace"
-"$SRCDIR/scripts/test-morph" init
-"$SRCDIR/scripts/test-morph" branch test:morphs newbranch
 
-# Submodules should be set up automatically
-"$SRCDIR/scripts/test-morph" edit hello-system hello-stratum hello
+class KvmPlusSshCheckExtension(morphlib.writeexts.WriteExtension):
+    def process_args(self, args):
+        if len(args) != 1:
+            raise cliapp.AppException('Wrong number of command line args')
 
-cd "$DATADIR/workspace/newbranch/test/hello"
-[ -e foolib/README ]
+        upgrade = self.get_environment_boolean('UPGRADE')
+        if upgrade:
+            raise cliapp.AppException(
+                'Use the `ssh-rsync` write extension to deploy upgrades to an '
+                'existing remote system.')
 
+KvmPlusSshCheckExtension().run()

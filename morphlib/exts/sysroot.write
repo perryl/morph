@@ -1,6 +1,5 @@
 #!/bin/sh
-#
-# Copyright (C) 2012-2014  Codethink Limited
+# Copyright (C) 2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,19 +14,16 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-
-## 'morph edit' should set up git URL rewriting correctly so that submodule
-## commands function as usual, despite our prefixing and mirroring.
+# A Morph write extension to deploy to another directory
 
 set -eu
 
-cd "$DATADIR/workspace"
-"$SRCDIR/scripts/test-morph" init
-"$SRCDIR/scripts/test-morph" branch test:morphs newbranch
+# Ensure the target is an empty directory
+mkdir -p "$2"
+find "$2" -mindepth 1 -delete
 
-# Submodules should be set up automatically
-"$SRCDIR/scripts/test-morph" edit hello-system hello-stratum hello
-
-cd "$DATADIR/workspace/newbranch/test/hello"
-[ -e foolib/README ]
-
+# Move the contents of our source directory to our target
+# Previously we would (cd "$1" && find -print0 | cpio -0pumd "$absolute_path")
+# to do this, but the source directory is disposable anyway, so we can move
+# its contents to save time
+find "$1" -maxdepth 1 -mindepth 1 -exec mv {} "$2/." +

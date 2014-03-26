@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@ set -e
 . "$SRCDIR/tests.as-root/setup-build"
 KERNEL_BRANCH=baserock/builds/123456789/AABBCCDDE
 
-cd "$DATADIR/workspace/branch1/test:kernel-repo"
+cd "$DATADIR/workspace/branch1/test/kernel-repo"
 git checkout --quiet master
 echo Use Morph >README
 git add README
@@ -36,7 +36,7 @@ cd "$DATADIR/workspace"
 
 # Make a change elsewhere to be pulled in
 PEER_REPO="$DATADIR/peer-kernel"
-git clone --quiet "file://$DATADIR/workspace/branch1/test:kernel-repo" \
+git clone --quiet "file://$DATADIR/workspace/branch1/test/kernel-repo" \
     "$PEER_REPO"
 cd "$PEER_REPO"
 git checkout --quiet -b fix
@@ -47,7 +47,7 @@ git checkout --quiet master
 git merge --no-ff fix >/dev/null 2>&1
 
 # Pull a commit in to the linux morphology.
-cd "$DATADIR/workspace/branch1/test:kernel-repo"
+cd "$DATADIR/workspace/branch1/test/kernel-repo"
 git remote add peer "file://$PEER_REPO"
 git remote update >/dev/null 2>&1
 git merge --quiet peer/master
@@ -55,8 +55,8 @@ git merge --quiet peer/master
 # Build the linux system again without comitting.
 cd "$DATADIR/workspace"
 "$SRCDIR/scripts/test-morph" build linux-system
-cd branch1/test:kernel-repo
+cd branch1/test/kernel-repo
 
 # Check whether the new morphology exists in the temporary build ref
-cd "$DATADIR/workspace/branch1/test:kernel-repo"
+cd "$DATADIR/workspace/branch1/test/kernel-repo"
 ! git cat-file blob "$KERNEL_BRANCH:README" >/dev/null 2>&1

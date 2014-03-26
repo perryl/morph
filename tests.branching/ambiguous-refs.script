@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -37,10 +37,10 @@ cd "$DATADIR/workspace"
 "$SRCDIR/scripts/test-morph" branch test:morphs release
 
 # Create an extra ref to confuse any users of git show-ref
-cd release/test:morphs
+cd release/test/morphs
 git checkout --quiet -b alpha/master HEAD~1
 git checkout --quiet release
 
 # The petrify will fail if we resolved 'master' as 'alpha/master' by mistake.
-cd "$DATADIR/workspace/release/test:morphs"
+cd "$DATADIR/workspace/release/test/morphs"
 "$SRCDIR/scripts/test-morph" petrify

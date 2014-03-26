@@ -1,4 +1,4 @@
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -82,9 +82,13 @@ class GitDirectoryContentsTests(unittest.TestCase):
         shutil.rmtree(self.tempdir)
 
     def test_lists_files_in_work_tree(self):
+        expected = ['bar.morph', 'baz.morph', 'foo.morph', 'quux']
+
         gd = morphlib.gitdir.GitDirectory(self.dirname)
-        self.assertEqual(sorted(gd.list_files()),
-                         ['bar.morph', 'baz.morph', 'foo.morph', 'quux'])
+        self.assertEqual(sorted(gd.list_files()), expected)
+
+        gd = morphlib.gitdir.GitDirectory(self.dirname + '/')
+        self.assertEqual(sorted(gd.list_files()), expected)
 
     def test_read_file_in_work_tree(self):
         gd = morphlib.gitdir.GitDirectory(self.dirname)
@@ -201,6 +205,15 @@ class GitDirectoryContentsTests(unittest.TestCase):
                                 author_date=pseudo_now,
                                 )
         self.assertEqual(expected, gd.get_commit_contents(commit).split('\n'))
+
+    def test_describe(self):
+        gd = morphlib.gitdir.GitDirectory(self.dirname)
+
+        gd._runcmd(['git', 'tag', '-a', '-m', 'Example', 'example', 'HEAD'])
+        self.assertEqual(gd.describe(), 'example-unreproducible')
+
+        gd._runcmd(['git', 'reset', '--hard'])
+        self.assertEqual(gd.describe(), 'example')
 
 
 class GitDirectoryRefTwiddlingTests(unittest.TestCase):

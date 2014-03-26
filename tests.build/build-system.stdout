@@ -2,5 +2,4 @@
 bin/
 bin/hello
 etc/
-etc/fstab
 etc/os-release

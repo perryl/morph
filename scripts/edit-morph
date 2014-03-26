@@ -16,6 +16,7 @@
 
 
 import cliapp
+import contextlib
 import os
 import re
 import yaml
@@ -201,6 +202,15 @@ class EditMorph(cliapp.Application):
 
         return result
 
+    @staticmethod
+    @contextlib.contextmanager
+    def _open_yaml(path):
+        with open(path, 'r') as f:
+            d = yaml.load(f)
+        yield d
+        with open(path, 'w') as f:
+            yaml.dump(d, f)
+
     def cmd_set_system_artifact_depends(self, args):
         '''Change the artifacts used by a System.
 
@@ -219,13 +229,10 @@ class EditMorph(cliapp.Application):
         file_path = args[0]
         stratum_name = args[1]
         artifacts = re.split(r"\s+and\s+|,?\s*", args[2])
-        with open(file_path, "r") as f:
-            d = yaml.load(f)
-        for spec in d["strata"]:
-            if spec.get("alias", spec["name"]) == stratum_name:
-                spec["artifacts"] = artifacts
-        with open(file_path, "w") as f:
-            yaml.dump(d, f)
+        with self._open_yaml(file_path) as d:
+            for spec in d["strata"]:
+                if spec.get("alias", spec["name"]) == stratum_name:
+                    spec["artifacts"] = artifacts
 
     def cmd_set_stratum_match_rules(self, (file_path, match_rules)):
         '''Set a stratum's match rules.
@@ -239,10 +246,89 @@ class EditMorph(cliapp.Application):
         The match rules must be a string that yaml can parse.
 
         '''
-        with open(file_path, "r") as f:
-            d = yaml.load(f)
-        d['products'] = yaml.load(match_rules)
-        with open(file_path, "w") as f:
+        with self._open_yaml(file_path) as d:
+            d['products'] = yaml.load(match_rules)
+
+    @classmethod
+    def _splice_cluster_system(cls, syslist, syspath):
+        sysname = syspath[0]
+        syspath = syspath[1:]
+        for system in syslist:
+            if sysname in system['deploy']:
+                break
+        else:
+            system = {
+                'morph': None,
+                'deploy': {
+                    sysname: {
+                        'type': None,
+                        'location': None,
+                    },
+                },
+            }
+            syslist.append(system)
+        if syspath:
+            cls._splice_cluster_system(
+                system.setdefault('subsystems', []), syspath)
+
+    @classmethod
+    def _find_cluster_system(cls, syslist, syspath):
+        sysname = syspath[0]
+        syspath = syspath[1:]
+        for system in syslist:
+            if sysname in system['deploy']:
+                break
+        if syspath:
+            return cls._find_cluster_system(system['subsystems'], syspath)
+        return system
+
+    def cmd_cluster_init(self, (cluster_file,)):
+        suffix = '.morph'
+        if not cluster_file.endswith(suffix):
+            raise cliapp.AppException(
+                "Morphology file path must end with .morph")
+        with open(cluster_file, 'w') as f:
+            d = {
+                'name': os.path.basename(cluster_file)[:-len(suffix)],
+                'kind': 'cluster',
+            }
             yaml.dump(d, f)
+
+    def cmd_cluster_system_init(self, (cluster_file, system_path)):
+        syspath = system_path.split('.')
+        with self._open_yaml(cluster_file) as d:
+            self._splice_cluster_system(d.setdefault('systems', []), syspath)
+
+    def cmd_cluster_system_set_morphology(self,
+        (cluster_file, system_path, morphology)):
+
+        syspath = system_path.split('.')
+        with self._open_yaml(cluster_file) as d:
+            system = self._find_cluster_system(d['systems'], syspath)
+            system['morph'] = morphology
+
+    def cmd_cluster_system_set_deploy_type(self,
+        (cluster_file, system_path, deploy_type)):
+
+        syspath = system_path.split('.')
+        with self._open_yaml(cluster_file) as d:
+            system = self._find_cluster_system(d['systems'], syspath)
+            system['deploy'][syspath[-1]]['type'] = deploy_type
+
+    def cmd_cluster_system_set_deploy_location(self,
+        (cluster_file, system_path, deploy_location)):
+
+        syspath = system_path.split('.')
+        with self._open_yaml(cluster_file) as d:
+            system = self._find_cluster_system(d['systems'], syspath)
+            system['deploy'][syspath[-1]]['location'] = deploy_location
+
+    def cmd_cluster_system_set_deploy_variable(self,
+        (cluster_file, system_path, key, val)):
+
+        syspath = system_path.split('.')
+        with self._open_yaml(cluster_file) as d:
+            system = self._find_cluster_system(d['systems'], syspath)
+            system['deploy'][syspath[-1]][key] = val
 
 EditMorph().run()

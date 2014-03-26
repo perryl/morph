@@ -1,4 +1,4 @@
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -317,6 +317,14 @@ class Remote(object):
                                    self._parse_push_output(out), err)
         return self._parse_push_output(out)
 
+    def pull(self, branch=None):
+        if branch:
+            repo = self.get_fetch_url()
+            ret = self.gd._runcmd(['git', 'pull', repo, branch])
+        else:
+            ret = self.gd._runcmd(['git', 'pull'])
+        return ret
+
 
 class GitDirectory(object):
 
@@ -330,7 +338,8 @@ class GitDirectory(object):
     '''
 
     def __init__(self, dirname):
-        self.dirname = dirname
+        self.dirname = cliapp.runcmd(
+                ['git', 'rev-parse', '--show-toplevel'], cwd=dirname).strip()
 
     def _runcmd(self, argv, **kwargs):
         '''Run a command at the root of the git directory.
@@ -350,6 +359,9 @@ class GitDirectory(object):
     def checkout(self, branch_name): # pragma: no cover
         '''Check out a git branch.'''
         self._runcmd(['git', 'checkout', branch_name])
+        if self.has_fat():
+            self.fat_init()
+            self.fat_pull()
 
     def branch(self, new_branch_name, base_ref): # pragma: no cover
         '''Create a git branch based on an existing ref.
@@ -478,7 +490,8 @@ class GitDirectory(object):
             if dirpath == self.dirname and '.git' in subdirs:
                 subdirs.remove('.git')
             for filename in filenames:
-                yield os.path.join(dirpath, filename)[len(self.dirname)+1:]
+                filepath = os.path.join(dirpath, filename)
+                yield os.path.relpath(filepath, start=self.dirname)
 
     def _list_files_in_ref(self, ref):
         tree = self.resolve_ref_to_tree(ref)
@@ -609,6 +622,29 @@ class GitDirectory(object):
             return self._update_ref(('-d', ref, old_sha1), message)
         except Exception, e:
             raise RefDeleteError(self, ref, old_sha1, e)
+
+    def describe(self):
+        version = self._runcmd(
+            ['git', 'describe', '--always', '--dirty=-unreproducible'])
+        return version.strip()
+
+    def fat_init(self):
+        return self._runcmd(['git', 'fat', 'init'])
+
+    def fat_push(self):
+        return self._runcmd(['git', 'fat', 'push'])
+
+    def fat_pull(self):
+        return self._runcmd(['git', 'fat', 'pull'])
+
+    def has_fat(self):
+        return '.gitfat' in self.list_files()
+
+    def join_path(self, path):
+        return os.path.join(self.dirname, path)
+
+    def get_relpath(self, path):
+        return os.path.relpath(path, self.dirname)
 
 
 def init(dirname):

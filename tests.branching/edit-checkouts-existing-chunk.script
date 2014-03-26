@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -34,4 +34,4 @@ echo "Current branches:"
 
 echo
 echo "Files in hello:"
-ls "$DATADIR/workspace/alfred/test:hello"
+ls "$DATADIR/workspace/alfred/test/hello"

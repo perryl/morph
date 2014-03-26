@@ -19,20 +19,25 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
+# Add $SRCDIR to PYTHONPATH.
+
+case "$PYTHONPATH" in
+    '') PYTHONPATH="$SRCDIR)" ;;
+    *) PYTHONPATH="$SRCDIR:$PYTHONPATH" ;;
+esac
+export PYTHONPATH
+
+
 # Run Morph from the source tree, ignoring any configuration files.
 # This way the test suite is not affected by any configuration the user
 # or system may have. Instead, we'll use the `$DATADIR/morph.conf` file,
-# which tests can create, if they want to. Unfortunately, currently yarn
-# does not set a $SRCDIR that points at the source tree, so if the test
-# needs to cd away from there, things can break. We work around this
-# by allowing the caller to set $SRCDIR if they want to, and if it isn't
-# set, we default to . (current working directory).
+# which tests can create, if they want to.
 
 run_morph()
 {
     {
         set +e
-        "${SRCDIR:-.}"/morph \
+        "$SRCDIR"/morph \
             --cachedir-min-space=0 --tempdir-min-space=0 \
             --no-default-config --config "$DATADIR/morph.conf" "$@" \
             2> "$DATADIR/result-$1"
@@ -152,15 +157,6 @@ assert_morphologies_are_petrified()
 }
 
 
-# Currently, yarn isn't setting $SRCDIR to point at the project source
-# directory. We simulate this here.
-
-if ! env | grep '^SRCDIR=' > /dev/null
-then
-    export SRCDIR="$(pwd)"
-fi
-
-
 # Added until it's fixed in upstream.
 # It's a solution to create an empty home directory each execution
 export HOME="$DATADIR/home"
@@ -178,3 +174,12 @@ then
      email = tomjon@codethink.co.uk
 EOF
 fi
+
+
+# Change colons to slashes. This is used when converting an aliases
+# repository URL (e.g., test:morphs) into a directory path.
+
+slashify_colons()
+{
+    echo "$1" | sed s,:,/,g
+}

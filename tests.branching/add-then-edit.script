@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ cd "$DATADIR/workspace"
 cd "me/add-then-edit"
 
 # add a chunk
-cd test:morphs
+cd test/morphs
 
 ## Sub-optimally, to alter the stratum, you have to `morph edit` it first
 "$SRCDIR/scripts/test-morph" edit hello-system hello-stratum
@@ -51,4 +51,4 @@ with open("hello-stratum.morph", "w") as f:
 grep -qFe goodbye hello-stratum.morph
 
 # check whether edit has cloned the repository to the right branch
-git --git-dir="../test:goodbye/.git" rev-parse --abbrev-ref HEAD
+git --git-dir="../goodbye/.git" rev-parse --abbrev-ref HEAD

@@ -1,4 +1,4 @@
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -74,6 +74,11 @@ class SystemBranchDirectory(object):
         If the URL is a real one (not aliased), the schema and leading //
         are removed from it, as is a .git suffix.
 
+        Any colons in the URL path or network location are replaced
+        with slashes, so that directory paths do not contain colons.
+        This avoids problems with PYTHONPATH, PATH, and other things
+        that use colon as a separator.
+
         '''
 
         # Parse the URL. If the path component is absolute, we assume
@@ -92,6 +97,9 @@ class SystemBranchDirectory(object):
             relative = '%s%s' % (parts.netloc, path)
         else:
             relative = repo_url
+
+        # Replace colons with slashes.
+        relative = '/'.join(relative.split(':'))
 
         # Remove anyleading slashes, or os.path.join below will only
         # use the relative part (since it's absolute, not relative).

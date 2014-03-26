@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,6 +28,6 @@ cd "$DATADIR/workspace/branch1"
 "$SRCDIR/scripts/test-morph" --log "$DATADIR/deploy.log" \
     deploy rawdisk_test_cluster > /dev/null
 
-outputdir="test:morphs"
+outputdir="test/morphs"
 test -e $outputdir/disk.img
 

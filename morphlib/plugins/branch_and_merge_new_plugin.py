@@ -190,8 +190,12 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
         with self._initializing_system_branch(
             ws, root_url, system_branch, cached_repo, base_ref) as (sb, gd):
 
+            if gd.has_fat():
+                gd.fat_init()
+                gd.fat_pull()
+
             if not self._checkout_has_systems(gd):
-                raise BranchRootHasNoSystemsError(base_ref)
+                raise BranchRootHasNoSystemsError(root_url, base_ref)
 
 
     def branch(self, args):
@@ -250,9 +254,12 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
 
             gd.branch(system_branch, base_ref)
             gd.checkout(system_branch)
+            if gd.has_fat():
+                gd.fat_init()
+                gd.fat_pull()
 
             if not self._checkout_has_systems(gd):
-                raise BranchRootHasNoSystemsError(base_ref)
+                raise BranchRootHasNoSystemsError(root_url, base_ref)
 
     def _save_dirty_morphologies(self, loader, sb, morphs):
         logging.debug('Saving dirty morphologies: start')
@@ -480,6 +487,9 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
                     gd.checkout(sb.system_branch_name)
                 gd.update_submodules(self.app)
                 gd.update_remotes()
+                if gd.has_fat():
+                    gd.fat_init()
+                    gd.fat_pull()
 
                 # Change the refs to the chunk.
                 if chunk_ref != sb.system_branch_name:

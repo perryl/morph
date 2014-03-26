@@ -1,6 +1,5 @@
 #!/bin/sh
-#
-# Copyright (C) 2012-2014  Codethink Limited
+# Copyright (C) 2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,19 +14,11 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-
-## 'morph edit' should set up git URL rewriting correctly so that submodule
-## commands function as usual, despite our prefixing and mirroring.
+# Preparatory checks for Morph 'tar' write extension
 
 set -eu
 
-cd "$DATADIR/workspace"
-"$SRCDIR/scripts/test-morph" init
-"$SRCDIR/scripts/test-morph" branch test:morphs newbranch
-
-# Submodules should be set up automatically
-"$SRCDIR/scripts/test-morph" edit hello-system hello-stratum hello
-
-cd "$DATADIR/workspace/newbranch/test/hello"
-[ -e foolib/README ]
-
+if [ "$UPGRADE" == "yes" ]; then
+    echo >&2 "ERROR: Cannot upgrade a tar file deployment."
+    exit 1
+fi

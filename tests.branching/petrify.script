@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,10 +27,10 @@ cd "$DATADIR/workspace"
 "$SRCDIR/scripts/test-morph" init
 "$SRCDIR/scripts/test-morph" branch test:morphs test/petrify master
 
-cd test/petrify/test:morphs
+cd test/petrify/test/morphs
 git push --quiet origin HEAD
 "$SRCDIR/scripts/test-morph" edit hello-system hello-stratum goodbye
-(cd ../test:goodbye && git push --quiet origin HEAD)
+(cd ../goodbye && git push --quiet origin HEAD)
 
 "$SRCDIR/scripts/test-morph" petrify
 echo "Petrified:"

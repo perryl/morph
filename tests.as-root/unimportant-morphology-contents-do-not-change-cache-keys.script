@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -36,8 +36,8 @@ cd "$DATADIR/workspace"
 ARTIFACT_COUNT="$(ls "$DATADIR/cache/artifacts" | wc -l)"
 
 # Petrify the refs, so the morphologies will be different
-(set -e && cd branch1/test:morphs && git push --quiet origin HEAD)
-(set -e && cd branch1/test:kernel-repo && git push --quiet origin HEAD)
+(set -e && cd branch1/test/morphs && git push --quiet origin HEAD)
+(set -e && cd branch1/test/kernel-repo && git push --quiet origin HEAD)
 "$SRCDIR/scripts/test-morph" petrify
 
 # Build with the petrified morphologies.
