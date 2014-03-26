@@ -276,9 +276,9 @@ class InitiatorBuildCommand(morphlib.buildcommand.BuildCommand):
 
             repo = args[0]
             ref = args[1]
-            system = args[2]
+            system_name = morphlib.util.strip_morph_extension(args[2])
 
-            morph = mf.get_morphology(repo, ref, system)
+            morph = mf.get_morphology(repo, ref, system_name + '.morph')
         else:
             system_name = morphlib.util.strip_morph_extension(args[2])
             sb = morphlib.sysbranchdir.open_from_within('.')
