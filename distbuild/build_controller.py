@@ -192,6 +192,8 @@ class BuildController(distbuild.StateMachine):
                 
             ('building', distbuild.HelperRouter, distbuild.HelperResult,
                 'building', self._handle_cache_response),
+            ('building', self, _Annotated, 'building',
+                self._queue_worker_builds),
             ('building', distbuild.WorkerConnection, 
                 distbuild.WorkerBuildStepStarted, 'building', 
                 self._relay_build_step_started),
@@ -400,9 +402,6 @@ class BuildController(distbuild.StateMachine):
                 logging.debug('No new artifacts queued for building')
                 break
 
-            for artifact in ready:
-                self.annotate_artifact(artifact)
-
             artifact = ready[0]
 
             if artifact.cache_key in self._scoreboard:
@@ -526,7 +525,17 @@ class BuildController(distbuild.StateMachine):
             # to BUILT
             map_build_graph(self._artifact, set_state)
 
-        self._queue_worker_builds(None, event)
+        # find everything that's ready to build,
+        # re-annotate
+        # queue annotated event
+        # annotated event will call queue worker builds
+
+        ready = self._find_artifacts_that_are_ready_to_build()
+
+        for artifact in ready:
+            self.annotate_artifact(artifact)
+
+        #self._queue_worker_builds(None, event)
 
     def _notify_build_failed(self, event_source, event):
         distbuild.crash_point()
