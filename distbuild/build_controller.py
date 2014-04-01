@@ -21,6 +21,7 @@ import httplib
 import traceback
 import urllib
 import urlparse
+import time
 
 import distbuild
 
@@ -401,25 +402,41 @@ class BuildController(distbuild.StateMachine):
                     '%s is already being built by ?' % artifact.name)
                 self.mainloop.queue_event(BuildController, progress)
 
-            # TODO: store worker that's building this thing
-            self._scoreboard[artifact.cache_key] = True
+                while artifact.cache_key in self._scoreboard:
+                    time.sleep(1)   # wait till it's been built
 
-            logging.debug(
-                'Requesting worker-build of %s (%s)' %
-                    (artifact.name, artifact.cache_key))
-            request = distbuild.WorkerBuildRequest(artifact,
-                                                   self._request['id'])
-            self.mainloop.queue_event(distbuild.WorkerBuildQueuer, request)
+                progress = BuildProgress(self._request['id'],
+                    'build of %s on ? completed' % artifact.name)
+                self.mainloop.queue_event(BuildController, progress)
 
-            artifact.state = BUILDING
-            if artifact.source.morphology['kind'] == 'chunk':
-                # Chunk artifacts are not built independently
-                # so when we're building any chunk artifact
-                # we're also building all the chunk artifacts
-                # in this source
-                for a in ready:
+                artifact.state = BUILT
+
+                def set_state(a):
                     if a.source == artifact.source:
-                        a.state = BUILDING
+                        a.state = BUILT
+
+                if artifact.source.morphology['kind'] == 'chunk':
+                    map_build_graph(self._artifact, set_state)
+            else:
+                # TODO: store worker that's building this thing
+                self._scoreboard[artifact.cache_key] = True
+
+                logging.debug(
+                    'Requesting worker-build of %s (%s)' %
+                        (artifact.name, artifact.cache_key))
+                request = distbuild.WorkerBuildRequest(artifact,
+                                                   self._request['id'])
+                self.mainloop.queue_event(distbuild.WorkerBuildQueuer, request)
+
+                artifact.state = BUILDING
+                if artifact.source.morphology['kind'] == 'chunk':
+                    # Chunk artifacts are not built independently
+                    # so when we're building any chunk artifact
+                    # we're also building all the chunk artifacts
+                    # in this source
+                    for a in ready:
+                        if a.source == artifact.source:
+                            a.state = BUILDING
 
 
     def _notify_initiator_disconnected(self, event_source, disconnect):
