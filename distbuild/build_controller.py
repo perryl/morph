@@ -151,12 +151,13 @@ class BuildController(distbuild.StateMachine):
     _idgen = distbuild.IdentifierGenerator('BuildController')
     
     def __init__(self, build_request_message, artifact_cache_server,
-                 morph_instance):
+                 morph_instance, scoreboard):
         distbuild.crash_point()
         distbuild.StateMachine.__init__(self, 'init')
         self._request = build_request_message
         self._artifact_cache_server = artifact_cache_server
         self._morph_instance = morph_instance
+        self._scoreboard = scoreboard
         self._helper_id = None
         self.debug_transitions = True
 
@@ -395,6 +396,14 @@ class BuildController(distbuild.StateMachine):
 
             artifact = ready[0]
 
+            if artifact.cache_key in self._scoreboard:
+                progress = BuildProgress(self._request['id'],
+                    '%s is already being built by ?' % artifact.name)
+                self.mainloop.queue_event(BuildController, progress)
+
+            # TODO: store worker that's building this thing
+            self._scoreboard[artifact.cache_key] = True
+
             logging.debug(
                 'Requesting worker-build of %s (%s)' %
                     (artifact.name, artifact.cache_key))
@@ -495,6 +504,7 @@ class BuildController(distbuild.StateMachine):
         self.mainloop.queue_event(BuildController, finished)
 
         artifact.state = BUILT
+        del self._scoreboard[artifact.cache_key]
 
         def set_state(a):
             if a.source == artifact.source:
