@@ -206,13 +206,14 @@ class ControllerDaemon(cliapp.Plugin):
         worker_cache_server_port = \
             self.app.settings['worker-cache-server-port']
         morph_instance = self.app.settings['morph-instance']
+        scoreboard = {}
 
         listener_specs = [
             ('controller-helper-address', 'controller-helper-port', 
              distbuild.HelperRouter, []),
             ('controller-initiator-address', 'controller-initiator-port',
              distbuild.InitiatorConnection, 
-             [artifact_cache_server, morph_instance]),
+             [artifact_cache_server, morph_instance, scoreboard]),
         ]
 
         loop = distbuild.MainLoop()
