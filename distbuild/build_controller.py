@@ -296,6 +296,26 @@ class BuildController(distbuild.StateMachine):
 
             notify_success(artifact)
 
+    def annotate_artifact(self, artifact):
+        artifact.state = UNKNOWN
+        artifact.helper_id = self._idgen.next()
+        filename = ('%s.%s.%s' %
+            (artifact.cache_key,
+             artifact.source.morphology['kind'],
+             artifact.name))
+        url = urlparse.urljoin(
+            self._artifact_cache_server,
+            '/1.0/artifacts?filename=%s' % urllib.quote(filename))
+        msg = distbuild.message('http-request',
+            id=artifact.helper_id,
+            url=url,
+            method='HEAD')
+        request = distbuild.HelperRequest(msg)
+        self.mainloop.queue_event(distbuild.HelperRouter, request)
+        logging.debug(
+            'Queued as %s query whether %s is in cache' %
+                (msg['id'], filename))
+
     def _start_annotating(self, event_source, event):
         distbuild.crash_point()
 
@@ -304,24 +324,7 @@ class BuildController(distbuild.StateMachine):
         # Queue http requests for checking from the shared artifact
         # cache for the artifacts.
         for artifact in map_build_graph(self._artifact, lambda a: a):
-            artifact.state = UNKNOWN
-            artifact.helper_id = self._idgen.next()
-            filename = ('%s.%s.%s' % 
-                (artifact.cache_key, 
-                 artifact.source.morphology['kind'],
-                 artifact.name))
-            url = urlparse.urljoin(
-                self._artifact_cache_server,
-                '/1.0/artifacts?filename=%s' % urllib.quote(filename))
-            msg = distbuild.message('http-request', 
-                id=artifact.helper_id,
-                url=url,
-                method='HEAD')
-            request = distbuild.HelperRequest(msg)
-            self.mainloop.queue_event(distbuild.HelperRouter, request)
-            logging.debug(
-                'Queued as %s query whether %s is in cache' %
-                    (msg['id'], filename))
+            self.annotate_artifact(artifact)
 
     def _handle_cache_response(self, event_source, event):
         distbuild.crash_point()
@@ -395,28 +398,15 @@ class BuildController(distbuild.StateMachine):
                 logging.debug('No new artifacts queued for building')
                 break
 
+            for artifact in ready:
+                self.annotate_artifact(artifact)
+
             artifact = ready[0]
 
             if artifact.cache_key in self._scoreboard:
                 progress = BuildProgress(self._request['id'],
                     '%s is already being built by ?' % artifact.name)
                 self.mainloop.queue_event(BuildController, progress)
-
-                while artifact.cache_key in self._scoreboard:
-                    time.sleep(1)   # wait till it's been built
-
-                progress = BuildProgress(self._request['id'],
-                    'build of %s on ? completed' % artifact.name)
-                self.mainloop.queue_event(BuildController, progress)
-
-                artifact.state = BUILT
-
-                def set_state(a):
-                    if a.source == artifact.source:
-                        a.state = BUILT
-
-                if artifact.source.morphology['kind'] == 'chunk':
-                    map_build_graph(self._artifact, set_state)
             else:
                 # TODO: store worker that's building this thing
                 self._scoreboard[artifact.cache_key] = True
