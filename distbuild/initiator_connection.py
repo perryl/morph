@@ -46,11 +46,13 @@ class InitiatorConnection(distbuild.StateMachine):
     _idgen = distbuild.IdentifierGenerator('InitiatorConnection')
     _route_map = distbuild.RouteMap()
 
-    def __init__(self, conn, artifact_cache_server, morph_instance):
+    def __init__(self, conn, artifact_cache_server,
+                 morph_instance, scoreboard):
         distbuild.StateMachine.__init__(self, 'idle')
         self.conn = conn
         self.artifact_cache_server = artifact_cache_server
         self.morph_instance = morph_instance
+        self.scoreboard = scoreboard
 
     def setup(self):
         self.jm = distbuild.JsonMachine(self.conn)
@@ -94,7 +96,8 @@ class InitiatorConnection(distbuild.StateMachine):
             self._route_map.add(event.msg['id'], new_id)
             event.msg['id'] = new_id
             build_controller = distbuild.BuildController(
-                event.msg, self.artifact_cache_server, self.morph_instance)
+                event.msg, self.artifact_cache_server,
+                self.morph_instance, self.scoreboard)
             self.mainloop.add_state_machine(build_controller)
 
     def _disconnect(self, event_source, event):
