@@ -187,7 +187,9 @@ class BuildController(distbuild.StateMachine):
             ('annotating', distbuild.InitiatorConnection,
                 distbuild.InitiatorDisconnect, None,
                 self._maybe_abort),
-                
+
+            ('building', distbuild.HelperRouter, distbuild.HelperResult,
+                'annotating', self._handle_cache_response),
             ('building', distbuild.WorkerConnection, 
                 distbuild.WorkerBuildStepStarted, 'building', 
                 self._relay_build_step_started),
