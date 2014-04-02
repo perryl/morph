@@ -510,7 +510,12 @@ class BuildController(distbuild.StateMachine):
             # to BUILT
             map_build_graph(self._artifact, set_state)
 
-        self._queue_worker_builds(None, event)
+        ready = self._find_artifacts_that_are_ready_to_build()
+
+        for artifact in ready:
+            logging.debug('Reannotating %s' % artifact.name)
+            self.annotate_artifact(artifact)
+        #self._queue_worker_builds(None, event)
 
     def _notify_build_failed(self, event_source, event):
         distbuild.crash_point()
