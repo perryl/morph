@@ -389,24 +389,25 @@ class BuildController(distbuild.StateMachine):
         #                '    depends on %s which is %s' %
         #                    (dep.name, dep.state))
 
-        # TODO: this change we probably didn't want,
-        # saturates build nodes
-        ready = self._find_artifacts_that_are_ready_to_build()
+        while True:
+            ready = self._find_artifacts_that_are_ready_to_build()
+            artifact = None
 
-        while len(ready) > 0:
-            artifact = ready.pop()
+            while len(ready) > 0:
+                artifact = ready.pop()
+                logging.debug('Looking at artifact %s' % artifact.name)
 
-            if artifact in self._scoreboard:
-                progress = BuildProgress(self._request['id'],
-                    '%s is already being built by ?' % artifact.name)
-                self.mainloop.queue_event(BuildController, progress)
-                artifact = None
-            else:
+                if artifact in self._scoreboard:
+                    progress = BuildProgress(self._request['id'],
+                        '%s is already being built by ?' % artifact.name)
+                    self.mainloop.queue_event(BuildController, progress)
+                    artifact = None
+                else:
+                    break
+
+            if artifact == None:
+                logging.debug('No new artifacts queued for building')
                 break
-
-        if artifact == None:
-            logging.debug('No new artifacts queued for building')
-            return
 
             # TODO: store worker that's building this thing
             self._scoreboard[artifact.cache_key] = True
