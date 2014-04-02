@@ -295,6 +295,8 @@ class BuildController(distbuild.StateMachine):
 
             notify_success(artifact)
 
+
+
     def _start_annotating(self, event_source, event):
         distbuild.crash_point()
 
@@ -387,41 +389,44 @@ class BuildController(distbuild.StateMachine):
         #                '    depends on %s which is %s' %
         #                    (dep.name, dep.state))
 
-        while True:
-            ready = self._find_artifacts_that_are_ready_to_build()
+        # TODO: this change we probably didn't want,
+        # saturates build nodes
+        ready = self._find_artifacts_that_are_ready_to_build()
 
-            if len(ready) == 0:
-                logging.debug('No new artifacts queued for building')
-                break
+        while len(ready) > 0:
+            artifact = ready.pop()
 
-            artifact = ready[0]
-
-            if artifact.cache_key in self._scoreboard:
+            if artifact in self._scoreboard:
                 progress = BuildProgress(self._request['id'],
                     '%s is already being built by ?' % artifact.name)
                 self.mainloop.queue_event(BuildController, progress)
-
-                # TODO: pop another from ready and build that
+                artifact = None
             else:
-                # TODO: store worker that's building this thing
-                self._scoreboard[artifact.cache_key] = True
+                break
 
-                logging.debug(
-                    'Requesting worker-build of %s (%s)' %
-                        (artifact.name, artifact.cache_key))
-                request = distbuild.WorkerBuildRequest(artifact,
+        if artifact == None:
+            logging.debug('No new artifacts queued for building')
+            return
+
+            # TODO: store worker that's building this thing
+            self._scoreboard[artifact.cache_key] = True
+
+            logging.debug(
+                'Requesting worker-build of %s (%s)' %
+                    (artifact.name, artifact.cache_key))
+            request = distbuild.WorkerBuildRequest(artifact,
                                                    self._request['id'])
-                self.mainloop.queue_event(distbuild.WorkerBuildQueuer, request)
+            self.mainloop.queue_event(distbuild.WorkerBuildQueuer, request)
 
-                artifact.state = BUILDING
-                if artifact.source.morphology['kind'] == 'chunk':
-                    # Chunk artifacts are not built independently
-                    # so when we're building any chunk artifact
-                    # we're also building all the chunk artifacts
-                    # in this source
-                    for a in ready:
-                        if a.source == artifact.source:
-                            a.state = BUILDING
+            artifact.state = BUILDING
+            if artifact.source.morphology['kind'] == 'chunk':
+                # Chunk artifacts are not built independently
+                # so when we're building any chunk artifact
+                # we're also building all the chunk artifacts
+                # in this source
+                for a in ready:
+                    if a.source == artifact.source:
+                        a.state = BUILDING
 
 
     def _notify_initiator_disconnected(self, event_source, disconnect):
