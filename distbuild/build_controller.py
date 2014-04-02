@@ -378,14 +378,14 @@ class BuildController(distbuild.StateMachine):
             return
 
         logging.debug('Queuing more worker-builds to run')
-        logging.debug('Current state of build graph nodes:')
-        for a in map_build_graph(self._artifact, lambda a: a):
-            logging.debug('  %s state is %s' % (a.name, a.state))
-            if a.state != BUILT:
-                for dep in a.dependencies:
-                    logging.debug(
-                        '    depends on %s which is %s' % 
-                            (dep.name, dep.state))
+        #logging.debug('Current state of build graph nodes:')
+        #for a in map_build_graph(self._artifact, lambda a: a):
+        #    logging.debug('  %s state is %s' % (a.name, a.state))
+        #    if a.state != BUILT:
+        #        for dep in a.dependencies:
+        #            logging.debug(
+        #                '    depends on %s which is %s' %
+        #                    (dep.name, dep.state))
 
         while True:
             ready = self._find_artifacts_that_are_ready_to_build()
