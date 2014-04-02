@@ -192,8 +192,6 @@ class BuildController(distbuild.StateMachine):
                 
             ('building', distbuild.HelperRouter, distbuild.HelperResult,
                 'building', self._handle_cache_response),
-            ('building', self, _Annotated, 'building',
-                self._queue_worker_builds),
             ('building', distbuild.WorkerConnection, 
                 distbuild.WorkerBuildStepStarted, 'building', 
                 self._relay_build_step_started),
