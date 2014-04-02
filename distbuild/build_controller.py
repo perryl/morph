@@ -530,6 +530,7 @@ class BuildController(distbuild.StateMachine):
         # queue annotated event
         # annotated event will call queue worker builds
 
+        logging.debug('Reannotating \'ready\' artifacts')
         ready = self._find_artifacts_that_are_ready_to_build()
 
         for artifact in ready:
