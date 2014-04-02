@@ -18,6 +18,7 @@
 
 import logging
 import httplib
+import time
 import traceback
 import urllib
 import urlparse
@@ -297,10 +298,15 @@ class BuildController(distbuild.StateMachine):
     def _start_annotating(self, event_source, event):
         distbuild.crash_point()
 
+        progress = BuildProgress(
+            self._request['id'], 'Queuing build graph annotation...')
+        self.mainloop.queue_event(BuildController, progress)
+
         self._artifact = event.artifact
 
         # Queue http requests for checking from the shared artifact
         # cache for the artifacts.
+        artifact_count = 0
         for artifact in map_build_graph(self._artifact, lambda a: a):
             artifact.state = UNKNOWN
             artifact.helper_id = self._idgen.next()
@@ -320,6 +326,9 @@ class BuildController(distbuild.StateMachine):
             logging.debug(
                 'Queued as %s query whether %s is in cache' %
                     (msg['id'], filename))
+            artifact_count += 1
+        self._annotation_count = artifact_count
+        self._last_annotation_time = time.time()
 
     def _handle_cache_response(self, event_source, event):
         distbuild.crash_point()
@@ -339,10 +348,18 @@ class BuildController(distbuild.StateMachine):
                 artifact.helper_id = None
         
         map_build_graph(self._artifact, set_status)
-        
+
         queued = map_build_graph(self._artifact, lambda a: a.state == UNKNOWN)
         if any(queued):
             logging.debug('Waiting for further responses')
+            if time.time() > (self._last_annotation_time + 5):
+                remaining = len([i for i in queued if i])
+                done = self._annotation_count - remaining
+                perc = (done * 100) / self._annotation_count
+                progress = BuildProgress(
+                    self._request['id'], 'Annotation is %d%% complete.' % perc)
+                self.mainloop.queue_event(BuildController, progress)
+                self._last_annotation_time = time.time()
         else:
             logging.debug('All cache query responses received')
             self.mainloop.queue_event(self, _Annotated())
