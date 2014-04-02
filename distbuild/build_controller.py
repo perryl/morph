@@ -401,25 +401,27 @@ class BuildController(distbuild.StateMachine):
                     '%s is already being built by ?' % artifact.name)
                 self.mainloop.queue_event(BuildController, progress)
 
-            # TODO: store worker that's building this thing
-            self._scoreboard[artifact.cache_key] = True
+                # TODO: pop another from ready and build that
+            else:
+                # TODO: store worker that's building this thing
+                self._scoreboard[artifact.cache_key] = True
 
-            logging.debug(
-                'Requesting worker-build of %s (%s)' %
-                    (artifact.name, artifact.cache_key))
-            request = distbuild.WorkerBuildRequest(artifact,
+                logging.debug(
+                    'Requesting worker-build of %s (%s)' %
+                        (artifact.name, artifact.cache_key))
+                request = distbuild.WorkerBuildRequest(artifact,
                                                    self._request['id'])
-            self.mainloop.queue_event(distbuild.WorkerBuildQueuer, request)
+                self.mainloop.queue_event(distbuild.WorkerBuildQueuer, request)
 
-            artifact.state = BUILDING
-            if artifact.source.morphology['kind'] == 'chunk':
-                # Chunk artifacts are not built independently
-                # so when we're building any chunk artifact
-                # we're also building all the chunk artifacts
-                # in this source
-                for a in ready:
-                    if a.source == artifact.source:
-                        a.state = BUILDING
+                artifact.state = BUILDING
+                if artifact.source.morphology['kind'] == 'chunk':
+                    # Chunk artifacts are not built independently
+                    # so when we're building any chunk artifact
+                    # we're also building all the chunk artifacts
+                    # in this source
+                    for a in ready:
+                        if a.source == artifact.source:
+                            a.state = BUILDING
 
 
     def _notify_initiator_disconnected(self, event_source, disconnect):
