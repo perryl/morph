@@ -335,7 +335,7 @@ class BuildController(distbuild.StateMachine):
 
         state_change = False
 
-        def set_status(artifact):
+        for artifact in map_build_graph(self._artifact, lambda a: a):
             if artifact.helper_id == event.msg['id']:
                 state_change = True
                 old = artifact.state
@@ -347,8 +347,6 @@ class BuildController(distbuild.StateMachine):
                     'Changed artifact %s state from %s to %s' %
                         (artifact.name, old, artifact.state))
                 artifact.helper_id = None
-        
-        map_build_graph(self._artifact, set_status)
         
         queued = map_build_graph(self._artifact, lambda a: a.state == UNKNOWN)
 
