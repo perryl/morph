@@ -397,7 +397,7 @@ class BuildController(distbuild.StateMachine):
                 artifact = ready.pop()
                 logging.debug('Looking at artifact %s' % artifact.name)
 
-                if artifact in self._scoreboard:
+                if artifact.cache_key in self._scoreboard:
                     progress = BuildProgress(self._request['id'],
                         '%s is already being built by ?' % artifact.name)
                     self.mainloop.queue_event(BuildController, progress)
