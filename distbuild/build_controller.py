@@ -333,8 +333,11 @@ class BuildController(distbuild.StateMachine):
 
         logging.debug('Got cache query response: %s' % repr(event.msg))
 
+        state_change = False
+
         def set_status(artifact):
             if artifact.helper_id == event.msg['id']:
+                state_change = True
                 old = artifact.state
                 if event.msg['status'] == httplib.OK:
                     artifact.state = BUILT
@@ -348,6 +351,11 @@ class BuildController(distbuild.StateMachine):
         map_build_graph(self._artifact, set_status)
         
         queued = map_build_graph(self._artifact, lambda a: a.state == UNKNOWN)
+
+        if not state_change:
+            logging.debug('Event didn\'t change any chunk state, so not for us')
+            return
+
         if any(queued):
             logging.debug('Waiting for further responses')
         else:
@@ -516,6 +524,7 @@ class BuildController(distbuild.StateMachine):
 
         ready = self._find_artifacts_that_are_ready_to_build()
 
+        logging.debug("There are %d chunks ready to build" % len(ready))
         for artifact in ready:
             logging.debug('Reannotating %s' % artifact.name)
             self.annotate_artifact(artifact)
