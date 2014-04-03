@@ -13,7 +13,9 @@ headers = {'Content-type': 'application/x-www-form-urlencoded',
 			'Accept': 'text/plain'}
 
 conn = httplib.HTTPConnection('192.168.122.254:8080')
-conn.request('POST', '/1.0/postartifacts', params, headers)
+conn.request('POST', '/1.0/postartifacts', params)
+
+#conn.request('POST', '/1.0/postartifacts', params, headers)
 
 response = conn.getresponse()
 print response.status, response.reason
