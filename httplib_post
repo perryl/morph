@@ -2,7 +2,11 @@
 
 import httplib, urllib
 
-params = urllib.urlencode({'artifacts': 'hello,world'})
+artifacts = ['f0f37e4e32476b64353e61b9e6f208beed9e7b68660c59cab365cad2437a859e.chunk.stage2-make-misc',
+'5628fd1a1bd05ef338c53e1b442b2a71a07e1cc02819be6dd9d17c3b4e8abf26.chunk.zlib-doc',
+'5628fd1a1bd05ef338c53e1b442b2a71a07e1cc02819be6dd9d17c3b4e8abf26.chunk.captain-badger']
+
+params = urllib.urlencode({'artifacts': artifacts})
 
 print 'params', params
 
