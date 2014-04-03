@@ -155,7 +155,9 @@ class HelperMachine(distbuild.StateMachine):
 
         url = msg['url']
         method = msg['method']
-        assert method in ('HEAD', 'GET')
+        headers = msg['headers']
+        body = msg['body']
+        assert method in ('HEAD', 'GET', 'POST')
 
         logging.debug('JsonMachine: http request: %s %s' % (method, url))
 
@@ -166,7 +168,7 @@ class HelperMachine(distbuild.StateMachine):
 
         try:
             conn = httplib.HTTPConnection(netloc)
-            conn.request(method, path)
+            conn.request(method, path, body, headers)
         except (socket.error, httplib.HTTPException), e:
             status = 418 # teapot
             data = str(e)
