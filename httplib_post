@@ -2,14 +2,19 @@
 
 import httplib, urllib
 
-params = urllib.urlencode({'hello': 'world'})
+params = urllib.urlencode({'artifacts': 'hello,world'})
+
+print 'params', params
+
 headers = {'Content-type': 'application/x-www-form-urlencoded',
 			'Accept': 'text/plain'}
 
-conn = httplib.HTTPConnection('192.168.122.254:80')
-conn.request('POST', '/artifacts', params, headers)
+conn = httplib.HTTPConnection('192.168.122.254:8080')
+conn.request('POST', '/1.0/artifacts', params, headers)
 
 response = conn.getresponse()
 print response.status, response.reason
 data = response.read()
 conn.close()
+
+print 'received: ', data
