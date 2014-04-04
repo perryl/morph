@@ -358,7 +358,8 @@ class WorkerConnection(distbuild.StateMachine):
                  suffixes))
 
         msg = distbuild.message(
-            'http-request', id=self._request_ids.next(), url=url, method='GET')
+            'http-request', id=self._request_ids.next(), url=url,
+            method='GET', body=None, headers=None)
         self._helper_id = msg['id']
         req = distbuild.HelperRequest(msg)
         self.mainloop.queue_event(distbuild.HelperRouter, req)
