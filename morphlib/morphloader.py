@@ -308,6 +308,10 @@ class MorphologyLoader(object):
             'products': [],
             'max-jobs': None,
             'build-system': 'manual',
+            'repo': '',
+            'ref': '',
+            'unpetrify-ref': '',
+            'comments': '',
         },
         'stratum': {
             'chunks': [],
