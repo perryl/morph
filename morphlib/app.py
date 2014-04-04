@@ -26,12 +26,19 @@ import extensions
 
 import morphlib
 
+
 class InvalidUrlError(cliapp.AppException):
 
     def __init__(self, parameter, url):
         cliapp.AppException.__init__(
             self, 'Value %s for argument %s is not a url' %
             (url, parameter))
+
+
+class ChunkMorphologyDefinitionError(cliapp.AppException):
+
+    def __init__(self, message):
+        cliapp.AppException.__init__(self, message)
 
 defaults = {
     'trove-host': 'git.baserock.org',
@@ -286,6 +293,14 @@ class Morph(cliapp.Application):
         pool = morphlib.sourcepool.SourcePool()
 
         def add_to_pool(reponame, ref, filename, absref, tree, morphology):
+            if morphology['kind'] == 'chunk':
+                reponame = morphology.get('repo')
+                ref = morphology.get('ref')
+            if not (reponame or ref) and morphology['kind'] == 'chunk':
+                raise ChunkMorphologyDefinitionError(
+                    'Chunk morphology %s lacks a repo and/or ref.' %
+                    morphology.get('morph'))
+
             source = morphlib.source.Source(reponame, ref, absref, tree,
                                             morphology, filename)
             pool.add(source)
@@ -359,7 +374,11 @@ class Morph(cliapp.Application):
                 resolved_morphologies[reference] = \
                     morph_factory.get_morphology(reponame, absref, filename)
             morphology = resolved_morphologies[reference]
-
+            if morphology['kind'] == 'chunk':
+                update_repo = update and morphology['repo'] not in updated_repos
+                absref, tree = self.resolve_ref(
+                    lrc, rrc, morphology['repo'], morphology['ref'], update_repo)
+                updated_repos.add(morphology['repo'])
             visit(reponame, ref, filename, absref, tree, morphology)
             if morphology['kind'] == 'cluster':
                 raise cliapp.AppException(
@@ -375,7 +394,9 @@ class Morph(cliapp.Application):
                                   s.get('ref') or ref,
                                   '%s.morph' % s['morph'])
                                  for s in morphology['build-depends'])
-                queue.extend((c['repo'], c['ref'], '%s.morph' % c['morph'])
+                queue.extend((reponame,
+                              ref,
+                              '%s.morph' % c['morph'])
                              for c in morphology['chunks'])
 
     def cache_repo_and_submodules(self, cache, url, ref, done):
