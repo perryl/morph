@@ -419,59 +419,33 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
 
         '''
 
-        if len(args) not in (2, 3):
-            raise cliapp.AppException('morph edit needs the names of a system,'
-                                      ' a stratum and optionally a chunk'
-                                      ' as parameters')
+        if len(args) != 1:
+            raise cliapp.AppException('morph edit needs the path to a '
+                                      'morphology as a parameter')
 
-        system_name  = morphlib.util.strip_morph_extension(args[0])
-        stratum_name  = morphlib.util.strip_morph_extension(args[1])
-        chunk_name = None
-        if len(args) == 3:
-            chunk_name = morphlib.util.strip_morph_extension(args[2])
+        morphology_path = args[0]
 
         ws = morphlib.workspace.open('.')
         sb = morphlib.sysbranchdir.open_from_within('.')
         loader = morphlib.morphloader.MorphologyLoader()
 
-        # Load the system morphology, and all stratum morphologies, including
-        # all the strata that are being build-depended on.
+        # Load the morphology, including all the stratum morphologies that
+        # are being build-depended on.
 
-        logging.debug('Loading system morphology')
-        system_morph = loader.load_from_file(
-            sb.get_filename(sb.root_repository_url, system_name + '.morph'))
-        if system_morph['kind'] != 'system':
-            raise cliapp.AppException("%s is not a system" % system_name)
-        system_morph.repo_url = sb.root_repository_url
-        system_morph.ref = sb.system_branch_name
-        system_morph.filename = system_name + '.morph'
+        logging.debug('Loading morphology')
+        morphology = loader.load_from_file(
+            sb.get_filename(sb.root_repository_url, morphology_path))
 
-        logging.debug('Loading stratum morphologies')
-        morphs = self._load_stratum_morphologies(loader, sb, system_morph)
-        morphs.add_morphology(system_morph)
-        logging.debug('morphs: %s' % repr(morphs.morphologies))
-
-        # Change refs to the stratum to be to the system branch.
-        # Note: this currently only supports strata in root repository.
-
-        logging.debug('Changing refs to stratum %s' % stratum_name)
-        stratum_morph = morphs.get_stratum_in_system(
-            system_morph, stratum_name)
-        morphs.change_ref(
-            stratum_morph.repo_url, stratum_morph.ref, stratum_morph.filename,
-            sb.system_branch_name)
-        logging.debug('morphs: %s' % repr(morphs.morphologies))
-
-        # If we're editing a chunk, make it available locally, with the
-        # relevant git branch checked out. This also invents the new branch
-        # name.
-
-        if chunk_name:
-            logging.debug('Editing chunk %s' % chunk_name)
-
-            chunk_url, chunk_ref, chunk_morph = morphs.get_chunk_triplet(
-                stratum_morph, chunk_name)
-
+        if morphology['kind'] == 'chunk':
+            # Checkout the chunk repo, and update other morphologies to use
+            # the edited chunk.
+            try:
+                chunk_url = morphology['repo']
+                chunk_ref = morphology['ref']
+            except KeyError:
+                raise cliapp.AppException('Chunk definition %s does not '
+                                          'contain repo and ref' %
+                                          morphology_path)
             chunk_dirname = sb.get_git_directory_name(chunk_url)
             if not os.path.exists(chunk_dirname):
                 lrc, rrc = morphlib.util.new_repo_caches(self.app)
@@ -491,15 +465,10 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
                     gd.fat_init()
                     gd.fat_pull()
 
-                # Change the refs to the chunk.
-                if chunk_ref != sb.system_branch_name:
-                    morphs.change_ref(
-                        chunk_url, chunk_ref, chunk_morph + '.morph',
-                        sb.system_branch_name)
-
-        # Save any modified strata.
-
-        self._save_dirty_morphologies(loader, sb, morphs.morphologies)
+                # TODO: Save changed repo/ref in both the stratum and the chunk
+        else:
+            raise cliapp.AppException(
+                'morph edit takes a path to a chunk morphology.')
 
     def show_system_branch(self, args):
         '''Show the name of the current system branch.'''
