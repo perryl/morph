@@ -5,9 +5,6 @@ import httplib, urllib
 artifacts = ['fd3d0577903b12b77a1ed593b19dbd46e11abf5445b1824b7677683b2436e54b.chunk.eglibc-misc',
 '5628fd1a1bd05ef338c53e1b442b2a71a07e1cc02819be6dd9d17c3b4e8abf26.chunk.captain-badger']
 
-for i in range(200):
-	artifacts.append(artifacts[0])
-
 params = urllib.urlencode({'artifacts': ','.join(artifacts)})
 
 print 'params', params
@@ -16,7 +13,7 @@ headers = {'Content-type': 'application/x-www-form-urlencoded',
 			'Accept': 'text/plain'}
 
 conn = httplib.HTTPConnection('192.168.122.254:8080')
-conn.request('POST', '/1.0/postartifacts', params, headers)
+conn.request('POST', '/1.0/artifacts', params, headers)
 
 #conn.request('POST', '/1.0/postartifacts', params, headers)
 
