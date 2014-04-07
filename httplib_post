@@ -5,7 +5,7 @@ import httplib, urllib
 artifacts = ['fd3d0577903b12b77a1ed593b19dbd46e11abf5445b1824b7677683b2436e54b.chunk.eglibc-misc',
 '5628fd1a1bd05ef338c53e1b442b2a71a07e1cc02819be6dd9d17c3b4e8abf26.chunk.captain-badger']
 
-params = urllib.urlencode({'artifacts': ','.join(artifacts)})
+params = {'artifacts': ','.join(artifacts)}
 
 print 'params', params
 
