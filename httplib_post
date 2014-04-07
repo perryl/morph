@@ -9,7 +9,7 @@ params = urllib.urlencode({'artifacts': ','.join(artifacts)})
 
 print 'params', params
 
-headers = {'Content-type': 'application/x-www-form-urlencoded',
+headers = {'Content-type': 'application/json',
 			'Accept': 'text/plain'}
 
 conn = httplib.HTTPConnection('192.168.122.254:8080')
