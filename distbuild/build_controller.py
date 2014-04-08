@@ -182,7 +182,7 @@ class BuildController(distbuild.StateMachine):
                 self._maybe_abort),
                 
             ('annotating', distbuild.HelperRouter, distbuild.HelperResult,
-                'annotating', self._handle_postartifacts_response),
+                'annotating', self._handle_cache_response),
             ('annotating', self, _Annotated, 'building', 
                 self._queue_worker_builds),
             ('annotating', distbuild.InitiatorConnection,
@@ -327,10 +327,8 @@ class BuildController(distbuild.StateMachine):
         logging.debug('Made cache request for state of artifacts '
             '(helper id: %s)' % self._helper_id)
 
-    def _handle_postartifacts_response(self, event_source, event):
-        distbuild.crash_point()
-
-        logging.debug('Got postartifacts response: %s' % repr(event.msg))
+    def _handle_cache_response(self, event_source, event):
+        logging.debug('Got cache response: %s' % repr(event.msg))
 
         def set_status(artifact):
             is_in_cache = cache_state[self.artifact_filename(artifact)]
@@ -340,8 +338,9 @@ class BuildController(distbuild.StateMachine):
             return    # this event is not for us
 
         if event.msg['status'] != httplib.OK:
-            # TODO: try to recover, send the request again or something
-            logging.debug('Cache request failed (http grues)')
+            # TODO: try to recover, send the request again?
+            logging.debug('Cache request failed with status: %s'
+                % event.msg['status'])
             return
 
         cache_state = json.loads(event.msg['body'])
@@ -360,45 +359,7 @@ class BuildController(distbuild.StateMachine):
             logging.info('There seems to be nothing to build')
             self.mainloop.queue_event(self, _Built())
 
-    def _handle_cache_response(self, event_source, event):
-        distbuild.crash_point()
-
-        logging.debug('Got cache query response: %s' % repr(event.msg))
-
-        def set_status(artifact):
-            if artifact.helper_id == event.msg['id']:
-                old = artifact.state
-                if event.msg['status'] == httplib.OK:
-                    artifact.state = BUILT
-                else:
-                    artifact.state = UNBUILT
-                logging.debug(
-                    'Changed artifact %s state from %s to %s' %
-                        (artifact.name, old, artifact.state))
-                artifact.helper_id = None
-        
-        map_build_graph(self._artifact, set_status)
-        
-        queued = map_build_graph(self._artifact, lambda a: a.state == UNKNOWN)
-        if any(queued):
-            logging.debug('Waiting for further responses')
-        else:
-            logging.debug('All cache query responses received')
-            self.mainloop.queue_event(self, _Annotated())
-            
-            count = sum(1 if a.state == UNBUILT else 0
-                        for a in map_build_graph(self._artifact, lambda b: b))
-            progress = BuildProgress(
-                self._request['id'],
-                'Need to build %d artifacts' % count)
-            self.mainloop.queue_event(BuildController, progress)
-
-            if count == 0:
-                logging.info('There seems to be nothing to build')
-                self.mainloop.queue_event(self, _Built())
-
     def _find_artifacts_that_are_ready_to_build(self):
-
         def is_ready_to_build(artifact):
             return (artifact.state == UNBUILT and
                     all(a.state == BUILT for a in artifact.dependencies))
