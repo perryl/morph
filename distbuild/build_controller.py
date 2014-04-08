@@ -21,6 +21,7 @@ import httplib
 import traceback
 import urllib
 import urlparse
+import json
 
 import distbuild
 
@@ -181,7 +182,7 @@ class BuildController(distbuild.StateMachine):
                 self._maybe_abort),
                 
             ('annotating', distbuild.HelperRouter, distbuild.HelperResult,
-                'annotating', self._handle_cache_response),
+                'annotating', self._handle_postartifacts_response),
             ('annotating', self, _Annotated, 'building', 
                 self._queue_worker_builds),
             ('annotating', distbuild.InitiatorConnection,
@@ -294,32 +295,70 @@ class BuildController(distbuild.StateMachine):
 
             notify_success(artifact)
 
+    def artifact_filename(self, artifact):
+        return ('%s.%s.%s' %
+                (artifact.cache_key,
+                 artifact.source.morphology['kind'],
+                 artifact.name))
+
     def _start_annotating(self, event_source, event):
         distbuild.crash_point()
 
         self._artifact = event.artifact
+        self._helper_id = self._idgen.next()
+        artifact_names = []
 
-        # Queue http requests for checking from the shared artifact
-        # cache for the artifacts.
-        for artifact in map_build_graph(self._artifact, lambda a: a):
+        def c(artifact):
             artifact.state = UNKNOWN
-            artifact.helper_id = self._idgen.next()
-            filename = ('%s.%s.%s' % 
-                (artifact.cache_key, 
-                 artifact.source.morphology['kind'],
-                 artifact.name))
-            url = urlparse.urljoin(
-                self._artifact_cache_server,
-                '/1.0/artifacts?filename=%s' % urllib.quote(filename))
-            msg = distbuild.message('http-request', 
-                id=artifact.helper_id,
-                url=url,
-                method='HEAD')
-            request = distbuild.HelperRequest(msg)
-            self.mainloop.queue_event(distbuild.HelperRouter, request)
-            logging.debug(
-                'Queued as %s query whether %s is in cache' %
-                    (msg['id'], filename))
+            artifact_names.append(self.artifact_filename(artifact))
+
+        map_build_graph(self._artifact, c)
+
+        url = urlparse.urljoin(self._artifact_cache_server, '/1.0/artifacts')
+        msg = distbuild.message('http-request',
+            id=self._helper_id,
+            url=url,
+            headers = {'Content-type': 'application/json'},
+            body=json.dumps(artifact_names),
+            method='POST')
+
+        request = distbuild.HelperRequest(msg)
+        self.mainloop.queue_event(distbuild.HelperRouter, request)
+        logging.debug('Made cache request for state of artifacts '
+            '(helper id: %s)' % self._helper_id)
+
+    def _handle_postartifacts_response(self, event_source, event):
+        distbuild.crash_point()
+
+        logging.debug('Got postartifacts response: %s' % repr(event.msg))
+
+        def set_status(artifact):
+            is_in_cache = cache_state[self.artifact_filename(artifact)]
+            artifact.state = BUILT if is_in_cache else UNBUILT
+
+        if self._helper_id != event.msg['id']:
+            return    # this event is not for us
+
+        if event.msg['status'] != httplib.OK:
+            # TODO: try to recover, send the request again or something
+            logging.debug('Cache request failed (http grues)')
+            return
+
+        cache_state = json.loads(event.msg['body'])
+        map_build_graph(self._artifact, set_status)
+        self.mainloop.queue_event(self, _Annotated())
+
+        count = sum(map_build_graph(self._artifact,
+                lambda a: 1 if a.state == UNBUILT else 0))
+
+        progress = BuildProgress(
+            self._request['id'],
+            'Need to build %d artifacts' % count)
+        self.mainloop.queue_event(BuildController, progress)
+
+        if count == 0:
+            logging.info('There seems to be nothing to build')
+            self.mainloop.queue_event(self, _Built())
 
     def _handle_cache_response(self, event_source, event):
         distbuild.crash_point()
