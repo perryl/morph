@@ -21,6 +21,7 @@ import httplib
 import traceback
 import urllib
 import urlparse
+import json
 
 import distbuild
 
@@ -36,6 +37,10 @@ class _Start(object): pass
 class _Annotated(object): pass
 class _Built(object): pass
 
+class _AnnotationFailed(object):
+
+    def __init__(self, http_status_code):
+        self.http_status_code = http_status_code
 
 class _GotGraph(object):
 
@@ -182,6 +187,8 @@ class BuildController(distbuild.StateMachine):
                 
             ('annotating', distbuild.HelperRouter, distbuild.HelperResult,
                 'annotating', self._handle_cache_response),
+            ('annotating', self, _AnnotationFailed, None,
+                self._notify_annotation_failed),
             ('annotating', self, _Annotated, 'building', 
                 self._queue_worker_builds),
             ('annotating', distbuild.InitiatorConnection,
@@ -256,7 +263,7 @@ class BuildController(distbuild.StateMachine):
             
             failed = BuildFailed(
                 self._request['id'], 
-                'Failed go compute build graph: %s' % msg_text)
+                'Failed to compute build graph: %s' % msg_text)
             self.mainloop.queue_event(BuildController, failed)
             
             self.mainloop.queue_event(self, _GraphFailed())
@@ -294,72 +301,74 @@ class BuildController(distbuild.StateMachine):
 
             notify_success(artifact)
 
+    def _artifact_filename(self, artifact):
+        return ('%s.%s.%s' %
+                (artifact.cache_key,
+                 artifact.source.morphology['kind'],
+                 artifact.name))
+
     def _start_annotating(self, event_source, event):
         distbuild.crash_point()
 
         self._artifact = event.artifact
+        self._helper_id = self._idgen.next()
+        artifact_names = []
 
-        # Queue http requests for checking from the shared artifact
-        # cache for the artifacts.
-        for artifact in map_build_graph(self._artifact, lambda a: a):
+        def set_state_and_append(artifact):
             artifact.state = UNKNOWN
-            artifact.helper_id = self._idgen.next()
-            filename = ('%s.%s.%s' % 
-                (artifact.cache_key, 
-                 artifact.source.morphology['kind'],
-                 artifact.name))
-            url = urlparse.urljoin(
-                self._artifact_cache_server,
-                '/1.0/artifacts?filename=%s' % urllib.quote(filename))
-            msg = distbuild.message('http-request', 
-                id=artifact.helper_id,
-                url=url,
-                method='HEAD')
-            request = distbuild.HelperRequest(msg)
-            self.mainloop.queue_event(distbuild.HelperRouter, request)
-            logging.debug(
-                'Queued as %s query whether %s is in cache' %
-                    (msg['id'], filename))
+            artifact_names.append(self._artifact_filename(artifact))
+
+        map_build_graph(self._artifact, set_state_and_append)
+
+        url = urlparse.urljoin(self._artifact_cache_server, '/1.0/artifacts')
+        msg = distbuild.message('http-request',
+            id=self._helper_id,
+            url=url,
+            headers={'Content-type': 'application/json'},
+            body=json.dumps(artifact_names),
+            method='POST')
+
+        request = distbuild.HelperRequest(msg)
+        self.mainloop.queue_event(distbuild.HelperRouter, request)
+        logging.debug('Made cache request for state of artifacts '
+            '(helper id: %s)' % self._helper_id)
 
     def _handle_cache_response(self, event_source, event):
-        distbuild.crash_point()
-
-        logging.debug('Got cache query response: %s' % repr(event.msg))
+        logging.debug('Got cache response: %s' % repr(event.msg))
 
         def set_status(artifact):
-            if artifact.helper_id == event.msg['id']:
-                old = artifact.state
-                if event.msg['status'] == httplib.OK:
-                    artifact.state = BUILT
-                else:
-                    artifact.state = UNBUILT
-                logging.debug(
-                    'Changed artifact %s state from %s to %s' %
-                        (artifact.name, old, artifact.state))
-                artifact.helper_id = None
-        
-        map_build_graph(self._artifact, set_status)
-        
-        queued = map_build_graph(self._artifact, lambda a: a.state == UNKNOWN)
-        if any(queued):
-            logging.debug('Waiting for further responses')
-        else:
-            logging.debug('All cache query responses received')
-            self.mainloop.queue_event(self, _Annotated())
-            
-            count = sum(1 if a.state == UNBUILT else 0
-                        for a in map_build_graph(self._artifact, lambda b: b))
-            progress = BuildProgress(
-                self._request['id'],
-                'Need to build %d artifacts' % count)
-            self.mainloop.queue_event(BuildController, progress)
+            is_in_cache = cache_state[self._artifact_filename(artifact)]
+            artifact.state = BUILT if is_in_cache else UNBUILT
 
-            if count == 0:
-                logging.info('There seems to be nothing to build')
-                self.mainloop.queue_event(self, _Built())
+        if self._helper_id != event.msg['id']:
+            return    # this event is not for us
+
+        http_status_code = event.msg['status']
+
+        if http_status_code != httplib.OK:
+            logging.debug('Cache request failed with status: %s'
+                % event.msg['status'])
+            self.mainloop.queue_event(self,
+                _AnnotationFailed(http_status_code))
+            return
+
+        cache_state = json.loads(event.msg['body'])
+        map_build_graph(self._artifact, set_status)
+        self.mainloop.queue_event(self, _Annotated())
+
+        count = sum(map_build_graph(self._artifact,
+                    lambda a: 1 if a.state == UNBUILT else 0))
+
+        progress = BuildProgress(
+            self._request['id'],
+            'Need to build %d artifacts' % count)
+        self.mainloop.queue_event(BuildController, progress)
+
+        if count == 0:
+            logging.info('There seems to be nothing to build')
+            self.mainloop.queue_event(self, _Built())
 
     def _find_artifacts_that_are_ready_to_build(self):
-
         def is_ready_to_build(artifact):
             return (artifact.state == UNBUILT and
                     all(a.state == BUILT for a in artifact.dependencies))
@@ -508,6 +517,14 @@ class BuildController(distbuild.StateMachine):
             map_build_graph(self._artifact, set_state)
 
         self._queue_worker_builds(None, event)
+
+    def _notify_annotation_failed(self, event_source, event):
+        errmsg = ('Failed to annotate build graph: http request got %d'
+            % event.http_status_code)
+
+        logging.error(errmsg)
+        failed = BuildFailed(self._request['id'], errmsg)
+        self.mainloop.queue_event(BuildController, failed)
 
     def _notify_build_failed(self, event_source, event):
         distbuild.crash_point()
