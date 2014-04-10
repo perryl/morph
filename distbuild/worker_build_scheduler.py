@@ -87,6 +87,13 @@ class _HaveAJob(object):
     def __init__(self, artifact, initiator_id):
         self.artifact = artifact
         self.initiator_id = initiator_id
+
+class Job(object):
+
+    def __init__(self, artifact, initiator_id):
+        self.artifact = artifact
+        self.initiatiors = [initiator_id]
+        self.worker = None  # we don't know who's going to do this yet
         
         
 class _JobIsFinished(object):
@@ -125,6 +132,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         logging.debug('WBQ: Setting up %s' % self)
         self._request_queue = []
         self._available_workers = []
+        self._jobs = []
         
         spec = [
             ('idle', WorkerBuildQueuer, WorkerBuildRequest, 'idle',
