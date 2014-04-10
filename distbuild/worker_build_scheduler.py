@@ -360,7 +360,7 @@ class WorkerConnection(distbuild.StateMachine):
             # Build failed.
             new_event = WorkerBuildFailed(new, self._artifact.cache_key)
             self.mainloop.queue_event(WorkerConnection, new_event)
-            self.mainloop.queue_event(self, _BuildFailed())
+            self.mainloop.queue_event(self, _BuildFailed(self._artifact))
             self._artifact = None
             self._initiator_id = None
         else:
