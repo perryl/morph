@@ -184,6 +184,9 @@ class WorkerBuildQueuer(distbuild.StateMachine):
     def _handle_worker(self, event_source, event):
         distbuild.crash_point()
 
+        # TODO: search jobs for this artifact and tell anyone who care
+        # that it's been built
+
         logging.debug('WBQ: Adding worker to queue: %s' % event.who)
         self._available_workers.append(event)
         logging.debug(
