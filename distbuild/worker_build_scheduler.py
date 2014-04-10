@@ -55,6 +55,13 @@ class WorkerBuildOutput(object):
         self.artifact_cache_key = cache_key
 
 
+class WorkerBuildInProgress(object):
+    def __init__(self, initiator_id, cache_key, worker_name):
+        self.initiator_id = initiator_id
+        self.artifact_cache_key = cache_key
+        self.worker_name = worker_name
+
+
 class WorkerBuildCaching(object):
 
     def __init__(self, initiator_id, cache_key):
@@ -93,7 +100,7 @@ class Job(object):
     def __init__(self, artifact, initiator_id):
         self.artifact = artifact
         self.initiatiors = [initiator_id]
-        self.worker = None  # we don't know who's going to do this yet
+        self.who = None  # we don't know who's going to do this yet
         
         
 class _BuildFinished(object):
@@ -160,6 +167,11 @@ class WorkerBuildQueuer(distbuild.StateMachine):
 
         if event.artifact in self._jobs:
             job.initiators.append(event.initiator_id)
+
+            progress = WorkerBuildInProgress(
+                self._initiator_id, self._artifact.cache_key, job.who.name())
+
+            self.mainloop.queue_event(WorkerConnection, progress)
         else:
             j = Job(event.artifact, event.initiator_id)
             #self._jobs.append(j)
@@ -173,7 +185,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                     (len(self._available_workers),
                      len(self._request_queue)))
             if self._available_workers:
-                j.worker = self._give_job()
+                j.who = self._give_job()
 
     def _handle_cancel(self, event_source, worker_cancel_pending):
         # TODO: this probably needs to check whether any initiators
@@ -210,7 +222,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         self.mainloop.queue_event(worker.who, _HaveAJob(request.artifact,
                                                         request.initiator_id))
 
-        return worker
+        return worker.who
     
     
 class WorkerConnection(distbuild.StateMachine):
