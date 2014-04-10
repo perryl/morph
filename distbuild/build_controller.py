@@ -206,7 +206,7 @@ class BuildController(distbuild.StateMachine):
                 self._relay_build_caching),
             ('building', distbuild.WorkerConnection,
                 distbuild.WorkerBuildInProgress, 'building',
-                self._relay_build_in_progress)
+                self._relay_build_in_progress),
             ('building', distbuild.WorkerConnection,
                 distbuild.WorkerBuildFinished, 'building', 
                 self._check_result_and_queue_more_builds),
