@@ -146,14 +146,26 @@ class WorkerBuildQueuer(distbuild.StateMachine):
     def _handle_request(self, event_source, event):
         distbuild.crash_point()
 
-        logging.debug('WBQ: Adding request to queue: %s' % event.artifact.name)
-        self._request_queue.append(event)
-        logging.debug(
-            'WBQ: %d available workers and %d requests queued' %
-                (len(self._available_workers),
-                 len(self._request_queue)))
-        if self._available_workers:
-            self._give_job()
+        # Are we already building the thing?
+        # If so, add our initiator id to the existing job
+        # If not, add the job to the list and queue it
+        job = filter(lambda job: job.artifact == event.artifact, self._jobs)
+
+        if job:
+            job.initiators.append(event.initiator_id)
+        else:
+            j = Job(event.artifact, event.initiator_id)
+            self._jobs.append(j)
+
+            logging.debug('WBQ: Adding request to queue: %s'
+                % event.artifact.name)
+            self._request_queue.append(event)
+            logging.debug(
+                'WBQ: %d available workers and %d requests queued' %
+                    (len(self._available_workers),
+                     len(self._request_queue)))
+            if self._available_workers:
+                self._give_job()
 
     def _handle_cancel(self, event_source, worker_cancel_pending):
         for request in [r for r in self._request_queue if
