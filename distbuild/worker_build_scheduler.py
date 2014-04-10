@@ -96,13 +96,13 @@ class Job(object):
         self.worker = None  # we don't know who's going to do this yet
         
         
-class _JobIsFinished(object):
+class _BuildFinished(object):
 
     def __init__(self, msg):
         self.msg = msg
         
         
-class _JobFailed(object):
+class _BuildFailed(object):
 
     pass
         
@@ -165,9 +165,12 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                     (len(self._available_workers),
                      len(self._request_queue)))
             if self._available_workers:
-                self._give_job()
+                j.worker = self._give_job()
 
     def _handle_cancel(self, event_source, worker_cancel_pending):
+        # TODO: this probably needs to check whether any initiators
+        # care about this thing
+
         for request in [r for r in self._request_queue if
                         r.initiator_id == worker_cancel_pending.initiator_id]:
             logging.debug('WBQ: Removing request from queue: %s',
@@ -194,6 +197,8 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                 (request.artifact.name, worker.who.name()))
         self.mainloop.queue_event(worker.who, _HaveAJob(request.artifact,
                                                         request.initiator_id))
+
+        return worker
     
     
 class WorkerConnection(distbuild.StateMachine):
@@ -237,14 +242,14 @@ class WorkerConnection(distbuild.StateMachine):
             ('building', self._jm, distbuild.JsonEof, None, self._reconnect),
             ('building', self._jm, distbuild.JsonNewMessage, 'building',
                 self._handle_json_message),
-            ('building', self, _JobFailed, 'idle', self._request_job),
-            ('building', self, _JobIsFinished, 'caching',
+            ('building', self, _BuildFailed, 'idle', self._request_job),
+            ('building', self, _BuildFinished, 'caching',
                 self._request_caching),
 
             ('caching', distbuild.HelperRouter, distbuild.HelperResult,
                 'caching', self._handle_helper_result),
             ('caching', self, _Cached, 'idle', self._request_job),
-            ('caching', self, _JobFailed, 'idle', self._request_job),
+            ('caching', self, _BuildFailed, 'idle', self._request_job),
         ]
         self.add_transitions(spec)
         
@@ -331,12 +336,12 @@ class WorkerConnection(distbuild.StateMachine):
             # Build failed.
             new_event = WorkerBuildFailed(new, self._artifact.cache_key)
             self.mainloop.queue_event(WorkerConnection, new_event)
-            self.mainloop.queue_event(self, _JobFailed())
+            self.mainloop.queue_event(self, _BuildFailed())
             self._artifact = None
             self._initiator_id = None
         else:
             # Build succeeded. We have more work to do: caching the result.
-            self.mainloop.queue_event(self, _JobIsFinished(new))
+            self.mainloop.queue_event(self, _BuildFinished(new))
 
     def _request_job(self, event_source, event):
         distbuild.crash_point()
@@ -413,6 +418,6 @@ class WorkerConnection(distbuild.StateMachine):
                 self.mainloop.queue_event(WorkerConnection, new_event)
                 self._finished_msg = None
                 self._helper_id = None
-                self.mainloop.queue_event(self, _JobFailed())
+                self.mainloop.queue_event(self, _BuildFailed())
 
             self._artifact = None
