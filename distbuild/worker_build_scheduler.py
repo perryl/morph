@@ -142,6 +142,9 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                 self._handle_request),
             ('idle', WorkerBuildQueuer, WorkerCancelPending, 'idle',
                 self._handle_cancel),
+            # TODO: probably _NeedJob can have a different function,
+            # since there's no artifact to check, no notification etc
+            ('idle', WorkerConnection, _NeedJob, 'idle', self._handle_worker),
             ('idle', WorkerConnection, _Cached, 'idle', self._handle_worker),
             ('idle', WorkerConnection, _BuildFailed, 'idle', self._handle_worker)
         ]
