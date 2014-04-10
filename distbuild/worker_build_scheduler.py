@@ -135,7 +135,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         logging.debug('WBQ: Setting up %s' % self)
         self._request_queue = []
         self._available_workers = []
-        self._jobs = []
+        self._jobs = {}
         
         spec = [
             ('idle', WorkerBuildQueuer, WorkerBuildRequest, 'idle',
@@ -156,13 +156,15 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         # Are we already building the thing?
         # If so, add our initiator id to the existing job
         # If not, add the job to the list and queue it
-        job = filter(lambda job: job.artifact == event.artifact, self._jobs)
+        #job = filter(lambda job: job.artifact == event.artifact, self._jobs)
+        job = self._jobs[event.artifact]
 
         if job:
             job.initiators.append(event.initiator_id)
         else:
             j = Job(event.artifact, event.initiator_id)
-            self._jobs.append(j)
+            #self._jobs.append(j)
+            self._jobs[event.artifact] = j
 
             logging.debug('WBQ: Adding request to queue: %s'
                 % event.artifact.name)
@@ -187,8 +189,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
     def _handle_worker(self, event_source, event):
         distbuild.crash_point()
 
-        # TODO: search jobs for this artifact and tell anyone who care
-        # that it's been built
+        del self._jobs[event.artifact]  # job's done
 
         logging.debug('WBQ: Adding worker to queue: %s' % event.who)
         self._available_workers.append(event)
@@ -399,6 +400,10 @@ class WorkerConnection(distbuild.StateMachine):
         req = distbuild.HelperRequest(msg)
         self.mainloop.queue_event(distbuild.HelperRouter, req)
         
+        # tell anything that's interested in this thing that it's caching
+        # instead of sending one initiator id, we should send a list of ids
+        # for initiators that might be interested in this event
+
         progress = WorkerBuildCaching(
             self._initiator_id, self._artifact.cache_key)
         self.mainloop.queue_event(WorkerConnection, progress)
