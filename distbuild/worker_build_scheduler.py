@@ -157,9 +157,8 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         # If so, add our initiator id to the existing job
         # If not, add the job to the list and queue it
         #job = filter(lambda job: job.artifact == event.artifact, self._jobs)
-        job = self._jobs[event.artifact]
 
-        if job:
+        if event.artifact in self._jobs:
             job.initiators.append(event.initiator_id)
         else:
             j = Job(event.artifact, event.initiator_id)
