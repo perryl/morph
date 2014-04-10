@@ -168,7 +168,11 @@ class HelperMachine(distbuild.StateMachine):
 
         try:
             conn = httplib.HTTPConnection(netloc)
-            conn.request(method, path, body, headers)
+
+            if headers:
+                conn.request(method, path, body, headers)
+            else:
+                conn.request(method, path, body)
         except (socket.error, httplib.HTTPException), e:
             status = 418 # teapot
             data = str(e)
