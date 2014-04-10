@@ -101,15 +101,18 @@ class _BuildFinished(object):
     def __init__(self, msg):
         self.msg = msg
         
-        
+# TODO: we could probably just pass the job around instead,
+# then we wouldn't need to search for the job again when it completes
+# premature optimisation at this point though i guess
 class _BuildFailed(object):
 
-    pass
-        
+    def __init__(self, artifact):
+        self.artifact = artifact
         
 class _Cached(object):
 
-    pass
+    def __init__(self, artifact):
+        self.artifact = artifact
     
     
 class WorkerBuildQueuer(distbuild.StateMachine):
@@ -139,7 +142,8 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                 self._handle_request),
             ('idle', WorkerBuildQueuer, WorkerCancelPending, 'idle',
                 self._handle_cancel),
-            ('idle', WorkerConnection, _NeedJob, 'idle', self._handle_worker),
+            ('idle', WorkerConnection, _Cached, 'idle', self._handle_worker)
+            ('idle', WorkerConnection, _BuildFailed, 'idle', self._handle_worker)
         ]
         self.add_transitions(spec)
 
@@ -408,7 +412,7 @@ class WorkerConnection(distbuild.StateMachine):
                 self.mainloop.queue_event(WorkerConnection, new_event)
                 self._finished_msg = None
                 self._helper_id = None
-                self.mainloop.queue_event(self, _Cached())
+                self.mainloop.queue_event(self, _Cached(self._artifact))
             else:
                 logging.error(
                     'Failed to populate artifact cache: %s %s' %
@@ -418,6 +422,6 @@ class WorkerConnection(distbuild.StateMachine):
                 self.mainloop.queue_event(WorkerConnection, new_event)
                 self._finished_msg = None
                 self._helper_id = None
-                self.mainloop.queue_event(self, _BuildFailed())
+                self.mainloop.queue_event(self, _BuildFailed(self._artifact))
 
             self._artifact = None
