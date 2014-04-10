@@ -142,7 +142,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                 self._handle_request),
             ('idle', WorkerBuildQueuer, WorkerCancelPending, 'idle',
                 self._handle_cancel),
-            ('idle', WorkerConnection, _Cached, 'idle', self._handle_worker)
+            ('idle', WorkerConnection, _Cached, 'idle', self._handle_worker),
             ('idle', WorkerConnection, _BuildFailed, 'idle', self._handle_worker)
         ]
         self.add_transitions(spec)
