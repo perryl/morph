@@ -200,13 +200,15 @@ class WorkerBuildQueuer(distbuild.StateMachine):
     def _handle_worker(self, event_source, event):
         distbuild.crash_point()
 
+        who = event.who
+
         # If we have an artifact we're done with it now
-        if event.last_built:
+        if who.last_built:
             logging.debug('%s wants new job, just just did %s' %
-                (event.name(), event.last_built.name))
-            del self._jobs[event.last_built]  # job's done
+                (who.name(), who.last_built.name))
+            del self._jobs[who.last_built]  # job's done
         else:
-            logging.debug('%s wants its first job' % event.name())
+            logging.debug('%s wants its first job' % who.name())
 
         logging.debug('WBQ: Adding worker to queue: %s' % event.who)
         self._available_workers.append(event)
