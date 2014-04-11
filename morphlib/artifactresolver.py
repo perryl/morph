@@ -142,7 +142,7 @@ class ArtifactResolver(object):
             stratum_source = self._source_pool.lookup(
                 info.get('repo') or source.repo_name,
                 info.get('ref') or source.original_ref,
-                '%s.morph' % info['morph'])
+                info['morph'])
             stratum_name = stratum_source.morphology['name']
 
             matches, overlaps, unmatched = source.split_rules.partition(
@@ -167,7 +167,7 @@ class ArtifactResolver(object):
             other_source = self._source_pool.lookup(
                 stratum_info.get('repo') or source.repo_name,
                 stratum_info.get('ref') or source.original_ref,
-                '%s.morph' % stratum_info['morph'])
+                stratum_info['morph'])
 
             # Make every stratum artifact this stratum source produces
             # depend on every stratum artifact the other stratum source
@@ -194,7 +194,7 @@ class ArtifactResolver(object):
             chunk_source = self._source_pool.lookup(
                 info['repo'],
                 info['ref'],
-                '%s.morph' % info['morph'])
+                info['morph'])
 
             chunk_name = chunk_source.morphology['name']
 

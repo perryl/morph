@@ -196,7 +196,7 @@ class MorphologySet(object):
         def wanted_spec(m, kind, spec):
             return (spec.get('repo') == repo_url and
                     spec.get('ref') == orig_ref and
-                    spec['morph'] + '.morph' == morph_filename)
+                    spec['morph'] == morph_filename)
 
         def process_spec(m, kind, spec):
             spec['unpetrify-ref'] = spec.get('ref')
