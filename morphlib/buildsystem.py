@@ -53,11 +53,9 @@ class BuildSystem(object):
         '''Return the text of an autodetected chunk morphology.'''
 
         return '''
-            {
-                "name": "%(name)s",
-                "kind": "chunk",
-                "build-system": "%(bs)s"
-            }
+            name: %(name)s
+            kind: chunk
+            build-system: %(bs)s
         ''' % {
             'name': name,
             'bs': self.name,
