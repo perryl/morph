@@ -113,13 +113,11 @@ class _BuildFinished(object):
 # premature optimisation at this point though i guess
 class _BuildFailed(object):
 
-    def __init__(self, artifact):
-        self.artifact = artifact
+    pass
         
 class _Cached(object):
 
-    def __init__(self, artifact):
-        self.artifact = artifact
+    pass
     
     
 class WorkerBuildQueuer(distbuild.StateMachine):
@@ -152,8 +150,6 @@ class WorkerBuildQueuer(distbuild.StateMachine):
             # TODO: probably _NeedJob can have a different function,
             # since there's no artifact to check, no notification etc
             ('idle', WorkerConnection, _NeedJob, 'idle', self._handle_worker),
-            ('idle', WorkerConnection, _Cached, 'idle', self._handle_worker),
-            ('idle', WorkerConnection, _BuildFailed, 'idle', self._handle_worker)
         ]
         self.add_transitions(spec)
 
@@ -164,6 +160,8 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         # If so, add our initiator id to the existing job
         # If not, add the job to the list and queue it
         #job = filter(lambda job: job.artifact == event.artifact, self._jobs)
+
+        logging.debug('Handling build request for %s' % event.initiator_id)
 
         if event.artifact in self._jobs:
             job.initiators.append(event.initiator_id)
@@ -187,6 +185,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                      len(self._request_queue)))
             if self._available_workers:
                 j.who = self._give_job()
+                logging.debug('Gave job to %s' % j.who.name())
 
     def _handle_cancel(self, event_source, worker_cancel_pending):
         # TODO: this probably needs to check whether any initiators
@@ -202,8 +201,12 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         distbuild.crash_point()
 
         # If we have an artifact we're done with it now
-        if hasattr(event, 'artifact'):
-            del self._jobs[event.artifact]  # job's done
+        if event.last_built:
+            logging.debug('%s wants new job, just just did %s' %
+                (event.name(), event.last_built.name))
+            del self._jobs[event.last_built]  # job's done
+        else:
+            logging.debug('%s wants its first job' % event.name())
 
         logging.debug('WBQ: Adding worker to queue: %s' % event.who)
         self._available_workers.append(event)
@@ -243,7 +246,11 @@ class WorkerConnection(distbuild.StateMachine):
         self._worker_cache_server_port = worker_cache_server_port
         self._morph_instance = morph_instance
         self._helper_id = None
-        
+
+        self._last_built = None
+        # TODO: we can probably just use self._artifact, for this
+        # try it out later
+
     def name(self):
         addr, port = self._conn.getpeername()
         name = socket.getfqdn(addr)
@@ -300,6 +307,7 @@ class WorkerConnection(distbuild.StateMachine):
         distbuild.crash_point()
 
         self._artifact = event.artifact
+        self._last_built = event.artifact
         self._initiator_id = event.initiator_id
         logging.debug('WC: starting build: %s for %s' %
                       (self._artifact.name, self._initiator_id))
@@ -361,7 +369,7 @@ class WorkerConnection(distbuild.StateMachine):
             # Build failed.
             new_event = WorkerBuildFailed(new, self._artifact.cache_key)
             self.mainloop.queue_event(WorkerConnection, new_event)
-            self.mainloop.queue_event(self, _BuildFailed(self._artifact))
+            self.mainloop.queue_event(self, _BuildFailed())
             self._artifact = None
             self._initiator_id = None
         else:
@@ -437,7 +445,7 @@ class WorkerConnection(distbuild.StateMachine):
                 self.mainloop.queue_event(WorkerConnection, new_event)
                 self._finished_msg = None
                 self._helper_id = None
-                self.mainloop.queue_event(self, _Cached(self._artifact))
+                self.mainloop.queue_event(self, _Cached())
             else:
                 logging.error(
                     'Failed to populate artifact cache: %s %s' %
@@ -447,6 +455,6 @@ class WorkerConnection(distbuild.StateMachine):
                 self.mainloop.queue_event(WorkerConnection, new_event)
                 self._finished_msg = None
                 self._helper_id = None
-                self.mainloop.queue_event(self, _BuildFailed(self._artifact))
+                self.mainloop.queue_event(self, _BuildFailed())
 
             self._artifact = None
