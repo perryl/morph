@@ -247,7 +247,7 @@ class WorkerConnection(distbuild.StateMachine):
         self._morph_instance = morph_instance
         self._helper_id = None
 
-        self._last_built = None
+        self.last_built = None
         # TODO: we can probably just use self._artifact, for this
         # try it out later
 
@@ -307,7 +307,7 @@ class WorkerConnection(distbuild.StateMachine):
         distbuild.crash_point()
 
         self._artifact = event.artifact
-        self._last_built = event.artifact
+        self.last_built = event.artifact
         self._initiator_id = event.initiator_id
         logging.debug('WC: starting build: %s for %s' %
                       (self._artifact.name, self._initiator_id))
