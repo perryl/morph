@@ -53,7 +53,7 @@ class BuildPlugin(cliapp.Plugin):
 
         Example:
 
-            morph distbuild devel-system-x86_64-generic
+            morph distbuild systems/devel-system-x86_64-generic.morph
 
         '''
 
@@ -80,8 +80,8 @@ class BuildPlugin(cliapp.Plugin):
 
         Example:
 
-            morph build-morphology baserock:baserock/morphs \
-                master devel-system-x86_64-generic
+            morph build-morphology baserock:baserock/definitions \
+                master systems/devel-system-x86_64-generic.morph
 
         '''
 
@@ -118,7 +118,7 @@ class BuildPlugin(cliapp.Plugin):
 
         Example:
 
-            morph build devel-system-x86_64-generic
+            morph build systems/devel-system-x86_64-generic.morph
 
         '''
 
@@ -133,7 +133,7 @@ class BuildPlugin(cliapp.Plugin):
             self.app.settings['cachedir'],
             self.app.settings['cachedir-min-space'])
 
-        system_name = morphlib.util.strip_morph_extension(args[0])
+        system_filename = args[0]
 
         ws = morphlib.workspace.open('.')
         sb = morphlib.sysbranchdir.open_from_within('.')
@@ -158,7 +158,8 @@ class BuildPlugin(cliapp.Plugin):
         self.app.status(msg='Starting build %(uuid)s', uuid=build_uuid)
         self.app.status(msg='Collecting morphologies involved in '
                             'building %(system)s from %(branch)s',
-                            system=system_name, branch=sb.system_branch_name)
+                            system=system_filename,
+                            branch=sb.system_branch_name)
 
         bb = morphlib.buildbranch.BuildBranch(sb, build_ref_prefix,
                                               push_temporary=push)
@@ -187,4 +188,4 @@ class BuildPlugin(cliapp.Plugin):
 
             build_command.build([bb.root_repo_url,
                                  bb.root_ref,
-                                 system_name])
+                                 system_filename])
