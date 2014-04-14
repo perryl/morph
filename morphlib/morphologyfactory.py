@@ -99,11 +99,6 @@ class MorphologyFactory(object):
             raise morphlib.Error("Error parsing %s: %s" %
                                  (filename, str(e)))
 
-        if filename != morphology['name'] + '.morph':
-            raise morphlib.Error(
-                "Name %s does not match basename of morphology file %s" %
-                (morphology['name'], filename))
-
         method_name = '_check_and_tweak_%s' % morphology['kind']
         if hasattr(self, method_name):
             method = getattr(self, method_name)
