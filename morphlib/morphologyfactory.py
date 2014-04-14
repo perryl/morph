@@ -79,31 +79,19 @@ class MorphologyFactory(object):
         text = None
         if self._lrc.has_repo(reponame):
             repo = self._lrc.get_repo(reponame)
-            file_list = repo.ls_tree(sha1)
-            if filename in file_list:
-                text = repo.cat(sha1, filename)
+            text = repo.cat(sha1, filename)
         elif self._rrc is not None:
-            file_list = self._rrc.ls_tree(reponame, sha1)
-            if filename in file_list:
-                self.status(msg="Retrieving %(reponame)s %(sha1)s %(filename)s"
-                            " from the remote artifact cache.",
-                            reponame=reponame, sha1=sha1, filename=filename,
-                            chatty=True)
-                text = self._rrc.cat_file(reponame, sha1, filename)
+            self.status(msg="Retrieving %(reponame)s %(sha1)s %(filename)s"
+                        " from the remote artifact cache.",
+                        reponame=reponame, sha1=sha1, filename=filename,
+                        chatty=True)
+            text = self._rrc.cat_file(reponame, sha1, filename)
         else:
             raise NotcachedError(reponame)
 
-        if text is None:
-            bs = morphlib.buildsystem.detect_build_system(file_list)
-            if bs is None:
-                raise AutodetectError(reponame, sha1, filename)
-            # TODO consider changing how morphs are located to be by morph
-            #      name rather than filename, it would save creating a
-            #      filename only to strip it back to its morph name again
-            #      and would allow future changes like morphologies being
-            #      stored as git metadata instead of as a file in the repo
-            morph_name = filename[:-len('.morph')]
-            text = bs.get_morphology_text(morph_name)
+        if not text:
+            raise morphlib.error(
+                "Could not find chunk morphology %s" % filename)
 
         try:
             morphology = morphlib.morph2.Morphology(text)
