@@ -197,7 +197,6 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
             if not self._checkout_has_systems(gd):
                 raise BranchRootHasNoSystemsError(root_url, base_ref)
 
-
     def branch(self, args):
         '''Create a new system branch.
 
@@ -560,10 +559,11 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
     @staticmethod
     def _checkout_has_systems(gd):
         loader = morphlib.morphloader.MorphologyLoader()
-        for filename in glob.iglob(os.path.join(gd.dirname, '*.morph')):
-            m = loader.load_from_file(filename)
-            if m['kind'] == 'system':
-                return True
+        for filename in gd.list_files():
+            if filename.endswith('.morph'):
+                m = loader.load_from_file(gd.join_path(filename))
+                if m['kind'] == 'system':
+                    return True
         return False
 
     def foreach(self, args):
