@@ -340,26 +340,35 @@ class Morph(cliapp.Application):
         resolved_refs = {}
         resolved_morphologies = {}
 
+        # assume that the first triplet is a morphology from the definitions
+        # repo, then load everything from there
+        morphs_repo, morphs_ref, _ = triplets[0]
+
         while queue:
             reponame, ref, filename = queue.popleft()
-            update_repo = update and reponame not in updated_repos
+            update_repo = update and morphs_repo not in updated_repos
 
             # Resolve the (repo, ref) reference, cache result.
-            reference = (reponame, ref)
+            reference = (morphs_repo, morphs_ref)
             if not reference in resolved_refs:
                 resolved_refs[reference] = self.resolve_ref(
-                        lrc, rrc, reponame, ref, update_repo)
+                        lrc, rrc, morphs_repo, morphs_ref, update_repo)
             absref, tree = resolved_refs[reference]
 
-            updated_repos.add(reponame)
+            updated_repos.add(morphs_repo)
 
             # Fetch the (repo, ref, filename) morphology, cache result.
-            reference = (reponame, absref, filename)
+            reference = (morphs_repo, absref, filename)
             if not reference in resolved_morphologies:
                 resolved_morphologies[reference] = \
-                    morph_factory.get_morphology(reponame, absref, filename)
+                    morph_factory.get_morphology(morphs_repo, absref, filename)
             morphology = resolved_morphologies[reference]
 
+            if reponame != morphs_repo or ref != morphs_ref:
+                update_repo = update and reponame not in updated_repos
+                absref, tree = self.resolve_ref(
+                        lrc, rrc, reponame, ref, update_repo)
+                updated_repos.add(reponame)
             visit(reponame, ref, filename, absref, tree, morphology)
             if morphology['kind'] == 'cluster':
                 raise cliapp.AppException(
