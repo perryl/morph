@@ -551,6 +551,10 @@ build-system: dummy
                 'name': 'foo',
                 'description': '',
                 'build-system': 'manual',
+                'repo': '',
+                'ref': '',
+                'unpetrify-ref': '',
+                'comments': '',
 
                 'configure-commands': [],
                 'pre-configure-commands': [],

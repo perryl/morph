@@ -375,7 +375,8 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
 
         For example:
 
-            morph edit systems/devel-system-x86-64-generic.morph strata/devel.morph
+            morph edit systems/devel-system-x86-64-generic.morph \
+            strata/devel.morph
 
         The above command will mark the `devel` stratum as being
         modified in the current system branch. In this case, the stratum's
@@ -400,7 +401,8 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
 
         Another example:
 
-            morph edit systems/devel-system-x86_64-generic.morph strata/devel.morph chunks/gcc.morph
+            morph edit systems/devel-system-x86_64-generic.morph \
+            strata/devel.morph chunks/gcc.morph
 
         The above command will mark the `gcc` chunk as being edited in
         the current system branch. Morph will clone the `gcc` repository
@@ -465,7 +467,7 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
         # relevant git branch checked out. This also invents the new branch
         # name.
 
-        if chunk_name:
+        if chunk_filename:
             logging.debug('Editing chunk %s' % chunk_filename)
 
             chunk_url, chunk_ref, chunk_morph = morphs.get_chunk_triplet(

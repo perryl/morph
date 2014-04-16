@@ -33,7 +33,7 @@ class MorphologySetTests(unittest.TestCase):
                 {
                     'repo': 'test:morphs',
                     'ref': 'master',
-                    'morph': 'foo-stratum',
+                    'morph': 'foo-stratum.morph',
                 },
             ],
         })
@@ -48,7 +48,7 @@ class MorphologySetTests(unittest.TestCase):
                 {
                     'repo': 'test:foo-chunk',
                     'ref': 'master',
-                    'morph': 'foo-chunk',
+                    'morph': 'foo-chunk.morph',
                 },
             ],
             'build-depends': [],
@@ -85,7 +85,7 @@ class MorphologySetTests(unittest.TestCase):
         self.morphs.add_morphology(self.stratum)
         self.assertEqual(
             self.morphs.get_stratum_in_system(
-                self.system, self.stratum['name']),
+                self.system, self.stratum.filename),
             self.stratum)
 
     def test_raises_stratum_not_in_system_error(self):
@@ -99,14 +99,15 @@ class MorphologySetTests(unittest.TestCase):
         self.morphs.add_morphology(self.system)
         self.assertRaises(
             morphlib.morphset.StratumNotInSetError,
-            self.morphs.get_stratum_in_system, self.system, 'foo-stratum')
+            self.morphs.get_stratum_in_system,
+            self.system, 'foo-stratum.morph')
 
     def test_get_chunk_triplet(self):
         self.morphs.add_morphology(self.system)
         self.morphs.add_morphology(self.stratum)
         self.assertEqual(
-            self.morphs.get_chunk_triplet(self.stratum, 'foo-chunk'),
-            ('test:foo-chunk', 'master', 'foo-chunk'))
+            self.morphs.get_chunk_triplet(self.stratum, 'foo-chunk.morph'),
+            ('test:foo-chunk', 'master', 'foo-chunk.morph'))
 
     def test_raises_chunk_not_in_stratum_error(self):
         self.assertRaises(
@@ -127,7 +128,7 @@ class MorphologySetTests(unittest.TestCase):
             {
                 'repo': 'test:morphs',
                 'ref': 'new-ref',
-                'morph': 'foo-stratum',
+                'morph': 'foo-stratum.morph',
                 'unpetrify-ref': 'master',
             })
 
@@ -140,7 +141,7 @@ class MorphologySetTests(unittest.TestCase):
                 {
                     'repo': self.stratum.repo_url,
                     'ref': self.stratum.ref,
-                    'morph': self.stratum['name'],
+                    'morph': self.stratum.filename,
                     'unpetrify-ref': 'master',
                 },
             ]
@@ -162,7 +163,7 @@ class MorphologySetTests(unittest.TestCase):
             {
                 'repo': 'test:morphs',
                 'ref': 'new-ref',
-                'morph': 'foo-stratum',
+                'morph': 'foo-stratum.morph',
                 'unpetrify-ref': 'master',
             })
 
@@ -180,7 +181,7 @@ class MorphologySetTests(unittest.TestCase):
                 {
                     'repo': 'test:foo-chunk',
                     'ref': 'new-ref',
-                    'morph': 'foo-chunk',
+                    'morph': 'foo-chunk.morph',
                     'unpetrify-ref': 'master',
                 }
             ])
@@ -199,7 +200,7 @@ class MorphologySetTests(unittest.TestCase):
         self.assertEqual(self.system['strata'],
                          [
                              {
-                                 'morph': 'foo-stratum',
+                                 'morph': 'foo-stratum.morph',
                                  'ref': 'test',
                                  'repo': 'test:morphs',
                                  'unpetrify-ref': 'master',
@@ -217,7 +218,7 @@ class MorphologySetTests(unittest.TestCase):
                 {
                     'repo': 'test:foo-chunk',
                     'ref': '0'*40,
-                    'morph': 'foo-chunk',
+                    'morph': 'foo-chunk.morph',
                     'unpetrify-ref': 'master',
                 }
             ])
@@ -233,6 +234,6 @@ class MorphologySetTests(unittest.TestCase):
                 {
                     'repo': 'test:foo-chunk',
                     'ref': 'master',
-                    'morph': 'foo-chunk',
+                    'morph': 'foo-chunk.morph',
                 }
             ])

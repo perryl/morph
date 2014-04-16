@@ -219,49 +219,11 @@ class MorphologyFactoryTests(unittest.TestCase):
                                        'remote-chunk.morph')
         self.assertEqual('remote-chunk', morph['name'])
 
-    def test_autodetects_local_morphology(self):
-        self.lr.cat = self.nolocalmorph
-        self.lr.ls_tree = self.autotoolsbuildsystem
-        morph = self.mf.get_morphology('reponame', 'sha1',
-                                       'assumed-local.morph')
-        self.assertEqual('assumed-local', morph['name'])
-
-    def test_autodetects_remote_morphology(self):
-        self.lrc.has_repo = self.doesnothaverepo
-        self.rrc.cat_file = self.noremotemorph
-        self.rrc.ls_tree = self.autotoolsbuildsystem
-        morph = self.mf.get_morphology('reponame', 'sha1',
-                                       'assumed-remote.morph')
-        self.assertEqual('assumed-remote', morph['name'])
-
-    def test_raises_error_when_fails_detect_locally(self):
-        self.lr.cat = self.nolocalfile
-        self.assertRaises(AutodetectError, self.mf.get_morphology,
-                          'reponame', 'sha1', 'unreached.morph')
-
-    def test_raises_error_when_fails_detect_remotely(self):
-        self.lrc.has_repo = self.doesnothaverepo
-        self.rrc.cat_file = self.noremotefile
-#        self.mf.get_morphology('reponame', 'sha1', 'unreached.morph')
-        self.assertRaises(AutodetectError, self.mf.get_morphology,
-                          'reponame', 'sha1', 'unreached.morph')
-
-    def test_raises_error_when_name_mismatches(self):
-        self.assertRaises(morphlib.Error, self.mf.get_morphology,
-                          'reponame', 'sha1', 'name-mismatch.morph')
-
     def test_looks_locally_with_no_remote(self):
         self.lr.ls_tree = self.localmorph
         morph = self.lmf.get_morphology('reponame', 'sha1',
                                         'chunk.morph')
         self.assertEqual('chunk', morph['name'])
-
-    def test_autodetects_locally_with_no_remote(self):
-        self.lr.cat = self.nolocalmorph
-        self.lr.ls_tree = self.autotoolsbuildsystem
-        morph = self.mf.get_morphology('reponame', 'sha1',
-                                        'assumed-local.morph')
-        self.assertEqual('assumed-local', morph['name'])
 
     def test_fails_when_local_not_cached_and_no_remote(self):
         self.lrc.has_repo = self.doesnothaverepo
