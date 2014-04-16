@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,6 +15,7 @@
 
 
 import os
+import yaml
 
 
 class BuildSystem(object):
@@ -52,6 +53,9 @@ class BuildSystem(object):
     def get_morphology_text(self, name):
         '''Return the text of an autodetected chunk morphology.'''
 
+        return yaml.dump({'name': name,
+                          'kind': 'chunk',
+                          'build-system': self.name}, default_flow_style=False)
         return '''
             name: %(name)s
             kind: chunk

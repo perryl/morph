@@ -51,7 +51,7 @@ class CacheKeyComputerTests(unittest.TestCase):
                 "kind": "stratum",
                 "chunks": [
                     {
-                        "name": "chunk",
+                        "name": "chunk.morph",
                         "repo": "repo",
                         "ref": "original/ref",
                         "build-depends": []
@@ -63,13 +63,13 @@ class CacheKeyComputerTests(unittest.TestCase):
                 "kind": "stratum",
                 "chunks": [
                     {
-                        "name": "chunk2",
+                        "name": "chunk2.morph",
                         "repo": "repo",
                         "ref": "original/ref",
                         "build-depends": []
                     },
                     {
-                        "name": "chunk3",
+                        "name": "chunk3.morph",
                         "repo": "repo",
                         "ref": "original/ref",
                         "build-depends": []
@@ -81,12 +81,12 @@ class CacheKeyComputerTests(unittest.TestCase):
                 "kind": "system",
                 "strata": [
                     {
-                        "morph": "stratum",
+                        "morph": "stratum.morph",
                         "repo": "repo",
                         "ref": "original/ref"
                     },
                     {
-                        "morph": "stratum2",
+                        "morph": "stratum2.morph",
                         "repo": "repo",
                         "ref": "original/ref"
                     }
