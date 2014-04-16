@@ -93,7 +93,12 @@ class BuildStepStarted(object):
         self.id = request_id
         self.step_name = step_name
         self.worker_name = worker_name
-        
+
+class BuildStepAlreadyStarted(BuildStepStarted):
+
+    def __init__(self, request_id, step_name, worker_name):
+        super(BuildStepAlreadyStarted, self).__init__(
+            request_id, step_name, worker_name)
 
 class BuildOutput(object):
 
@@ -206,6 +211,8 @@ class BuildController(distbuild.StateMachine):
             # specific to WorkerConnection instances that our currently
             # building for us, but the state machines are not intended to
             # behave that way).
+
+            # TODO: WorkerBuildInProgress -> WorkerBuildStepAlreadyStarted ?
             ('building', distbuild.WorkerConnection,
                 distbuild.WorkerBuildStepStarted, 'building',
                 self._maybe_relay_build_step_started),
@@ -217,7 +224,7 @@ class BuildController(distbuild.StateMachine):
                 self._maybe_relay_build_caching),
             ('building', distbuild.WorkerConnection,
                 distbuild.WorkerBuildInProgress, 'building',
-                self._relay_build_in_progress),
+                self._maybe_relay_build_step_already_started),
             ('building', distbuild.WorkerConnection,
                 distbuild.WorkerBuildFinished, 'building',
                 self._maybe_check_result_and_queue_more_builds),
@@ -449,6 +456,8 @@ class BuildController(distbuild.StateMachine):
 
         logging.debug(
             'BC: _relay_build_step_started: %s' % event.artifact_cache_key)
+
+        # TODO: I don't see why we need this check
         artifact = self._find_artifact(event.artifact_cache_key)
         if artifact is None:
             # This is not the event you are looking for.
@@ -456,6 +465,18 @@ class BuildController(distbuild.StateMachine):
 
         logging.debug('BC: got build step started: %s' % artifact.name)
         started = BuildStepStarted(
+            self._request['id'], build_step_name(artifact), event.worker_name)
+        self.mainloop.queue_event(BuildController, started)
+        logging.debug('BC: emitted %s' % repr(started))
+
+    def _maybe_relay_build_step_already_started(self, event_source, event):
+        if event.initiator_id != self._request['id']:
+            return  # not for us
+
+        artifact = self._find_artifact(event.artifact_cache_key)
+
+        logging.debug('BC: got build step already started: %s' % artifact.name)
+        started = BuildStepAlreadyStarted(
             self._request['id'], build_step_name(artifact), event.worker_name)
         self.mainloop.queue_event(BuildController, started)
         logging.debug('BC: emitted %s' % repr(started))
@@ -493,19 +514,6 @@ class BuildController(distbuild.StateMachine):
             'Transferring %s to shared artifact cache' % artifact.name)
         self.mainloop.queue_event(BuildController, progress)
 
-    def _relay_build_in_progress(self, event_source, event):
-        if event.initiator_id != self._request['id']:
-            return  # not for us
-
-        artifact = self._find_artifact(event.artifact_cache_key)
-
-        progress = BuildProgress(
-            self._request['id'],
-            '%s is already being built on %s' %
-            artifact.name, event.worker_name)
-
-        self.mainloop.queue_event(BuildController, progress)
-
     def _find_artifact(self, cache_key):
         artifacts = map_build_graph(self._artifact, lambda a: a)
         wanted = [a for a in artifacts if a.cache_key == cache_key]
@@ -516,7 +524,7 @@ class BuildController(distbuild.StateMachine):
             
     def _maybe_check_result_and_queue_more_builds(self, event_source, event):
         distbuild.crash_point()
-        if event.msg['id'] != self._request['id']:
+        if self._request['id'] not in event.msg['ids']:
             return # not for us
 
         artifact = self._find_artifact(event.artifact_cache_key)
