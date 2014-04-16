@@ -216,6 +216,9 @@ class BuildController(distbuild.StateMachine):
                 distbuild.WorkerBuildCaching, 'building',
                 self._maybe_relay_build_caching),
             ('building', distbuild.WorkerConnection,
+                distbuild.WorkerBuildInProgress, 'building',
+                self._relay_build_in_progress),
+            ('building', distbuild.WorkerConnection,
                 distbuild.WorkerBuildFinished, 'building',
                 self._maybe_check_result_and_queue_more_builds),
             ('building', distbuild.WorkerConnection,
@@ -405,6 +408,7 @@ class BuildController(distbuild.StateMachine):
                             '    depends on %s which is %s' %
                                 (dep.name, dep.state))
 
+
         while True:
             ready = self._find_artifacts_that_are_ready_to_build()
 
@@ -487,6 +491,19 @@ class BuildController(distbuild.StateMachine):
         progress = BuildProgress(
             self._request['id'],
             'Transferring %s to shared artifact cache' % artifact.name)
+        self.mainloop.queue_event(BuildController, progress)
+
+    def _relay_build_in_progress(self, event_source, event):
+        if event.initiator_id != self._request['id']:
+            return  # not for us
+
+        artifact = self._find_artifact(event.artifact_cache_key)
+
+        progress = BuildProgress(
+            self._request['id'],
+            '%s is already being built on %s' %
+            artifact.name, event.worker_name)
+
         self.mainloop.queue_event(BuildController, progress)
 
     def _find_artifact(self, cache_key):

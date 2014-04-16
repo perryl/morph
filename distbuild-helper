@@ -173,6 +173,7 @@ class HelperMachine(distbuild.StateMachine):
                 conn.request(method, path, body, headers)
             else:
                 conn.request(method, path, body)
+
         except (socket.error, httplib.HTTPException), e:
             status = 418 # teapot
             data = str(e)
