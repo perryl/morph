@@ -211,21 +211,23 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         distbuild.crash_point()
 
         who = event.who
+        last_job = who.job()  # the job this worker's just completed
 
-        # If we have an artifact we're done with it now
-        if who.last_built:
+        if last_job:
             logging.debug('%s wants new job, just just did %s' %
-                (who.name(), who.last_built.basename()))
-            del self._jobs[who.last_built.basename()]  # job's done
+                (who.name(), last_job.artifact.basename()))
+
+            # TODO: abstract this with job class
+            del self._jobs[last_job.artifact.basename()]  # job's done
         else:
             logging.debug('%s wants its first job' % who.name())
 
         logging.debug('WBQ: Adding worker to queue: %s' % event.who)
         self._available_workers.append(event)
         logging.debug(
-            'WBQ: %d available workers and %d requests queued' %
-                (len(self._available_workers),
-                 len(self._request_queue)))
+            # TODO: equivalent for no requests queued
+            'WBQ: %d available workers and ? requests queued' %
+                (len(self._available_workers))
 
         if self._jobs:
             # pick a job that's not already being built
@@ -265,16 +267,15 @@ class WorkerConnection(distbuild.StateMachine):
         self._morph_instance = morph_instance
         self._helper_id = None
 
-        self.last_built = None
-        # TODO: we can probably just use self._artifact, for this
-        # try it out later
-
         addr, port = self._conn.getpeername()
         name = socket.getfqdn(addr)
         self._worker_name = '%s:%s' % (name, port)
 
     def name(self):
         return self._worker_name
+
+    def job(self):
+        return self._job
 
     def setup(self):
         distbuild.crash_point()
