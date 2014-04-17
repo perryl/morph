@@ -190,7 +190,6 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                      len(self._request_queue)))
 
             if self._available_workers:
-                # TODO give_job can set who doin' it
                 job.who = self._give_job(job)
                 logging.debug('Gave job to %s' % job.who.name())
 
@@ -234,13 +233,14 @@ class WorkerBuildQueuer(distbuild.StateMachine):
             
     def _give_job(self, job):
         worker = self._available_workers.pop(0)
-        job.who = worker.who
 
         logging.debug(
             'WBQ: Giving %s to %s' %
                 (job.artifact.name, worker.who.name()))
 
         self.mainloop.queue_event(worker.who, _HaveAJob(job))
+
+        return worker.who
     
     
 class WorkerConnection(distbuild.StateMachine):
