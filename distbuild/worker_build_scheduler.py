@@ -165,7 +165,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         logging.debug('Handling build request for %s' % event.initiator_id)
         logging.debug('Currently building: %s' [job.artifact.name for job in self._jobs])
 
-        if event.artifact in self._jobs:
+        if event.artifact.basename() in self._jobs:
             job.initiators.append(event.initiator_id)
 
             logging.debug("Worker build in progress")
@@ -176,7 +176,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         else:
             j = Job(event.artifact, event.initiator_id)
             #self._jobs.append(j)
-            self._jobs[event.artifact] = j
+            self._jobs[event.artifact.basename()] = j
 
             logging.debug('WBQ: Adding request to queue: %s'
                 % event.artifact.name)
