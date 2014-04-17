@@ -229,7 +229,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
             # pick a job that's not already being built
             # TODO: make job selection fair
             # give it to someone
-            job = self.next_job(jobs)
+            job = self.next_job(self._jobs)
             self._give_job(job)
             
     def _give_job(self, job):
