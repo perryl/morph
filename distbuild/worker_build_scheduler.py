@@ -378,7 +378,7 @@ class WorkerConnection(distbuild.StateMachine):
 
     def _handle_exec_output(self, msg):
 
-        for initiator_id in self.job.initiators:
+        for initiator_id in self._job.initiators:
             new = dict(msg)
             new['id'] = initiator_id
             logging.debug('WC: emitting: %s', repr(new))
@@ -396,7 +396,7 @@ class WorkerConnection(distbuild.StateMachine):
         #new['id'] = self._route_map.get_incoming_id(msg['id'])
         #self._route_map.remove(msg['id'])
 
-        for initiator_id in self._jobs.initiators:
+        for initiator_id in self._job.initiators:
             self._initiator_request_map[initiator_id].remove(msg['id'])
             new['id'] = initiator_id
 
