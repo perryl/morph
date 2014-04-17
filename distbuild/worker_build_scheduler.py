@@ -232,7 +232,9 @@ class WorkerBuildQueuer(distbuild.StateMachine):
             # TODO: make job selection fair
             # give it to someone
             job = self.next_job(self._jobs)
-            self._give_job(job)
+
+            if job:
+                self._give_job(job)
             
     def _give_job(self, job):
         worker = self._available_workers.pop(0)
