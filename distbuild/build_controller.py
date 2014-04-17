@@ -502,7 +502,7 @@ class BuildController(distbuild.StateMachine):
         progress = BuildProgress(
             self._request['id'],
             '%s is already being built on %s' %
-            artifact.name, event.worker_name)
+            (artifact.name, event.worker_name))
 
         self.mainloop.queue_event(BuildController, progress)
 
