@@ -377,15 +377,17 @@ class WorkerConnection(distbuild.StateMachine):
         handler(event.msg)
 
     def _handle_exec_output(self, msg):
-        new = dict(msg)
-        new['id'] = self._route_map.get_incoming_id(msg['id'])
-        logging.debug('WC: emitting: %s', repr(new))
-        self.mainloop.queue_event(
-            WorkerConnection,
-            WorkerBuildOutput(new, self._artifact.cache_key))
+
+        for initiator_id in self.job.initiators:
+            new = dict(msg)
+            new['id'] = initiator_id
+            logging.debug('WC: emitting: %s', repr(new))
+            self.mainloop.queue_event(
+                WorkerConnection,
+                WorkerBuildOutput(new, self._job.artifact.cache_key))
 
     def _handle_exec_response(self, msg):
-        logging.debug('WC: finished building: %s' % self._artifact.name)
+        logging.debug('WC: finished building: %s' % self._job.artifact.name)
 
         new = dict(msg)
 
@@ -400,7 +402,7 @@ class WorkerConnection(distbuild.StateMachine):
 
             if new['exit'] != 0:
                 # Build failed.
-                new_event = WorkerBuildFailed(new, self._artifact.cache_key)
+                new_event = WorkerBuildFailed(new, self._job.artifact.cache_key)
                 self.mainloop.queue_event(WorkerConnection, new_event)
                 self.mainloop.queue_event(self, _BuildFailed())
                 self._artifact = None
@@ -418,14 +420,14 @@ class WorkerConnection(distbuild.StateMachine):
 
         logging.debug('Requesting shared artifact cache to get artifacts')
 
-        kind = self._artifact.source.morphology['kind']
+        kind = self._job.artifact.source.morphology['kind']
 
         if kind == 'chunk':
-            source_artifacts = self._artifact.source.artifacts
+            source_artifacts = self._job.artifact.source.artifacts
 
             suffixes = ['%s.%s' % (kind, name) for name in source_artifacts]
         else:
-            filename = '%s.%s' % (kind, self._artifact.name)
+            filename = '%s.%s' % (kind, self._job.artifact.name)
             suffixes = [filename]
 
             if kind == 'stratum':
@@ -445,7 +447,7 @@ class WorkerConnection(distbuild.StateMachine):
             '/1.0/fetch?host=%s:%d&cacheid=%s&artifacts=%s' %
                 (urllib.quote(worker_host),
                  self._worker_cache_server_port,
-                 urllib.quote(self._artifact.cache_key),
+                 urllib.quote(self._job.artifact.cache_key),
                  suffixes))
 
         msg = distbuild.message(
@@ -461,7 +463,7 @@ class WorkerConnection(distbuild.StateMachine):
 
         for initiator_id in self._jobs.initiators:
             progress = WorkerBuildCaching(
-                self._initiator_id, self._artifact.cache_key)
+                self._initiator_id, self._job.artifact.cache_key)
             self.mainloop.queue_event(WorkerConnection, progress)
         
         self._initiator_id = None
@@ -475,7 +477,7 @@ class WorkerConnection(distbuild.StateMachine):
             if event.msg['status'] == httplib.OK:
                 logging.debug('Shared artifact cache population done')
                 new_event = WorkerBuildFinished(
-                    self._finished_msg, self._artifact.cache_key)
+                    self._finished_msg, self._job.artifact.cache_key)
                 self.mainloop.queue_event(WorkerConnection, new_event)
                 self._finished_msg = None
                 self._helper_id = None
@@ -485,7 +487,7 @@ class WorkerConnection(distbuild.StateMachine):
                     'Failed to populate artifact cache: %s %s' %
                         (event.msg['status'], event.msg['body']))
                 new_event = WorkerBuildFailed(
-                    self._finished_msg, self._artifact.cache_key)
+                    self._finished_msg, self._job.artifact.cache_key)
                 self.mainloop.queue_event(WorkerConnection, new_event)
                 self._finished_msg = None
                 self._helper_id = None
