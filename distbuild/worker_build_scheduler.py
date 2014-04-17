@@ -91,9 +91,7 @@ class _NeedJob(object):
 
 class _HaveAJob(object):
 
-    def __init__(self, artifact, initiator_id, job):
-        self.artifact = artifact
-        self.initiator_id = initiator_id
+    def __init__(self, job):
         self.job = job
 
 class Job(object):
