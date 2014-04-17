@@ -99,7 +99,7 @@ class Job(object):
 
     def __init__(self, artifact, initiator_id):
         self.artifact = artifact
-        self.initiatiors = [initiator_id]
+        self.initiators = [initiator_id]
         self.who = None  # we don't know who's going to do this yet
         
         
