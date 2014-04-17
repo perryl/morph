@@ -166,6 +166,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         logging.debug('Currently building: %s' % self._jobs)
 
         if event.artifact.basename() in self._jobs:
+            job = self._jobs[event.artifact.basename()]
             job.initiators.append(event.initiator_id)
 
             logging.debug("Worker build in progress")
@@ -174,9 +175,9 @@ class WorkerBuildQueuer(distbuild.StateMachine):
 
             self.mainloop.queue_event(WorkerConnection, progress)
         else:
-            j = Job(event.artifact, event.initiator_id)
+            job = Job(event.artifact, event.initiator_id)
             #self._jobs.append(j)
-            self._jobs[event.artifact.basename()] = j
+            self._jobs[event.artifact.basename()] = job
 
             logging.debug('WBQ: Adding request to queue: %s'
                 % event.artifact.name)
@@ -186,8 +187,8 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                     (len(self._available_workers),
                      len(self._request_queue)))
             if self._available_workers:
-                j.who = self._give_job()
-                logging.debug('Gave job to %s' % j.who.name())
+                job.who = self._give_job()
+                logging.debug('Gave job to %s' % job.who.name())
 
     def _handle_cancel(self, event_source, worker_cancel_pending):
         # TODO: this probably needs to check whether any initiators
