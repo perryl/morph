@@ -207,8 +207,8 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         # If we have an artifact we're done with it now
         if who.last_built:
             logging.debug('%s wants new job, just just did %s' %
-                (who.name(), who.last_built.name))
-            del self._jobs[who.last_built]  # job's done
+                (who.name(), who.last_built.basename()))
+            del self._jobs[who.last_built.basename()]  # job's done
         else:
             logging.debug('%s wants its first job' % who.name())
 
