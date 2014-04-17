@@ -171,7 +171,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
 
             logging.debug("Worker build in progress")
             progress = WorkerBuildInProgress(
-                self._initiator_id, self._artifact.cache_key, job.who.name())
+                event.initiator_id, self._artifact.cache_key, job.who.name())
 
             self.mainloop.queue_event(WorkerConnection, progress)
         else:
