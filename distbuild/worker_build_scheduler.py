@@ -156,7 +156,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
     # TODO: I want this thing in a jobs class
     def next_job(self, jobs):
         # for now just return the first thing we find that's not being built
-        return filter(lambda j: j.who == None, jobs).pop()
+        return filter(lambda (_, job): job.who == None, jobs.iteritems()).pop()
 
     def _handle_request(self, event_source, event):
         distbuild.crash_point()
