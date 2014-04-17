@@ -348,13 +348,13 @@ class WorkerConnection(distbuild.StateMachine):
         logging.debug('WC: sent to worker %s: %r' % (self._worker_name, msg))
 
         # TODO: see if there's a better way
-        for initiator_id in self._job.initiators:
+        #for initiator_id in self._job.initiators:
             # associate this messages's id with each of the initiators
             # that care about this job
             #self._route_map.add(msg['id'], initiator_id)
 
             # TODO: can this be done with the route map?
-            self._initiator_request_map[initiator_id].add(msg['id'])
+            #self._initiator_request_map[initiator_id].add(msg['id'])
 
             #logging.debug(
             #    'WC: route map from %s to %s',
@@ -402,7 +402,7 @@ class WorkerConnection(distbuild.StateMachine):
         #self._route_map.remove(msg['id'])
 
         for initiator_id in self._job.initiators:
-            self._initiator_request_map[initiator_id].remove(msg['id'])
+            #self._initiator_request_map[initiator_id].remove(msg['id'])
             new['id'] = initiator_id
 
             if new['exit'] != 0:
