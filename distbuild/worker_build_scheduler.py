@@ -357,7 +357,7 @@ class WorkerConnection(distbuild.StateMachine):
 
         for initiator_id in self._job.initiators:
             started = WorkerBuildStepStarted(initiator_id,
-                self._artifact.cache_key, self.name())
+                self._job.artifact.cache_key, self.name())
             self.mainloop.queue_event(WorkerConnection, started)
 
     def _handle_json_message(self, event_source, event):
