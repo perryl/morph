@@ -163,7 +163,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         #job = filter(lambda job: job.artifact == event.artifact, self._jobs)
 
         logging.debug('Handling build request for %s' % event.initiator_id)
-        logging.debug('Currently building: %s' [job.artifact.name for job in self._jobs])
+        logging.debug('Currently building: %s' % self._jobs)
 
         if event.artifact.basename() in self._jobs:
             job.initiators.append(event.initiator_id)
