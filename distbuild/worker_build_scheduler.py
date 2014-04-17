@@ -94,13 +94,13 @@ class _HaveAJob(object):
     def __init__(self, job):
         self.job = job
 
+# TODO: Jobs class please
 class Job(object):
 
     def __init__(self, artifact, initiator_id):
         self.artifact = artifact
         self.initiators = [initiator_id]
         self.who = None  # we don't know who's going to do this yet
-        
         
 class _BuildFinished(object):
 
@@ -153,13 +153,17 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         ]
         self.add_transitions(spec)
 
+    # TODO: I want this thing in a jobs class
+    def next_job(self, jobs):
+        # for now just return the first thing we find that's not being built
+        return filter(lambda j: j.who == None, jobs).pop()
+
     def _handle_request(self, event_source, event):
         distbuild.crash_point()
 
         # Are we already building the thing?
         # If so, add our initiator id to the existing job
-        # If not, add the job to the list and queue it
-        #job = filter(lambda job: job.artifact == event.artifact, self._jobs)
+        # If not, add the job to the dict and queue it
 
         logging.debug('Handling build request for %s' % event.initiator_id)
         logging.debug('Currently building: %s' % self._jobs)
@@ -175,7 +179,6 @@ class WorkerBuildQueuer(distbuild.StateMachine):
             self.mainloop.queue_event(WorkerConnection, progress)
         else:
             job = Job(event.artifact, event.initiator_id)
-            #self._jobs.append(j)
             self._jobs[event.artifact.basename()] = job
 
             logging.debug('WBQ: Adding request to queue: %s'
@@ -190,8 +193,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                      len(self._request_queue)))
 
             if self._available_workers:
-                job.who = self._give_job(job)
-                logging.debug('Gave job to %s' % job.who.name())
+                self._give_job(job)
 
     def _handle_cancel(self, event_source, worker_cancel_pending):
         # TODO: this probably needs to check whether any initiators
@@ -213,8 +215,6 @@ class WorkerBuildQueuer(distbuild.StateMachine):
             logging.debug('%s wants new job, just just did %s' %
                 (who.name(), who.last_built.basename()))
             del self._jobs[who.last_built.basename()]  # job's done
-
-            # Need to tell folk that care that it's done
         else:
             logging.debug('%s wants its first job' % who.name())
 
@@ -229,18 +229,18 @@ class WorkerBuildQueuer(distbuild.StateMachine):
             # pick a job that's not already being built
             # TODO: make job selection fair
             # give it to someone
+            job = self.next_job(jobs)
             self._give_job(job)
             
     def _give_job(self, job):
         worker = self._available_workers.pop(0)
+        job.who = worker.who
 
         logging.debug(
             'WBQ: Giving %s to %s' %
                 (job.artifact.name, worker.who.name()))
 
         self.mainloop.queue_event(worker.who, _HaveAJob(job))
-
-        return worker.who
     
     
 class WorkerConnection(distbuild.StateMachine):
