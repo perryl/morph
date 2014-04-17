@@ -307,13 +307,14 @@ class WorkerConnection(distbuild.StateMachine):
     def _maybe_cancel(self, event_source, build_cancel):
         logging.debug('WC: BuildController %r requested a cancel' %
                       event_source)
-        if build_cancel.id == self._initiator_id:
-            distbuild.crash_point()
-
-            for id in self._initiator_request_map[self._initiator_id]:
-                logging.debug('WC: Cancelling exec %s' % id)
-                msg = distbuild.message('exec-cancel', id=id)
-                self._jm.send(msg)
+        # TODO: implement cancel
+        #if build_cancel.id == self._initiator_id:
+        #    distbuild.crash_point()
+        #
+        #    for id in self._initiator_request_map[self._initiator_id]:
+        #        logging.debug('WC: Cancelling exec %s' % id)
+        #        msg = distbuild.message('exec-cancel', id=id)
+        #        self._jm.send(msg)
 
     def _reconnect(self, event_source, event):
         distbuild.crash_point()
@@ -462,8 +463,8 @@ class WorkerConnection(distbuild.StateMachine):
         # for initiators that might be interested in this event
 
         for initiator_id in self._job.initiators:
-            progress = WorkerBuildCaching(
-                self._initiator_id, self._job.artifact.cache_key)
+            progress = WorkerBuildCaching(initiator_id,
+                self._job.artifact.cache_key)
             self.mainloop.queue_event(WorkerConnection, progress)
         
         self._initiator_id = None
