@@ -91,9 +91,10 @@ class _NeedJob(object):
 
 class _HaveAJob(object):
 
-    def __init__(self, artifact, initiator_id):
+    def __init__(self, artifact, initiator_id, job):
         self.artifact = artifact
         self.initiator_id = initiator_id
+        self.job = job
 
 class Job(object):
 
@@ -181,13 +182,18 @@ class WorkerBuildQueuer(distbuild.StateMachine):
 
             logging.debug('WBQ: Adding request to queue: %s'
                 % event.artifact.name)
-            self._request_queue.append(event)
+
+            # don't need request queue anymore
+            # self._request_queue.append(event)
+
             logging.debug(
                 'WBQ: %d available workers and %d requests queued' %
                     (len(self._available_workers),
                      len(self._request_queue)))
+
             if self._available_workers:
-                job.who = self._give_job()
+                # TODO give_job can set who doin' it
+                job.who = self._give_job(job)
                 logging.debug('Gave job to %s' % job.who.name())
 
     def _handle_cancel(self, event_source, worker_cancel_pending):
@@ -210,6 +216,8 @@ class WorkerBuildQueuer(distbuild.StateMachine):
             logging.debug('%s wants new job, just just did %s' %
                 (who.name(), who.last_built.basename()))
             del self._jobs[who.last_built.basename()]  # job's done
+
+            # Need to tell folk that care that it's done
         else:
             logging.debug('%s wants its first job' % who.name())
 
@@ -219,19 +227,22 @@ class WorkerBuildQueuer(distbuild.StateMachine):
             'WBQ: %d available workers and %d requests queued' %
                 (len(self._available_workers),
                  len(self._request_queue)))
-        if self._request_queue:
-            self._give_job()
+
+        if self._jobs:
+            # pick a job that's not already being built
+            # TODO: make job selection fair
+            # give it to someone
+            self._give_job(job)
             
-    def _give_job(self):
-        request = self._request_queue.pop(0)
+    def _give_job(self, job):
         worker = self._available_workers.pop(0)
+        job.who = worker.who
+
         logging.debug(
             'WBQ: Giving %s to %s' %
-                (request.artifact.name, worker.who.name()))
-        self.mainloop.queue_event(worker.who, _HaveAJob(request.artifact,
-                                                        request.initiator_id))
+                (job.artifact.name, worker.who.name()))
 
-        return worker.who
+        self.mainloop.queue_event(worker.who, _HaveAJob(job))
     
     
 class WorkerConnection(distbuild.StateMachine):
@@ -315,33 +326,41 @@ class WorkerConnection(distbuild.StateMachine):
     def _start_build(self, event_source, event):
         distbuild.crash_point()
 
-        self._artifact = event.artifact
-        self.last_built = event.artifact
-        self._initiator_id = event.initiator_id
+        self._job = event.job
+
         logging.debug('WC: starting build: %s for %s' %
-                      (self._artifact.name, self._initiator_id))
+                      (self._artifact.name, self._job.initators))
 
         argv = [
             self._morph_instance,
             'worker-build',
-            self._artifact.name,
+            self._job.artifact.name,
         ]
         msg = distbuild.message('exec-request',
             id=self._request_ids.next(),
             argv=argv,
-            stdin_contents=distbuild.serialise_artifact(self._artifact),
+            stdin_contents=distbuild.serialise_artifact(self._job.artifact),
         )
         self._jm.send(msg)
         logging.debug('WC: sent to worker %s: %r' % (self._worker_name, msg))
-        self._route_map.add(self._initiator_id, msg['id'])
-        self._initiator_request_map[self._initiator_id].add(msg['id'])
-        logging.debug(
-            'WC: route map from %s to %s',
-            self._artifact.cache_key, msg['id'])
 
-        started = WorkerBuildStepStarted(
-            self._initiator_id, self._artifact.cache_key, self.name())
-        self.mainloop.queue_event(WorkerConnection, started)
+        # TODO: see if there's a better way
+        for initiator_id in self._job.initiators:
+            # associate this messages's id with each of the initiators
+            # that care about this job
+            #self._route_map.add(msg['id'], initiator_id)
+
+            # TODO: can this be done with the route map?
+            self._initiator_request_map[initiator_id].add(msg['id'])
+
+            #logging.debug(
+            #    'WC: route map from %s to %s',
+            #    self._artifact.cache_key, msg['id'])
+
+        for initiator_id in self._job.initiators:
+            started = WorkerBuildStepStarted(initiator_id,
+                self._artifact.cache_key, self.name())
+            self.mainloop.queue_event(WorkerConnection, started)
 
     def _handle_json_message(self, event_source, event):
         '''Handle JSON messages from the worker.'''
@@ -371,20 +390,26 @@ class WorkerConnection(distbuild.StateMachine):
         logging.debug('WC: finished building: %s' % self._artifact.name)
 
         new = dict(msg)
-        new['id'] = self._route_map.get_incoming_id(msg['id'])
-        self._route_map.remove(msg['id'])
-        self._initiator_request_map[self._initiator_id].remove(msg['id'])
 
-        if new['exit'] != 0:
-            # Build failed.
-            new_event = WorkerBuildFailed(new, self._artifact.cache_key)
-            self.mainloop.queue_event(WorkerConnection, new_event)
-            self.mainloop.queue_event(self, _BuildFailed())
-            self._artifact = None
-            self._initiator_id = None
-        else:
-            # Build succeeded. We have more work to do: caching the result.
-            self.mainloop.queue_event(self, _BuildFinished(new))
+        #initiator_ids = self._route_map.get_outgoing_ids(msg['id'])
+
+        #new['id'] = self._route_map.get_incoming_id(msg['id'])
+        #self._route_map.remove(msg['id'])
+
+        for initiator_id in self._jobs.initiators:
+            self._initiator_request_map[initiator_id].remove(msg['id'])
+            new['id'] = initiator_id
+
+            if new['exit'] != 0:
+                # Build failed.
+                new_event = WorkerBuildFailed(new, self._artifact.cache_key)
+                self.mainloop.queue_event(WorkerConnection, new_event)
+                self.mainloop.queue_event(self, _BuildFailed())
+                self._artifact = None
+                self._initiator_id = None
+            else:
+                # Build succeeded. We have more work to do: caching the result.
+                self.mainloop.queue_event(self, _BuildFinished(new))
 
     def _request_job(self, event_source, event):
         distbuild.crash_point()
@@ -436,9 +461,10 @@ class WorkerConnection(distbuild.StateMachine):
         # instead of sending one initiator id, we should send a list of ids
         # for initiators that might be interested in this event
 
-        progress = WorkerBuildCaching(
-            self._initiator_id, self._artifact.cache_key)
-        self.mainloop.queue_event(WorkerConnection, progress)
+        for initiator_id in self._jobs.initiators:
+            progress = WorkerBuildCaching(
+                self._initiator_id, self._artifact.cache_key)
+            self.mainloop.queue_event(WorkerConnection, progress)
         
         self._initiator_id = None
         self._finished_msg = event.msg
