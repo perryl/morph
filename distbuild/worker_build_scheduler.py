@@ -264,6 +264,7 @@ class WorkerConnection(distbuild.StateMachine):
         self._worker_cache_server_port = worker_cache_server_port
         self._morph_instance = morph_instance
         self._helper_id = None
+        self._job = None
 
         addr, port = self._conn.getpeername()
         name = socket.getfqdn(addr)
