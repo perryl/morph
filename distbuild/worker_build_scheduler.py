@@ -327,7 +327,7 @@ class WorkerConnection(distbuild.StateMachine):
         self._job = event.job
 
         logging.debug('WC: starting build: %s for %s' %
-                      (self._artifact.name, self._job.initators))
+                      (self._job.artifact.name, self._job.initators))
 
         argv = [
             self._morph_instance,
