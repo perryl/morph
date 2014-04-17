@@ -461,7 +461,7 @@ class WorkerConnection(distbuild.StateMachine):
         # instead of sending one initiator id, we should send a list of ids
         # for initiators that might be interested in this event
 
-        for initiator_id in self._jobs.initiators:
+        for initiator_id in self._job.initiators:
             progress = WorkerBuildCaching(
                 self._initiator_id, self._job.artifact.cache_key)
             self.mainloop.queue_event(WorkerConnection, progress)
