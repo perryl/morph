@@ -224,10 +224,8 @@ class WorkerBuildQueuer(distbuild.StateMachine):
 
         logging.debug('WBQ: Adding worker to queue: %s' % event.who)
         self._available_workers.append(event)
-        logging.debug(
-            # TODO: equivalent for no requests queued
-            'WBQ: %d available workers and ? requests queued' %
-                (len(self._available_workers))
+        logging.debug('WBQ: %d available workers and ? requests queued'
+            % (len(self._available_workers)))
 
         if self._jobs:
             # pick a job that's not already being built
