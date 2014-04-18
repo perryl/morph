@@ -266,6 +266,7 @@ class WorkerConnection(distbuild.StateMachine):
         self._morph_instance = morph_instance
         self._helper_id = None
         self._job = None
+        self._exec_response_msg = None
 
         addr, port = self._conn.getpeername()
         name = socket.getfqdn(addr)
@@ -403,20 +404,24 @@ class WorkerConnection(distbuild.StateMachine):
         #new['id'] = self._route_map.get_incoming_id(msg['id'])
         #self._route_map.remove(msg['id'])
 
-        for initiator_id in self._job.initiators:
             #self._initiator_request_map[initiator_id].remove(msg['id'])
-            new['id'] = initiator_id
 
-            if new['exit'] != 0:
-                # Build failed.
-                new_event = WorkerBuildFailed(new, self._job.artifact.cache_key)
-                self.mainloop.queue_event(WorkerConnection, new_event)
-                self.mainloop.queue_event(self, _BuildFailed())
-                self._artifact = None
-                self._initiator_id = None
-            else:
-                # Build succeeded. We have more work to do: caching the result.
-                self.mainloop.queue_event(self, _BuildFinished(new))
+        new['ids'] = self._job.initiators
+
+        if new['exit'] != 0:
+            # Build failed.
+            new_event = WorkerBuildFailed(new, self._job.artifact.cache_key)
+            self.mainloop.queue_event(WorkerConnection, new_event)
+            self.mainloop.queue_event(self, _BuildFailed())
+
+            # TODO: don't need these
+            self._artifact = None
+            self._initiator_id = None
+        else:
+            # Build succeeded. We have more work to do: caching the result.
+            # TODO: no need to pass this msg in anymore
+            self.mainloop.queue_event(self, _BuildFinished(new))
+            self._exec_response_msg = new
 
     def _request_job(self, event_source, event):
         distbuild.crash_point()
@@ -468,11 +473,13 @@ class WorkerConnection(distbuild.StateMachine):
         # instead of sending one initiator id, we should send a list of ids
         # for initiators that might be interested in this event
 
+        # TODO: can do this with one message if the ids are sent in a list
         for initiator_id in self._job.initiators:
             progress = WorkerBuildCaching(initiator_id,
                 self._job.artifact.cache_key)
             self.mainloop.queue_event(WorkerConnection, progress)
         
+        # TODO: don't need this
         self._initiator_id = None
         self._finished_msg = event.msg
 
@@ -483,8 +490,9 @@ class WorkerConnection(distbuild.StateMachine):
             logging.debug('caching: event.msg: %s' % repr(event.msg))
             if event.msg['status'] == httplib.OK:
                 logging.debug('Shared artifact cache population done')
+
                 new_event = WorkerBuildFinished(
-                    self._finished_msg, self._job.artifact.cache_key)
+                    self._exec_response_msg, self._job.artifact.cache_key)
                 self.mainloop.queue_event(WorkerConnection, new_event)
                 self._finished_msg = None
                 self._helper_id = None
