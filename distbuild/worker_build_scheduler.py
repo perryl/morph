@@ -131,7 +131,8 @@ class Jobs(object):
         return waiting.pop() if len(waiting) > 0 else None
 
     def __str__(self):
-        return [job.artifact.basename() for (_, job) in self._jobs.iteritems()]
+        return str([job.artifact.basename()
+            for (_, job) in self._jobs.iteritems()])
 
     def __repr__(self):
         return self.__str__()
