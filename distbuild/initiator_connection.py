@@ -206,7 +206,7 @@ class InitiatorConnection(distbuild.StateMachine):
                 event.worker_name))
 
         if event.id in self.our_ids:
-            msg = distbuild.message(('step-already-started',
+            msg = distbuild.message('step-already-started',
                 id=self._route_map.get_incoming_id(event.id),
                 step_name=event.step_name,
                 worker_name=event.worker_name)
