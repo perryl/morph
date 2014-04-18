@@ -349,6 +349,8 @@ class WorkerConnection(distbuild.StateMachine):
         distbuild.crash_point()
 
         self._job = event.job
+        self._helper_id = None
+        self._exec_response_msg = None
 
         logging.debug('WC: starting build: %s for %s' %
                       (self._job.artifact.name, self._job.initiators))
@@ -481,8 +483,6 @@ class WorkerConnection(distbuild.StateMachine):
                 new_event = WorkerBuildFinished(
                     self._exec_response_msg, self._job.artifact.cache_key)
                 self.mainloop.queue_event(WorkerConnection, new_event)
-                self._finished_msg = None
-                self._helper_id = None
                 self.mainloop.queue_event(self, _Cached())
             else:
                 logging.error(
@@ -491,5 +491,4 @@ class WorkerConnection(distbuild.StateMachine):
                 new_event = WorkerBuildFailed(
                     self._finished_msg, self._job.artifact.cache_key)
                 self.mainloop.queue_event(WorkerConnection, new_event)
-                self._helper_id = None  # TODO: why?
                 self.mainloop.queue_event(self, _BuildFailed())
