@@ -99,7 +99,6 @@ class BuildStepAlreadyStarted(BuildStepStarted):
     def __init__(self, request_id, step_name, worker_name):
         super(BuildStepAlreadyStarted, self).__init__(
             request_id, step_name, worker_name)
-        self.already_started = True
 
 class BuildOutput(object):
 
