@@ -81,6 +81,9 @@ class InitiatorConnection(distbuild.StateMachine):
                 'idle', self._send_build_steps_message),
             ('idle', distbuild.BuildController, distbuild.BuildStepStarted, 
                 'idle', self._send_build_step_started_message),
+            ('idle', distbuild.BuildController,
+                distbuild.BuildStepAlreadyStarted, 'idle',
+                self._send_build_step_started_message),
             ('idle', distbuild.BuildController, distbuild.BuildOutput, 
                 'idle', self._send_build_output_message),
             ('idle', distbuild.BuildController, distbuild.BuildStepFinished,
@@ -183,8 +186,12 @@ class InitiatorConnection(distbuild.StateMachine):
             self._log_send(msg)
 
     def _send_build_step_started_message(self, event_source, event):
+        logging.debug('InitiatorConnection: build_step_started: '
+            'id=%s step_name=%s worker_name=%s already_started=%s' %
+            (event.id, event.worker_name, event.already_started))
         if event.id in self.our_ids:
-            msg = distbuild.message('step-started',
+            msg = distbuild.message(('step-already-started'
+                if event.already_started else 'step-started'),
                 id=self._route_map.get_incoming_id(event.id),
                 step_name=event.step_name,
                 worker_name=event.worker_name)
