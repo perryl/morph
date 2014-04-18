@@ -132,6 +132,9 @@ class Jobs(object):
 
     def __str__(self):
         return [job.artifact.basename() for (_, job) in self._jobs.iteritems()]
+
+    def __repr__(self):
+        return self.__str__()
         
 class _BuildFinished(object):
 
