@@ -176,9 +176,16 @@ class WorkerBuildQueuer(distbuild.StateMachine):
             job = self._jobs[event.artifact.basename()]
             job.initiators.append(event.initiator_id)
 
-            logging.debug("Worker build in progress")
-            progress = WorkerBuildInProgress(
-                event.initiator_id, event.artifact.cache_key, job.who.name())
+            if job.who != None:
+                logging.debug("Worker build in progress: %s" %
+                    event.artifact.basename())
+                progress = WorkerBuildInProgress(event.initiator_id,
+                    event.artifact.cache_key, job.who.name())
+            else:
+                logging.debug("Job created but not building yet "
+                    "(waiting for a worker to become available): %s" %
+                    event.artifact.basename())
+                # TODO: WorkerBuildWaiting
 
             self.mainloop.queue_event(WorkerConnection, progress)
         else:
