@@ -119,7 +119,7 @@ class Jobs(object):
         self._jobs[job.artifact.basename()] = job
 
     def remove(self, job):
-        del self_jobs[job.artifact.basename()]
+        del self._jobs[job.artifact.basename()]
 
     def exists(self, artifact_basename):
         return artifact_basename in self._jobs
