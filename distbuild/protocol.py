@@ -39,6 +39,11 @@ _types = {
         'step_name',
         'worker_name',
     ],
+    'step-already-started': [
+        'id',
+        'step_name',
+        'worker_name',
+    ],
     'step-output': [
         'id',
         'step_name',
