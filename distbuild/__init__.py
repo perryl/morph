@@ -49,7 +49,8 @@ from worker_build_scheduler import (WorkerBuildQueuer,
                                     WorkerBuildFailed,
                                     WorkerBuildStepStarted)
 from build_controller import (BuildController, BuildFailed, BuildProgress,
-                              BuildSteps, BuildStepStarted, BuildOutput,
+                              BuildSteps, BuildStepStarted,
+                              BuildStepAlreadyStarted, BuildOutput,
                               BuildStepFinished, BuildStepFailed,
                               BuildFinished, BuildCancel,
                               build_step_name, map_build_graph)
