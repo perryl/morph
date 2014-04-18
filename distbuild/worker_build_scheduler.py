@@ -393,6 +393,7 @@ class WorkerConnection(distbuild.StateMachine):
 
     def _handle_exec_response(self, msg):
         logging.debug('WC: finished building: %s' % self._job.artifact.name)
+        logging.debug('initiators that need to know: %s' % self._job.initiators)
 
         new = dict(msg)
 
