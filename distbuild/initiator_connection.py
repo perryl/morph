@@ -83,7 +83,7 @@ class InitiatorConnection(distbuild.StateMachine):
                 'idle', self._send_build_step_started_message),
             ('idle', distbuild.BuildController,
                 distbuild.BuildStepAlreadyStarted, 'idle',
-                self._send_build_step_started_message),
+                self._send_build_step_already_started_message),
             ('idle', distbuild.BuildController, distbuild.BuildOutput, 
                 'idle', self._send_build_output_message),
             ('idle', distbuild.BuildController, distbuild.BuildStepFinished,
