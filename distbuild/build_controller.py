@@ -524,7 +524,7 @@ class BuildController(distbuild.StateMachine):
             
     def _maybe_check_result_and_queue_more_builds(self, event_source, event):
         distbuild.crash_point()
-        if event.msg['id'] != self._request['id']:
+        if self._request['id'] not in event.msg['ids']:
             return # not for us
 
         artifact = self._find_artifact(event.artifact_cache_key)
