@@ -94,7 +94,6 @@ class _HaveAJob(object):
     def __init__(self, job):
         self.job = job
 
-# TODO: Jobs class please
 class Job(object):
 
     def __init__(self, artifact, initiator_id):
@@ -102,6 +101,34 @@ class Job(object):
         self.creator = initiator_id
         self.initiators = [initiator_id]
         self.who = None  # we don't know who's going to do this yet
+
+    def add_initiator(self, initiator_id):
+        self.initiators.append(initiator_id)
+
+class Jobs(object):
+
+    def __init__(self):
+        self._jobs = {}
+
+    def get(self, artifact_basename):
+        return (self._jobs[artifact_basename]
+            if artifact_basename in self._jobs else None)
+
+    def add(self, job):
+        # TODO: check job is really a job
+        self._jobs[job.artifact.basename()] = job
+
+    def remove(self, job):
+        del self_jobs[job.artifact.basename()]
+
+    def exists(self, artifact_basename):
+        return artifact_basename in self._jobs
+
+    def get_next_job(self):
+        # for now just return the first thing we find that's not being built
+        waiting = [job for (_, job) in self._jobs.iteritems() if job.who == None]
+
+        return waiting.pop() if len(waiting) > 0 else None
         
 class _BuildFinished(object):
 
@@ -140,7 +167,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         logging.debug('WBQ: Setting up %s' % self)
         self._request_queue = []
         self._available_workers = []
-        self._jobs = {}
+        self._jobs = Jobs()
         
         spec = [
             # state, source, event_class, new_state, callback
@@ -154,13 +181,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         ]
         self.add_transitions(spec)
 
-    # TODO: I want this thing in a jobs class
-    def next_job(self, jobs):
-        # for now just return the first thing we find that's not being built
-        #waiting = filter(lambda (_, job): job.who == None, jobs.iteritems())
-        waiting = [job for (_, job) in jobs.iteritems() if job.who == None]
 
-        return waiting.pop() if len(waiting) > 0 else None
 
     def _handle_request(self, event_source, event):
         distbuild.crash_point()
@@ -172,8 +193,8 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         logging.debug('Handling build request for %s' % event.initiator_id)
         logging.debug('Currently building: %s' % self._jobs)
 
-        if event.artifact.basename() in self._jobs:
-            job = self._jobs[event.artifact.basename()]
+        if self._jobs.exists(event.artifact.basename()):
+            job = self._jobs.get(event.artifact.basename())
             job.initiators.append(event.initiator_id)
 
             if job.who != None:
@@ -190,13 +211,10 @@ class WorkerBuildQueuer(distbuild.StateMachine):
             self.mainloop.queue_event(WorkerConnection, progress)
         else:
             job = Job(event.artifact, event.initiator_id)
-            self._jobs[event.artifact.basename()] = job
+            self._jobs.add(job)
 
             logging.debug('WBQ: Adding request to queue: %s'
                 % event.artifact.name)
-
-            # don't need request queue anymore
-            # self._request_queue.append(event)
 
             logging.debug(
                 'WBQ: %d available workers and %d requests queued' %
@@ -226,8 +244,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
             logging.debug('%s wants new job, just just did %s' %
                 (who.name(), last_job.artifact.basename()))
 
-            # TODO: abstract this with job class
-            del self._jobs[last_job.artifact.basename()]  # job's done
+            self._jobs.remove(last_job)
         else:
             logging.debug('%s wants its first job' % who.name())
 
@@ -237,10 +254,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
             % (len(self._available_workers)))
 
         if self._jobs:
-            # pick a job that's not already being built
-            # TODO: make job selection fair
-            # give it to someone
-            job = self.next_job(self._jobs)
+            job = self._jobs.get_next_job()
 
             if job:
                 self._give_job(job)
