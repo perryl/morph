@@ -205,6 +205,8 @@ class InitiatorConnection(distbuild.StateMachine):
             self._log_send(msg)
 
     def _send_build_step_finished_message(self, event_source, event):
+        logging.debug('heard built step finished: event.id: %s our_ids: %s'
+            % (str(event.id), str(self.our_ids)))
         if event.id in self.our_ids:
             msg = distbuild.message('step-finished',
                 id=self._route_map.get_incoming_id(event.id),
