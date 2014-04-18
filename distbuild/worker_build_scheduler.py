@@ -156,7 +156,8 @@ class WorkerBuildQueuer(distbuild.StateMachine):
     # TODO: I want this thing in a jobs class
     def next_job(self, jobs):
         # for now just return the first thing we find that's not being built
-        waiting = filter(lambda (_, job): job.who == None, jobs.iteritems())
+        #waiting = filter(lambda (_, job): job.who == None, jobs.iteritems())
+        waiting = [job for (_, job) in jobs.iteritems() if job.who == None]
 
         return waiting.pop() if len(waiting) > 0 else None
 
