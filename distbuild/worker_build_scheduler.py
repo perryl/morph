@@ -99,6 +99,7 @@ class Job(object):
 
     def __init__(self, artifact, initiator_id):
         self.artifact = artifact
+        self.creator = initiator_id
         self.initiators = [initiator_id]
         self.who = None  # we don't know who's going to do this yet
         
@@ -362,7 +363,7 @@ class WorkerConnection(distbuild.StateMachine):
             #    'WC: route map from %s to %s',
             #    self._artifact.cache_key, msg['id'])
 
-        started = WorkerBuildStepStarted(initiator_id,
+        started = WorkerBuildStepStarted(self._job.creator,
             self._job.artifact.cache_key, self.name())
         self.mainloop.queue_event(WorkerConnection, started)
 
