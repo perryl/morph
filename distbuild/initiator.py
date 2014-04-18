@@ -94,6 +94,7 @@ class Initiator(distbuild.StateMachine):
             'build-progress': self._handle_build_progress_message,
             'build-steps': self._handle_build_steps_message,
             'step-started': self._handle_step_started_message,
+            'step-already-started': self._handle_step_already_started_message,
             'step-output': self._handle_step_output_message,
             'step-finished': self._handle_step_finished_message,
             'step-failed': self._handle_step_failed_message,
@@ -126,6 +127,12 @@ class Initiator(distbuild.StateMachine):
     def _close_output(self, msg):
         self._step_outputs[msg['step_name']].close()
         del self._step_outputs[msg['step_name']]
+
+    def _handle_step_already_started_message(self, msg):
+        self._app.status(
+            msg='%s is already building on %s',
+            % (msg['step_name'], msg['worker_name']))
+        self._open_output(msg)
 
     def _handle_step_started_message(self, msg):
         self._app.status(
