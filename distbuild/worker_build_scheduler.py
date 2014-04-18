@@ -129,6 +129,9 @@ class Jobs(object):
         waiting = [job for (_, job) in self._jobs.iteritems() if job.who == None]
 
         return waiting.pop() if len(waiting) > 0 else None
+
+    def __str__(self):
+        return [job.artifact.basename() for (_, job) in self._jobs.iteritems()]
         
 class _BuildFinished(object):
 
