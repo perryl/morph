@@ -130,8 +130,8 @@ class Initiator(distbuild.StateMachine):
 
     def _handle_step_already_started_message(self, msg):
         self._app.status(
-            msg='%s is already building on %s',
-            % (msg['step_name'], msg['worker_name']))
+            msg='%s is already building on %s' % (msg['step_name'],
+                msg['worker_name']))
         self._open_output(msg)
 
     def _handle_step_started_message(self, msg):
