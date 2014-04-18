@@ -187,11 +187,26 @@ class InitiatorConnection(distbuild.StateMachine):
 
     def _send_build_step_started_message(self, event_source, event):
         logging.debug('InitiatorConnection: build_step_started: '
-            'id=%s step_name=%s worker_name=%s already_started=%s' %
-            (event.id, event.worker_name, event.already_started))
+            'id=%s step_name=%s worker_name=%s' %
+            (event.id, event.step_name, event.worker_name))
         if event.id in self.our_ids:
-            msg = distbuild.message(('step-already-started'
-                if event.already_started else 'step-started'),
+            msg = distbuild.message('step-started',
+                id=self._route_map.get_incoming_id(event.id),
+                step_name=event.step_name,
+                worker_name=event.worker_name)
+            self.jm.send(msg)
+            self._log_send(msg)
+
+    # TODO: most of this is duplicated code, we can probably cut most of it away.
+    # at least all the 'step' messages seem the same, so some step function would
+    # be good.
+    def _send_build_step_already_started_message(self, event_source, event):
+        logging.debug('InitiatorConnection: build_step_already_started: '
+            'id=%s step_name=%s worker_name=%s' % (event.id, event.step_name,
+                event.worker_name))
+
+        if event.id in self.our_ids:
+            msg = distbuild.message(('step-already-started',
                 id=self._route_map.get_incoming_id(event.id),
                 step_name=event.step_name,
                 worker_name=event.worker_name)
