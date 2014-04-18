@@ -362,10 +362,9 @@ class WorkerConnection(distbuild.StateMachine):
             #    'WC: route map from %s to %s',
             #    self._artifact.cache_key, msg['id'])
 
-        for initiator_id in self._job.initiators:
-            started = WorkerBuildStepStarted(initiator_id,
-                self._job.artifact.cache_key, self.name())
-            self.mainloop.queue_event(WorkerConnection, started)
+        started = WorkerBuildStepStarted(initiator_id,
+            self._job.artifact.cache_key, self.name())
+        self.mainloop.queue_event(WorkerConnection, started)
 
     def _handle_json_message(self, event_source, event):
         '''Handle JSON messages from the worker.'''
