@@ -134,10 +134,7 @@ class _BuildFinished(object):
 
     def __init__(self, msg):
         self.msg = msg
-        
-# TODO: we could probably just pass the job around instead,
-# then we wouldn't need to search for the job again when it completes
-# premature optimisation at this point though i guess
+
 class _BuildFailed(object):
 
     pass
@@ -175,8 +172,6 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                 self._handle_request),
             ('idle', WorkerBuildQueuer, WorkerCancelPending, 'idle',
                 self._handle_cancel),
-            # TODO: probably _NeedJob can have a different function,
-            # since there's no artifact to check, no notification etc
             ('idle', WorkerConnection, _NeedJob, 'idle', self._handle_worker),
         ]
         self.add_transitions(spec)
@@ -371,19 +366,6 @@ class WorkerConnection(distbuild.StateMachine):
         self._jm.send(msg)
         logging.debug('WC: sent to worker %s: %r' % (self._worker_name, msg))
 
-        # TODO: see if there's a better way
-        #for initiator_id in self._job.initiators:
-            # associate this messages's id with each of the initiators
-            # that care about this job
-            #self._route_map.add(msg['id'], initiator_id)
-
-            # TODO: can this be done with the route map?
-            #self._initiator_request_map[initiator_id].add(msg['id'])
-
-            #logging.debug(
-            #    'WC: route map from %s to %s',
-            #    self._artifact.cache_key, msg['id'])
-
         started = WorkerBuildStepStarted(self._job.creator,
             self._job.artifact.cache_key, self.name())
         self.mainloop.queue_event(WorkerConnection, started)
@@ -419,14 +401,6 @@ class WorkerConnection(distbuild.StateMachine):
         logging.debug('initiators that need to know: %s' % self._job.initiators)
 
         new = dict(msg)
-
-        #initiator_ids = self._route_map.get_outgoing_ids(msg['id'])
-
-        #new['id'] = self._route_map.get_incoming_id(msg['id'])
-        #self._route_map.remove(msg['id'])
-
-            #self._initiator_request_map[initiator_id].remove(msg['id'])
-
         new['ids'] = self._job.initiators
 
         if new['exit'] != 0:
@@ -434,10 +408,6 @@ class WorkerConnection(distbuild.StateMachine):
             new_event = WorkerBuildFailed(new, self._job.artifact.cache_key)
             self.mainloop.queue_event(WorkerConnection, new_event)
             self.mainloop.queue_event(self, _BuildFailed())
-
-            # TODO: don't need these
-            self._artifact = None
-            self._initiator_id = None
         else:
             # Build succeeded. We have more work to do: caching the result.
             # TODO: no need to pass this msg in anymore
@@ -499,10 +469,6 @@ class WorkerConnection(distbuild.StateMachine):
             progress = WorkerBuildCaching(initiator_id,
                 self._job.artifact.cache_key)
             self.mainloop.queue_event(WorkerConnection, progress)
-        
-        # TODO: don't need this
-        self._initiator_id = None
-        self._finished_msg = event.msg
 
     def _maybe_handle_helper_result(self, event_source, event):
         if event.msg['id'] == self._helper_id:
@@ -525,8 +491,5 @@ class WorkerConnection(distbuild.StateMachine):
                 new_event = WorkerBuildFailed(
                     self._finished_msg, self._job.artifact.cache_key)
                 self.mainloop.queue_event(WorkerConnection, new_event)
-                self._finished_msg = None
-                self._helper_id = None
+                self._helper_id = None  # TODO: why?
                 self.mainloop.queue_event(self, _BuildFailed())
-
-            self._artifact = None
