@@ -240,8 +240,8 @@ class WorkerBuildQueuer(distbuild.StateMachine):
 
         logging.debug('WBQ: Adding worker to queue: %s' % event.who)
         self._available_workers.append(event)
-        logging.debug('WBQ: %d available workers and ? requests queued'
-            % (len(self._available_workers)))
+        logging.debug('Current jobs: %s' % self._jobs)
+        logging.debug('Workers available: %d' % len(self._available_workers))
 
         if self._jobs:
             job = self._jobs.get_next_job()
