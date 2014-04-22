@@ -350,7 +350,6 @@ class WorkerConnection(distbuild.StateMachine):
             self._job.artifact.name,
         ]
         msg = distbuild.message('exec-request',
-            #id=self._request_ids.next(),
             id=self._job.id,
             argv=argv,
             stdin_contents=distbuild.serialise_artifact(self._job.artifact),
