@@ -116,7 +116,6 @@ class InitiatorConnection(distbuild.StateMachine):
                     self.initiator_name, str(id))
             self.mainloop.queue_event(InitiatorConnection,
                                       InitiatorDisconnect(id))
-        # TODO should this clear our_ids?
         self.mainloop.queue_event(self, _Close(event_source))
 
     def _close(self, event_source, event):
@@ -197,9 +196,6 @@ class InitiatorConnection(distbuild.StateMachine):
             self.jm.send(msg)
             self._log_send(msg)
 
-    # TODO: most of this is duplicated code, we can probably cut most of it away.
-    # at least all the 'step' messages seem the same, so some step function would
-    # be good.
     def _send_build_step_already_started_message(self, event_source, event):
         logging.debug('InitiatorConnection: build_step_already_started: '
             'id=%s step_name=%s worker_name=%s' % (event.id, event.step_name,
