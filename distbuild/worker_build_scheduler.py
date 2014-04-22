@@ -54,7 +54,7 @@ class WorkerBuildStepAlreadyStarted(object):
 
 class WorkerBuildWaiting(object):
 
-    def __init__(self, initiator_id, cache_key, worker_name):
+    def __init__(self, initiator_id, cache_key):
         self.initiator_id = initiator_id
         self.artifact_cache_key = cache_key
 
