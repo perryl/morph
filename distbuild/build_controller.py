@@ -518,7 +518,8 @@ class BuildController(distbuild.StateMachine):
 
     def _maybe_relay_build_caching(self, event_source, event):
         distbuild.crash_point()
-        if event.initiator_id != self._request['id']:
+
+        if self._request['id'] not in event.initiators:
             return # not for us
 
         artifact = self._find_artifact(event.artifact_cache_key)

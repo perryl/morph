@@ -66,8 +66,8 @@ class WorkerBuildOutput(object):
 
 class WorkerBuildCaching(object):
 
-    def __init__(self, initiator_id, cache_key):
-        self.initiator_id = initiator_id
+    def __init__(self, initiators, cache_key):
+        self.initiators = initiators
         self.artifact_cache_key = cache_key
 
 class WorkerBuildFinished(object):
@@ -464,15 +464,9 @@ class WorkerConnection(distbuild.StateMachine):
         req = distbuild.HelperRequest(msg)
         self.mainloop.queue_event(distbuild.HelperRouter, req)
         
-        # tell anything that's interested in this thing that it's caching
-        # instead of sending one initiator id, we should send a list of ids
-        # for initiators that might be interested in this event
-
-        # TODO: can do this with one message if the ids are sent in a list
-        for initiator_id in self._job.initiators:
-            progress = WorkerBuildCaching(initiator_id,
-                self._job.artifact.cache_key)
-            self.mainloop.queue_event(WorkerConnection, progress)
+        progress = WorkerBuildCaching(self._job.initiators,
+            self._job.artifact.cache_key)
+        self.mainloop.queue_event(WorkerConnection, progress)
 
     def _maybe_handle_helper_result(self, event_source, event):
         if event.msg['id'] == self._helper_id:
