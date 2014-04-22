@@ -96,7 +96,6 @@ class _HaveAJob(object):
 
 class Job(object):
 
-    # TODO: namespace thing _private
     def __init__(self, job_id, artifact, initiator_id):
         self.id = job_id
         self.artifact = artifact
@@ -117,10 +116,6 @@ class Jobs(object):
         return (self._jobs[artifact_basename]
             if artifact_basename in self._jobs else None)
 
-    def get_jobs(self, initiator_id=None):
-        return (filter(lambda (_, j): initiator_id in j.initiators,
-            self._jobs.iteritems()) if initiator_id else self._jobs)
-
     def create(self, artifact, initiator_id):
         job = Job(self._idgen.next(), artifact, initiator_id)
         self._jobs[job.artifact.basename()] = job
@@ -138,12 +133,9 @@ class Jobs(object):
 
         return waiting.pop() if len(waiting) > 0 else None
 
-    def __str__(self):
+    def __repr__(self):
         return str([job.artifact.basename()
             for (_, job) in self._jobs.iteritems()])
-
-    def __repr__(self):
-        return self.__str__()
         
 class _BuildFinished(object):
 
