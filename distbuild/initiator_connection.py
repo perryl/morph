@@ -81,6 +81,9 @@ class InitiatorConnection(distbuild.StateMachine):
                 'idle', self._send_build_steps_message),
             ('idle', distbuild.BuildController, distbuild.BuildStepStarted, 
                 'idle', self._send_build_step_started_message),
+            ('idle', distbuild.BuildController,
+                distbuild.BuildStepAlreadyStarted, 'idle',
+                self._send_build_step_already_started_message),
             ('idle', distbuild.BuildController, distbuild.BuildOutput, 
                 'idle', self._send_build_output_message),
             ('idle', distbuild.BuildController, distbuild.BuildStepFinished,
@@ -113,7 +116,6 @@ class InitiatorConnection(distbuild.StateMachine):
                     self.initiator_name, str(id))
             self.mainloop.queue_event(InitiatorConnection,
                                       InitiatorDisconnect(id))
-        # TODO should this clear our_ids?
         self.mainloop.queue_event(self, _Close(event_source))
 
     def _close(self, event_source, event):
@@ -183,8 +185,24 @@ class InitiatorConnection(distbuild.StateMachine):
             self._log_send(msg)
 
     def _send_build_step_started_message(self, event_source, event):
+        logging.debug('InitiatorConnection: build_step_started: '
+            'id=%s step_name=%s worker_name=%s' %
+            (event.id, event.step_name, event.worker_name))
         if event.id in self.our_ids:
             msg = distbuild.message('step-started',
+                id=self._route_map.get_incoming_id(event.id),
+                step_name=event.step_name,
+                worker_name=event.worker_name)
+            self.jm.send(msg)
+            self._log_send(msg)
+
+    def _send_build_step_already_started_message(self, event_source, event):
+        logging.debug('InitiatorConnection: build_step_already_started: '
+            'id=%s step_name=%s worker_name=%s' % (event.id, event.step_name,
+                event.worker_name))
+
+        if event.id in self.our_ids:
+            msg = distbuild.message('step-already-started',
                 id=self._route_map.get_incoming_id(event.id),
                 step_name=event.step_name,
                 worker_name=event.worker_name)
@@ -205,6 +223,8 @@ class InitiatorConnection(distbuild.StateMachine):
             self._log_send(msg)
 
     def _send_build_step_finished_message(self, event_source, event):
+        logging.debug('heard built step finished: event.id: %s our_ids: %s'
+            % (str(event.id), str(self.our_ids)))
         if event.id in self.our_ids:
             msg = distbuild.message('step-finished',
                 id=self._route_map.get_incoming_id(event.id),
