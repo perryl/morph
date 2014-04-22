@@ -126,11 +126,6 @@ class Jobs(object):
         self._jobs[job.artifact.basename()] = job
         return job
 
-        #if isinstance(job, Job):
-        #    self._jobs[job.artifact.basename()] = job
-        #else:
-        #    raise TypeError('Argument is not a job')
-
     def remove(self, job):
         del self._jobs[job.artifact.basename()]
 
@@ -228,7 +223,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         else:
             job = self._jobs.create(event.artifact, event.initiator_id)
 
-            logging.debug('WBQ: Adding request to queue: %s'
+            logging.debug('WBQ: Creating job for: %s'
                 % event.artifact.name)
 
             logging.debug(
@@ -243,11 +238,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         # TODO: this probably needs to check whether any initiators
         # care about this thing
 
-        for request in [r for r in self._request_queue if
-                        r.initiator_id == worker_cancel_pending.initiator_id]:
-            logging.debug('WBQ: Removing request from queue: %s',
-                          request.artifact.name)
-            self._request_queue.remove(request)
+        pass
 
     def _handle_worker(self, event_source, event):
         distbuild.crash_point()
@@ -351,16 +342,7 @@ class WorkerConnection(distbuild.StateMachine):
         logging.debug('WC: BuildController %r requested a cancel' %
                       event_source)
 
-        self._jobs.get_jobs()
-
         # TODO: implement cancel
-        #if build_cancel.id == self._initiator_id:
-        #    distbuild.crash_point()
-        #
-        #    for id in self._initiator_request_map[self._initiator_id]:
-        #        logging.debug('WC: Cancelling exec %s' % id)
-        #        msg = distbuild.message('exec-cancel', id=id)
-        #        self._jm.send(msg)
 
     def _reconnect(self, event_source, event):
         distbuild.crash_point()
