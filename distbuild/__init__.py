@@ -45,6 +45,7 @@ from worker_build_scheduler import (WorkerBuildQueuer,
                                     WorkerBuildOutput,
                                     WorkerBuildCaching,
                                     WorkerBuildInProgress,
+                                    WorkerBuildWaiting,
                                     WorkerBuildFinished,
                                     WorkerBuildFailed,
                                     WorkerBuildStepStarted)
