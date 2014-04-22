@@ -582,8 +582,8 @@ class BuildController(distbuild.StateMachine):
     def _maybe_notify_build_failed(self, event_source, event):
         distbuild.crash_point()
 
-        if event.msg['id'] != self._request['id']:
-            return
+        if self._request['id'] not in event.msg['ids']:
+            return  # not for us
 
         artifact = self._find_artifact(event.artifact_cache_key)
 
