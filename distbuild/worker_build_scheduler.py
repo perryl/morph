@@ -40,6 +40,7 @@ class WorkerCancelPending(object):
         self.initiator_id = initiator_id    
 
 
+# TODO: these classes can be one thing
 class WorkerBuildStepStarted(object):
 
     def __init__(self, initiator_id, cache_key, worker_name):
@@ -47,6 +48,17 @@ class WorkerBuildStepStarted(object):
         self.artifact_cache_key = cache_key
         self.worker_name = worker_name
 
+class WorkerBuildInProgress(object):
+    def __init__(self, initiator_id, cache_key, worker_name):
+        self.initiator_id = initiator_id
+        self.artifact_cache_key = cache_key
+        self.worker_name = worker_name
+
+class WorkerBuildWaiting(object):
+    def __init__(self, initiator_id, cache_key, worker_name):
+        self.initiator_id = initiator_id
+        self.artifact_cache_key = cache_key
+        self.worker_name = worker_name
 
 class WorkerBuildOutput(object):
 
@@ -54,20 +66,11 @@ class WorkerBuildOutput(object):
         self.msg = msg
         self.artifact_cache_key = cache_key
 
-
-class WorkerBuildInProgress(object):
-    def __init__(self, initiator_id, cache_key, worker_name):
-        self.initiator_id = initiator_id
-        self.artifact_cache_key = cache_key
-        self.worker_name = worker_name
-
-
 class WorkerBuildCaching(object):
 
     def __init__(self, initiator_id, cache_key):
         self.initiator_id = initiator_id
         self.artifact_cache_key = cache_key
-
 
 class WorkerBuildFinished(object):
 
@@ -204,13 +207,14 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                     event.artifact.basename())
                 progress = WorkerBuildInProgress(event.initiator_id,
                     event.artifact.cache_key, job.who.name())
-
-                self.mainloop.queue_event(WorkerConnection, progress)
             else:
                 logging.debug("Job created but not building yet "
                     "(waiting for a worker to become available): %s" %
                     event.artifact.basename())
-                # TODO: WorkerBuildWaiting
+                progress = WorkerBuildWaiting(event.initiator_id,
+                    event.artifact.cache_key, job.who.name())
+
+            self.mainloop.queue_event(WorkerConnection, progress)
         else:
             job = Job(event.artifact, event.initiator_id)
             self._jobs.add(job)

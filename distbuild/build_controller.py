@@ -226,6 +226,9 @@ class BuildController(distbuild.StateMachine):
                 distbuild.WorkerBuildInProgress, 'building',
                 self._maybe_relay_build_step_already_started),
             ('building', distbuild.WorkerConnection,
+                distbuild.WorkerBuildWaiting, 'building',
+                self._maybe_relay_build_waiting_for_worker),
+            ('building', distbuild.WorkerConnection,
                 distbuild.WorkerBuildFinished, 'building',
                 self._maybe_check_result_and_queue_more_builds),
             ('building', distbuild.WorkerConnection,
@@ -449,6 +452,21 @@ class BuildController(distbuild.StateMachine):
         cancel = BuildCancel(disconnect.id)
         self.mainloop.queue_event(BuildController, cancel)
 
+    def _maybe_relay_build_waiting_for_worker(self, event_source, event):
+        if event.initiator_id != self._request['id']:
+            return # not for us
+
+        artifact = self._find_artifact(event.artifact_cache_key)
+        if artifact is None:
+            # This is not the event you are looking for.
+            return
+
+        progress = BuildProgress(
+            self._request['id'],
+            'Can build %s: waiting for worker to become available'
+            % artifact.name)
+        self.mainloop.queue_event(BuildController, progress)
+
     def _maybe_relay_build_step_started(self, event_source, event):
         distbuild.crash_point()
         if event.initiator_id != self._request['id']:
@@ -457,7 +475,6 @@ class BuildController(distbuild.StateMachine):
         logging.debug(
             'BC: _relay_build_step_started: %s' % event.artifact_cache_key)
 
-        # TODO: I don't see why we need this check
         artifact = self._find_artifact(event.artifact_cache_key)
         if artifact is None:
             # This is not the event you are looking for.
