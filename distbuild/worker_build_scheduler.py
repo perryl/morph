@@ -118,8 +118,10 @@ class Jobs(object):
             if artifact_basename in self._jobs else None)
 
     def add(self, job):
-        # TODO: check job is really a job
-        self._jobs[job.artifact.basename()] = job
+        if isinstance(job, Job):
+            self._jobs[job.artifact.basename()] = job
+        else:
+            raise TypeError('Argument is not a job')
 
     def remove(self, job):
         del self._jobs[job.artifact.basename()]
