@@ -147,8 +147,7 @@ class Jobs(object):
         
 class _BuildFinished(object):
 
-    def __init__(self, msg):
-        self.msg = msg
+    pass
 
 class _BuildFailed(object):
 
@@ -416,8 +415,7 @@ class WorkerConnection(distbuild.StateMachine):
             self.mainloop.queue_event(self, _BuildFailed())
         else:
             # Build succeeded. We have more work to do: caching the result.
-            # TODO: no need to pass this msg in anymore
-            self.mainloop.queue_event(self, _BuildFinished(new))
+            self.mainloop.queue_event(self, _BuildFinished())
             self._exec_response_msg = new
 
     def _request_job(self, event_source, event):
