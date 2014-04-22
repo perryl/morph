@@ -122,7 +122,7 @@ class Jobs(object):
             self._jobs.iteritems()) if initiator_id else self._jobs)
 
     def create(self, artifact, initiator_id):
-        job = Job(self._idgen.next(), artifact, inititiator_id)
+        job = Job(self._idgen.next(), artifact, initiator_id)
         self._jobs[job.artifact.basename()] = job
         return job
 
@@ -385,7 +385,7 @@ class WorkerConnection(distbuild.StateMachine):
         ]
         msg = distbuild.message('exec-request',
             #id=self._request_ids.next(),
-            id=self._job.id
+            id=self._job.id,
             argv=argv,
             stdin_contents=distbuild.serialise_artifact(self._job.artifact),
         )
