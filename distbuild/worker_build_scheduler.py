@@ -33,14 +33,11 @@ class WorkerBuildRequest(object):
         self.artifact = artifact
         self.initiator_id = initiator_id
 
-
 class WorkerCancelPending(object):
     
     def __init__(self, initiator_id):
         self.initiator_id = initiator_id    
 
-
-# TODO: these classes can be one thing
 class WorkerBuildStepStarted(object):
 
     def __init__(self, initiator_id, cache_key, worker_name):
@@ -49,16 +46,17 @@ class WorkerBuildStepStarted(object):
         self.worker_name = worker_name
 
 class WorkerBuildInProgress(object):
+
     def __init__(self, initiator_id, cache_key, worker_name):
         self.initiator_id = initiator_id
         self.artifact_cache_key = cache_key
         self.worker_name = worker_name
 
 class WorkerBuildWaiting(object):
+
     def __init__(self, initiator_id, cache_key, worker_name):
         self.initiator_id = initiator_id
         self.artifact_cache_key = cache_key
-        self.worker_name = worker_name
 
 class WorkerBuildOutput(object):
 
@@ -77,7 +75,6 @@ class WorkerBuildFinished(object):
     def __init__(self, msg, cache_key):
         self.msg = msg
         self.artifact_cache_key = cache_key
-        
         
 class WorkerBuildFailed(object):
 
@@ -214,7 +211,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                     "(waiting for a worker to become available): %s" %
                     event.artifact.basename())
                 progress = WorkerBuildWaiting(event.initiator_id,
-                    event.artifact.cache_key, job.who.name())
+                    event.artifact.cache_key)
 
             self.mainloop.queue_event(WorkerConnection, progress)
         else:
