@@ -96,7 +96,9 @@ class _HaveAJob(object):
 
 class Job(object):
 
-    def __init__(self, artifact, initiator_id):
+    # TODO: namespace thing _private
+    def __init__(self, job_id, artifact, initiator_id):
+        self.id = job_id
         self.artifact = artifact
         self.creator = initiator_id
         self.initiators = [initiator_id]
@@ -107,18 +109,27 @@ class Job(object):
 
 class Jobs(object):
 
-    def __init__(self):
+    def __init__(self, idgen):
+        self._idgen = idgen
         self._jobs = {}
 
     def get(self, artifact_basename):
         return (self._jobs[artifact_basename]
             if artifact_basename in self._jobs else None)
 
-    def add(self, job):
-        if isinstance(job, Job):
-            self._jobs[job.artifact.basename()] = job
-        else:
-            raise TypeError('Argument is not a job')
+    def get_jobs(self, initiator_id=None):
+        return (filter(lambda (_, j): initiator_id in j.initiators,
+            self._jobs.iteritems()) if initiator_id else self._jobs)
+
+    def create(self, artifact, initiator_id):
+        job = Job(self._idgen.next(), artifact, inititiator_id)
+        self._jobs[job.artifact.basename()] = job
+        return job
+
+        #if isinstance(job, Job):
+        #    self._jobs[job.artifact.basename()] = job
+        #else:
+        #    raise TypeError('Argument is not a job')
 
     def remove(self, job):
         del self._jobs[job.artifact.basename()]
@@ -173,7 +184,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         logging.debug('WBQ: Setting up %s' % self)
         self._request_queue = []
         self._available_workers = []
-        self._jobs = Jobs()
+        self._jobs = Jobs(distbuild.IdentifierGenerator('WorkerBuildQueuerJob'))
         
         spec = [
             # state, source, event_class, new_state, callback
@@ -215,8 +226,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
 
             self.mainloop.queue_event(WorkerConnection, progress)
         else:
-            job = Job(event.artifact, event.initiator_id)
-            self._jobs.add(job)
+            job = self._jobs.create(event.artifact, event.initiator_id)
 
             logging.debug('WBQ: Adding request to queue: %s'
                 % event.artifact.name)
@@ -340,6 +350,9 @@ class WorkerConnection(distbuild.StateMachine):
     def _maybe_cancel(self, event_source, build_cancel):
         logging.debug('WC: BuildController %r requested a cancel' %
                       event_source)
+
+        self._jobs.get_jobs()
+
         # TODO: implement cancel
         #if build_cancel.id == self._initiator_id:
         #    distbuild.crash_point()
@@ -371,7 +384,8 @@ class WorkerConnection(distbuild.StateMachine):
             self._job.artifact.name,
         ]
         msg = distbuild.message('exec-request',
-            id=self._request_ids.next(),
+            #id=self._request_ids.next(),
+            id=self._job.id
             argv=argv,
             stdin_contents=distbuild.serialise_artifact(self._job.artifact),
         )
