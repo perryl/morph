@@ -168,7 +168,6 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         distbuild.crash_point()
 
         logging.debug('WBQ: Setting up %s' % self)
-        self._request_queue = []
         self._available_workers = []
         self._jobs = Jobs(distbuild.IdentifierGenerator('WorkerBuildQueuerJob'))
         
@@ -192,7 +191,8 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         # If not, add the job to the dict and queue it
 
         logging.debug('Handling build request for %s' % event.initiator_id)
-        logging.debug('Currently building: %s' % self._jobs)
+        logging.debug('Current jobs: %s' % self._jobs)
+        logging.debug('Workers available: %d' % len(self._available_workers))
 
         if self._jobs.exists(event.artifact.basename()):
             job = self._jobs.get(event.artifact.basename())
@@ -212,15 +212,8 @@ class WorkerBuildQueuer(distbuild.StateMachine):
 
             self.mainloop.queue_event(WorkerConnection, progress)
         else:
+            logging.debug('WBQ: Creating job for: %s' % event.artifact.name)
             job = self._jobs.create(event.artifact, event.initiator_id)
-
-            logging.debug('WBQ: Creating job for: %s'
-                % event.artifact.name)
-
-            logging.debug(
-                'WBQ: %d available workers and %d requests queued' %
-                    (len(self._available_workers),
-                     len(self._request_queue)))
 
             if self._available_workers:
                 self._give_job(job)
