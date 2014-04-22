@@ -45,7 +45,7 @@ class WorkerBuildStepStarted(object):
         self.artifact_cache_key = cache_key
         self.worker_name = worker_name
 
-class WorkerBuildInProgress(object):
+class WorkerBuildStepAlreadyStarted(object):
 
     def __init__(self, initiator_id, cache_key, worker_name):
         self.initiator_id = initiator_id
@@ -199,13 +199,13 @@ class WorkerBuildQueuer(distbuild.StateMachine):
             job.initiators.append(event.initiator_id)
 
             if job.who != None:
-                logging.debug("Worker build in progress: %s" %
+                logging.debug('Worker build step already started: %s' %
                     event.artifact.basename())
-                progress = WorkerBuildInProgress(event.initiator_id,
+                progress = WorkerBuildStepAlreadyStarted(event.initiator_id,
                     event.artifact.cache_key, job.who.name())
             else:
-                logging.debug("Job created but not building yet "
-                    "(waiting for a worker to become available): %s" %
+                logging.debug('Job created but not building yet '
+                    '(waiting for a worker to become available): %s' %
                     event.artifact.basename())
                 progress = WorkerBuildWaiting(event.initiator_id,
                     event.artifact.cache_key)

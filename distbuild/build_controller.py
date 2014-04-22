@@ -212,7 +212,6 @@ class BuildController(distbuild.StateMachine):
             # building for us, but the state machines are not intended to
             # behave that way).
 
-            # TODO: WorkerBuildInProgress -> WorkerBuildStepAlreadyStarted ?
             ('building', distbuild.WorkerConnection,
                 distbuild.WorkerBuildStepStarted, 'building',
                 self._maybe_relay_build_step_started),
@@ -223,7 +222,7 @@ class BuildController(distbuild.StateMachine):
                 distbuild.WorkerBuildCaching, 'building',
                 self._maybe_relay_build_caching),
             ('building', distbuild.WorkerConnection,
-                distbuild.WorkerBuildInProgress, 'building',
+                distbuild.WorkerBuildStepAlreadyStarted, 'building',
                 self._maybe_relay_build_step_already_started),
             ('building', distbuild.WorkerConnection,
                 distbuild.WorkerBuildWaiting, 'building',
