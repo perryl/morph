@@ -400,14 +400,12 @@ class WorkerConnection(distbuild.StateMachine):
         handler(event.msg)
 
     def _handle_exec_output(self, msg):
-
-        for initiator_id in self._job.initiators:
-            new = dict(msg)
-            new['id'] = initiator_id
-            logging.debug('WC: emitting: %s', repr(new))
-            self.mainloop.queue_event(
-                WorkerConnection,
-                WorkerBuildOutput(new, self._job.artifact.cache_key))
+        new = dict(msg)
+        new['ids'] = self._job.initiators
+        logging.debug('WC: emitting: %s', repr(new))
+        self.mainloop.queue_event(
+            WorkerConnection,
+            WorkerBuildOutput(new, self._job.artifact.cache_key))
 
     def _handle_exec_response(self, msg):
         logging.debug('WC: finished building: %s' % self._job.artifact.name)

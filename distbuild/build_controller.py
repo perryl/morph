@@ -500,7 +500,7 @@ class BuildController(distbuild.StateMachine):
 
     def _maybe_relay_build_output(self, event_source, event):
         distbuild.crash_point()
-        if event.msg['id'] != self._request['id']:
+        if event.msg['id'] not in self._request['ids']:
             return # not for us
 
         logging.debug('BC: got output: %s' % repr(event.msg))
