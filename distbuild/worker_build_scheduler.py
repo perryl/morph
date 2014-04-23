@@ -249,12 +249,10 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         logging.debug('Current jobs: %s' % self._jobs)
         logging.debug('Workers available: %d' % len(self._available_workers))
 
-        if self._jobs:
-            job = self._jobs.get_next_job()
+        job = self._jobs.get_next_job()
 
-            if job:
-                self._give_job(job)
-
+        if job:
+            self._give_job(job)
             
     def _give_job(self, job):
         worker = self._available_workers.pop(0)
