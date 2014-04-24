@@ -235,8 +235,11 @@ class BuildController(distbuild.StateMachine):
                 self._maybe_notify_build_failed),
             ('building', self, _Abort, None, None),
             ('building', self, _Built, None, self._notify_build_done),
-            ('building', self._initiator_connection,
-                distbuild.InitiatorDisconnect, None,
+            #('building', self._initiator_connection,
+            #    distbuild.InitiatorDisconnect, None,
+            #    self._notify_initiator_disconnected),
+            ('building', distbuild.InitiatorConnection,
+                distbuild.InitiatorDisconnect, 'building',
                 self._notify_initiator_disconnected),
         ]
         self.add_transitions(spec)
@@ -438,11 +441,23 @@ class BuildController(distbuild.StateMachine):
                         a.state = BUILDING
 
 
-    def _notify_initiator_disconnected(self, event_source, disconnect):
-        logging.debug("BuildController %r: initiator id %s disconnected", self,
-                      disconnect.id)
-        cancel = BuildCancel(disconnect.id)
+    def _notify_initiator_disconnected(self, event_source, event):
+        if event.id != self._request['id']:
+            logging.debug('Heard initiator disconnect with event id %d '
+                          'but our request id is %d',
+                          event.id, self._request['id'])
+            return  # not for us
+
+        logging.debug("BuildController %r: initiator id %s disconnected",
+            self, event.id)
+
+        cancel_pending = distbuild.WorkerCancelPending(event.id)
+        self.mainloop.queue_event(distbuild.WorkerBuildQueuer, cancel_pending)
+
+        cancel = BuildCancel(event.id)
         self.mainloop.queue_event(BuildController, cancel)
+
+        self.mainloop.queue_event(self, _Abort)
 
     def _maybe_relay_build_waiting_for_worker(self, event_source, event):
         if event.initiator_id != self._request['id']:

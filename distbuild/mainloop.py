@@ -86,6 +86,7 @@ class MainLoop(object):
                     self.queue_event(event_source, event)
 
         for event_source, event in self._dequeue_events():
+            # TODO: this slice is redundant?
             for machine in self._machines[:]:
                 for new_event in machine.handle_event(event_source, event):
                     self.queue_event(event_source, new_event)
@@ -112,6 +113,6 @@ class MainLoop(object):
 
     def _dequeue_events(self):
         while self._events:
-            event_queue, event = self._events.pop(0)
-            yield event_queue, event
+            event_source, event = self._events.pop(0)
 
+            yield event_source, event
