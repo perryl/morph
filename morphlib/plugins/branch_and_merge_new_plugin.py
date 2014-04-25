@@ -292,7 +292,7 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
         return [
             (spec.get('repo') or morph.repo_url,
              spec.get('ref') or morph.ref,
-             '%s.morph' % spec['morph'])
+             spec['morph'])
             for spec in specs
         ]
 
@@ -375,7 +375,8 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
 
         For example:
 
-            morph edit devel-system-x86-64-generic devel
+            morph edit systems/devel-system-x86-64-generic.morph \
+            strata/devel.morph
 
         The above command will mark the `devel` stratum as being
         modified in the current system branch. In this case, the stratum's
@@ -386,13 +387,13 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
 
         In other words, where the system morphology used to say this:
 
-            morph: devel
+            morph: strata/devel.morph
             repo: baserock:baserock/morphs
             ref: master
 
         The updated system morphology will now say this instead:
 
-            morph: devel
+            morph: strata/devel.morph
             repo: baserock:baserock/morphs
             ref: jrandom/new-feature
 
@@ -400,7 +401,8 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
 
         Another example:
 
-            morph edit devel-system-x86_64-generic devel gcc
+            morph edit systems/devel-system-x86_64-generic.morph \
+            strata/devel.morph chunks/gcc.morph
 
         The above command will mark the `gcc` chunk as being edited in
         the current system branch. Morph will clone the `gcc` repository
@@ -423,11 +425,11 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
                                       ' a stratum and optionally a chunk'
                                       ' as parameters')
 
-        system_name  = morphlib.util.strip_morph_extension(args[0])
-        stratum_name  = morphlib.util.strip_morph_extension(args[1])
+        system_filename = args[0]
+        stratum_filename = args[1]
         chunk_name = None
         if len(args) == 3:
-            chunk_name = morphlib.util.strip_morph_extension(args[2])
+            chunk_filename = args[2]
 
         ws = morphlib.workspace.open('.')
         sb = morphlib.sysbranchdir.open_from_within('.')
@@ -438,12 +440,12 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
 
         logging.debug('Loading system morphology')
         system_morph = loader.load_from_file(
-            sb.get_filename(sb.root_repository_url, system_name + '.morph'))
+            sb.get_filename(sb.root_repository_url, system_filename))
         if system_morph['kind'] != 'system':
-            raise cliapp.AppException("%s is not a system" % system_name)
+            raise cliapp.AppException("%s is not a system" % system_filename)
         system_morph.repo_url = sb.root_repository_url
         system_morph.ref = sb.system_branch_name
-        system_morph.filename = system_name + '.morph'
+        system_morph.filename = system_filename
 
         logging.debug('Loading stratum morphologies')
         morphs = self._load_stratum_morphologies(loader, sb, system_morph)
@@ -453,9 +455,9 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
         # Change refs to the stratum to be to the system branch.
         # Note: this currently only supports strata in root repository.
 
-        logging.debug('Changing refs to stratum %s' % stratum_name)
+        logging.debug('Changing refs to stratum %s' % stratum_filename)
         stratum_morph = morphs.get_stratum_in_system(
-            system_morph, stratum_name)
+            system_morph, stratum_filename)
         morphs.change_ref(
             stratum_morph.repo_url, stratum_morph.ref, stratum_morph.filename,
             sb.system_branch_name)
@@ -465,11 +467,11 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
         # relevant git branch checked out. This also invents the new branch
         # name.
 
-        if chunk_name:
-            logging.debug('Editing chunk %s' % chunk_name)
+        if chunk_filename:
+            logging.debug('Editing chunk %s' % chunk_filename)
 
             chunk_url, chunk_ref, chunk_morph = morphs.get_chunk_triplet(
-                stratum_morph, chunk_name)
+                stratum_morph, chunk_filename)
 
             chunk_dirname = sb.get_git_directory_name(chunk_url)
             if not os.path.exists(chunk_dirname):
@@ -493,7 +495,7 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
                 # Change the refs to the chunk.
                 if chunk_ref != sb.system_branch_name:
                     morphs.change_ref(
-                        chunk_url, chunk_ref, chunk_morph + '.morph',
+                        chunk_url, chunk_ref, chunk_morph,
                         sb.system_branch_name)
 
         # Save any modified strata.
