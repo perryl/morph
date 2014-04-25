@@ -231,7 +231,7 @@ class BuildCommand(object):
         for spec in specs:
             repo_name = spec.get('repo') or src.repo_name
             ref = spec.get('ref') or src.original_ref
-            filename = spec['morph']
+            filename = '%s.morph' % spec['morph']
             logging.debug(
                 'Validating cross ref to %s:%s:%s' %
                     (repo_name, ref, filename))

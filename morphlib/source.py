@@ -55,4 +55,4 @@ class Source(object):
     def __str__(self):  # pragma: no cover
         return '%s|%s|%s' % (self.repo_name,
                              self.original_ref,
-                             self.filename)
+                             self.filename[:-len('.morph')])

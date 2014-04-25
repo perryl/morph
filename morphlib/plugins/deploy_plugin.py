@@ -96,7 +96,7 @@ class DeployPlugin(cliapp.Plugin):
             name: cluster-foo
             kind: cluster
             systems:
-                - morph: systems/devel-system-x86_64-generic.morph
+                - morph: devel-system-x86_64-generic
                   deploy:
                       cluster-foo-x86_64-1:
                           type: kvm
@@ -274,7 +274,7 @@ class DeployPlugin(cliapp.Plugin):
             self.app.settings['tempdir-min-space'],
             '/', 0)
 
-        cluster_filename = args[0]
+        cluster_name = morphlib.util.strip_morph_extension(args[0])
         env_vars = args[1:]
 
         ws = morphlib.workspace.open('.')
@@ -289,10 +289,13 @@ class DeployPlugin(cliapp.Plugin):
         name = morphlib.git.get_user_name(self.app.runcmd)
         email = morphlib.git.get_user_email(self.app.runcmd)
         build_ref_prefix = self.app.settings['build-ref-prefix']
+
         root_repo_dir = morphlib.gitdir.GitDirectory(
             sb.get_git_directory_name(sb.root_repository_url))
-
-        cluster_morphology = loader.load_from_file(cluster_filename)
+        mf = morphlib.morphologyfinder.MorphologyFinder(root_repo_dir)
+        cluster_text, cluster_filename = mf.read_morphology(cluster_name)
+        cluster_morphology = loader.load_from_string(cluster_text,
+                                                     filename=cluster_filename)
 
         if cluster_morphology['kind'] != 'cluster':
             raise cliapp.AppException(
@@ -347,7 +350,8 @@ class DeployPlugin(cliapp.Plugin):
         try:
             # Find the artifact to build
             morph = system['morph']
-            srcpool = build_command.create_source_pool(build_repo, ref, morph)
+            srcpool = build_command.create_source_pool(build_repo, ref,
+                                                       morph + '.morph')
 
             artifact = build_command.resolve_artifacts(srcpool)
 

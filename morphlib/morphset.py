@@ -99,7 +99,7 @@ class MorphologySet(object):
             raise StratumNotInSystemError(system_morph['name'], stratum_name)
         m = self._get_morphology(repo_url or system_morph.repo_url,
                                  ref or system_morph.ref,
-                                 morph)
+                                 '%s.morph' % morph)
         if m is None:
             raise StratumNotInSetError(stratum_name)
         return m
@@ -175,13 +175,13 @@ class MorphologySet(object):
                 process_spec_list(m, 'chunks')
 
         for m in self.morphologies:
-            tup = (m.repo_url, m.ref, m.filename)
+            tup = (m.repo_url, m.ref, m.filename[:-len('.morph')])
             if tup in altered_references:
                 spec = altered_references[tup]
                 if m.ref != spec.get('ref'):
                     m.ref = spec.get('ref')
                     m.dirty = True
-                assert (m.filename == spec['morph']
+                assert (m.filename == spec['morph'] + '.morph'
                         or m.repo_url == spec.get('repo')), \
                        'Moving morphologies is not supported.'
 
@@ -196,7 +196,7 @@ class MorphologySet(object):
         def wanted_spec(m, kind, spec):
             return (spec.get('repo') == repo_url and
                     spec.get('ref') == orig_ref and
-                    spec['morph'] == morph_filename)
+                    spec['morph'] + '.morph' == morph_filename)
 
         def process_spec(m, kind, spec):
             spec['unpetrify-ref'] = spec.get('ref')
