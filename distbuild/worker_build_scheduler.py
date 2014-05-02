@@ -261,7 +261,9 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                 if job.is_building == False:
                     logging.debug('Not removing job %s '
                                   'other initiators want it done: %s',
-                                  job.artifact.basename(), job.initiators)
+                                  job.artifact.basename(),
+                                  filter(lambda i: i != event.initiator_id,
+                                         job.initiators))
 
                     # Don't cancel, but still remove this initiator from
                     # the list of initiators
