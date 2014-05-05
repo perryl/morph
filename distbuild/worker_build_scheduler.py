@@ -159,6 +159,18 @@ class _BuildCancelled(object):
 class _Cached(object):
 
     pass
+
+
+class _ExecStarted(object):
+
+    def __init__(self, job):
+        self.job = job
+
+
+class _ExecEnded(object):
+
+    def __init__(self, job):
+        self.job = job
     
     
 class WorkerBuildQueuer(distbuild.StateMachine):
@@ -191,10 +203,20 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                 self._handle_cancel),
 
             ('idle', WorkerConnection, _NeedJob, 'idle', self._handle_worker),
+            ('idle', WorkerConnection, _ExecStarted, 'idle',
+                self._set_exec_started),
+            ('idle', WorkerConnection, _ExecEnded, 'idle',
+                self._set_exec_ended),
         ]
         self.add_transitions(spec)
 
+    def _set_exec_started(self, event_source, event):
+        logging.debug('Setting job state: Job is building')
+        event.job.is_building = True
 
+    def _set_exec_ended(self, event_source, event):
+        logging.debug('Setting job state: Job is NOT building')
+        event.job.is_building = False
 
     def _handle_request(self, event_source, event):
         distbuild.crash_point()
@@ -435,8 +457,7 @@ class WorkerConnection(distbuild.StateMachine):
         started = WorkerBuildStepStarted(self._job.initiators,
             self._job.artifact.cache_key, self.name())
 
-        self._job.is_building = True
-
+        self.mainloop.queue_event(WorkerConnection, _ExecStarted(self._job))
         self.mainloop.queue_event(WorkerConnection, started)
 
     def _handle_json_message(self, event_source, event):
@@ -481,7 +502,7 @@ class WorkerConnection(distbuild.StateMachine):
             self.mainloop.queue_event(self, _BuildFinished())
             self._exec_response_msg = new
 
-        self._job.is_building = False
+        self.mainloop.queue_event(WorkerConnection, _ExecEnded(self._job))
 
     def _request_job(self, event_source, event):
         distbuild.crash_point()
