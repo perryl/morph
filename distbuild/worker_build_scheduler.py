@@ -17,7 +17,6 @@
 
 
 import collections
-import errno
 import httplib
 import logging
 import socket
@@ -103,8 +102,6 @@ class Job(object):
         self.who = None  # we don't know who's going to do this yet
         self.is_building = False
 
-    def add_initiator(self, initiator_id):
-        self.initiators.append(initiator_id)
 
 class Jobs(object):
 
