@@ -101,6 +101,7 @@ class Job(object):
         self.initiators = [initiator_id]
         self.who = None  # we don't know who's going to do this yet
         self.is_building = False
+        self.failed = False
 
 
 class Jobs(object):
@@ -171,7 +172,12 @@ class _ExecEnded(object):
 
     def __init__(self, job):
         self.job = job
-    
+
+
+class _ExecFailed(object):
+
+    def __init__(self, job):
+        self.job = job
     
 class WorkerBuildQueuer(distbuild.StateMachine):
 
@@ -207,16 +213,29 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                 self._set_exec_started),
             ('idle', WorkerConnection, _ExecEnded, 'idle',
                 self._set_exec_ended),
+            ('idle', WorkerConnection, _ExecFailed, 'idle',
+                self._set_exec_failed)
         ]
         self.add_transitions(spec)
 
     def _set_exec_started(self, event_source, event):
-        logging.debug('Setting job state: Job is building')
+        logging.debug('Setting job state for job %s with id %s: '
+                      'Job is building',
+                      event.job.artifact.basename(), event.job.id)
+
         event.job.is_building = True
 
     def _set_exec_ended(self, event_source, event):
-        logging.debug('Setting job state: Job is NOT building')
+        logging.debug('Setting job state for job %s with id %s: '
+                      'Job is NOT building',
+                      event.job.artifact.basename(), event.job.id)
+
         event.job.is_building = False
+
+    def _set_exec_failed(self, event_source, event):
+        logging.debug('Job %s with id %s failed',
+                      event.job.artifact.basename(), event.job.id)
+        event.job.failed = True
 
     def _handle_request(self, event_source, event):
         distbuild.crash_point()
@@ -270,7 +289,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                           name, job_id)
 
             if len(job.initiators) == 1:
-                if job.is_building:
+                if job.is_building or job.failed:
                     logging.debug('NOT removing running job %s with job id %s '
                                   '(WorkerConnection will cancel job)',
                                   name, job_id)
@@ -496,6 +515,7 @@ class WorkerConnection(distbuild.StateMachine):
             # Build failed.
             new_event = WorkerBuildFailed(new, self._job.artifact.cache_key)
             self.mainloop.queue_event(WorkerConnection, new_event)
+            self.mainloop.queue_event(WorkerConnection, _ExecFailed(self._job))
             self.mainloop.queue_event(self, _BuildFailed())
         else:
             # Build succeeded. We have more work to do: caching the result.
