@@ -651,6 +651,15 @@ class GitDirectory(object):
     def get_relpath(self, path): # pragma: no cover
         return os.path.relpath(path, self.dirname)
 
+    def fsck(self):
+        fsck_command = ['git', 'fsck', '--no-dangling']
+        status, output, errors = self._runcmd_unchecked(fsck_command)
+
+        if status != 0:
+            return errors
+        else:
+            return None
+
 
 def init(dirname):
     '''Initialise a new git repository.'''

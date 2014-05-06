@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -235,3 +235,27 @@ class LocalRepoCache(object):
             cached_repo = self.get_repo(reponame)
         return cached_repo
 
+    def validate(self):
+        '''Validate all cached repos.
+
+        Returns a dictionary mapping path -> errors for any locally cached repo
+        for which `git fsck` reported an error.
+        '''
+
+        errors_dict = {}
+
+        for repo_dir in os.listdir(self._cachedir):
+            repo_path = os.path.join(self._cachedir, repo_dir)
+            self._app.status(msg='Checking cached git repository %s' %
+                             repo_dir, chatty=True)
+
+            gitdir = morphlib.gitdir.GitDirectory(repo_path)
+            error_text = gitdir.fsck()
+
+            if error_text is not None:
+                logging.error(
+                    'Corruption found in locally cached git repo at %s: %s' %
+                    (repo_dir, error_text))
+                errors_dict[repo_path] = error_text
+
+        return errors_dict
