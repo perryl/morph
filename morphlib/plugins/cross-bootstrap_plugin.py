@@ -1,4 +1,4 @@
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -75,7 +75,7 @@ class BootstrapSystemBuilder(morphlib.builder2.BuilderBase):
 
             handle.close()
 
-        self.save_build_times()
+        self.save_build_info()
         return [self.artifact]
 
     def unpack_binary_chunks(self, dest):
@@ -195,6 +195,8 @@ class BootstrapSystemBuilder(morphlib.builder2.BuilderBase):
         f.write('rm -Rf $DESTDIR/$chunk_name.build')
 
     def create_tarball(self, handle, fs_root, system_name):
+        # FIXME: duplicates morphlib.bins.create_system(), but uses gzopen()
+        # instead of open() ...
         unslashy_root = fs_root[1:]
         def uproot_info(info):
             info.name = os.path.relpath(info.name, unslashy_root)
