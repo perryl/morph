@@ -91,13 +91,21 @@ def create_chunk(rootdir, f, include, dump_memory_profile=None):
     dump_memory_profile('after removing in create_chunks')
 
 
-def create_system(rootdir, f, name=None, filter=None):
+def create_system(rootdir, f, name):
     '''Create a system artifact from the contents of a directory.
 
     '''
 
+    unslashy_root = rootdir[1:]
+    def uproot_info(info):
+        '''Strip rootdir from a file's path before adding to a tarfile.'''
+        info.name = os.path.relpath(info.name, unslashy_root)
+        if info.islnk():
+            info.linkname = os.path.relpath(info.linkname, unslashy_root)
+        return info
+
     tar = tarfile.open(fileobj=f, mode="w", name=name)
-    tar.add(rootdir, recursive=True, filter=filter)
+    tar.add(rootdir, recursive=True, filter=uproot_info)
     tar.close()
 
 

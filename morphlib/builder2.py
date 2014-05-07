@@ -20,7 +20,6 @@ import errno
 import json
 import logging
 import os
-from os.path import relpath
 import shutil
 import stat
 import tarfile
@@ -590,19 +589,10 @@ class SystemBuilder(BuilderBase):  # pragma: no cover
                 self.write_metadata(fs_root, rootfs_name)
                 self.run_system_integration_commands(fs_root)
                 self.copy_kernel_into_artifact_cache(fs_root)
-                unslashy_root = fs_root[1:]
-                def uproot_info(info):
-                    info.name = relpath(info.name, unslashy_root)
-                    if info.islnk():
-                        info.linkname = relpath(info.linkname,
-                                                unslashy_root)
-                    return info
                 artiname = self.artifact.source.morphology['name']
-                tar = tarfile.open(fileobj=handle, mode="w", name=artiname)
                 self.app.status(msg='Constructing tarball of root filesystem',
                                 chatty=True)
-                tar.add(fs_root, recursive=True, filter=uproot_info)
-                tar.close()
+                morphlib.bins.create_system(fs_root, handle, artiname)
             except BaseException, e:
                 logging.error(traceback.format_exc())
                 self.app.status(msg='Error while building system',
