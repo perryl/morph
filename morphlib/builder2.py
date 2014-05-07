@@ -217,10 +217,15 @@ class BuilderBase(object):
         self.build_watch = morphlib.stopwatch.Stopwatch()
         self.setup_mounts = setup_mounts
 
-    def save_build_times(self):
-        '''Write the times captured by the stopwatch'''
+    def save_build_info(self, artifact_checksums=None):
+        '''Write the build information.
+
+        This consists of the artifact checksums, and build times.
+
+        '''
         meta = {
-            'build-times': {}
+            'build-times': {},
+            'checksums': artifact_checksums
         }
         for stage in self.build_watch.ticks.iterkeys():
             meta['build-times'][stage] = {
@@ -358,9 +363,9 @@ class ChunkBuilder(BuilderBase):
                 self.staging_area.abort()
                 raise
             self.staging_area.chroot_close()
-            built_artifacts = self.assemble_chunk_artifacts(destdir)
+            built_artifacts, checksums = self.assemble_chunk_artifacts(destdir)
 
-        self.save_build_times()
+        self.save_build_info(checksums)
         return built_artifacts
 
 
@@ -453,6 +458,7 @@ class ChunkBuilder(BuilderBase):
 
     def assemble_chunk_artifacts(self, destdir):  # pragma: no cover
         built_artifacts = []
+        checksums = {}
         filenames = []
         source = self.artifact.source
         split_rules = source.split_rules
@@ -503,14 +509,17 @@ class ChunkBuilder(BuilderBase):
 
                     self.app.status(msg='Creating chunk artifact %(name)s',
                                     name=chunk_artifact_name)
-                    morphlib.bins.create_chunk(destdir, f, parented_paths)
+                    checksum = morphlib.bins.create_chunk(destdir, f,
+                                                          parented_paths)
+
                 built_artifacts.append(chunk_artifact)
+                checksums[chunk_artifact_name] = checksum
 
         for dirname, subdirs, files in os.walk(destdir):
             if files:
                 raise Exception('DESTDIR %s is not empty: %s' %
                                 (destdir, files))
-        return built_artifacts
+        return built_artifacts, checksums
 
     def get_sources(self, srcdir):  # pragma: no cover
         s = self.artifact.source
@@ -559,7 +568,7 @@ class StratumBuilder(BuilderBase):
                     json.dump(meta, f, indent=4, sort_keys=True)
                 with self.local_artifact_cache.put(self.artifact) as f:
                     json.dump([c.basename() for c in constituents], f)
-        self.save_build_times()
+        self.save_build_info()
         return [self.artifact]
 
 
@@ -588,11 +597,13 @@ class SystemBuilder(BuilderBase):  # pragma: no cover
                 self.unpack_strata(fs_root)
                 self.write_metadata(fs_root, rootfs_name)
                 self.run_system_integration_commands(fs_root)
+                # FIXME: this copy of the kernel escapes the CRC check so far!!!
                 self.copy_kernel_into_artifact_cache(fs_root)
                 artiname = self.artifact.source.morphology['name']
                 self.app.status(msg='Constructing tarball of root filesystem',
                                 chatty=True)
-                morphlib.bins.create_system(fs_root, handle, artiname)
+                checksum = morphlib.bins.create_system(fs_root, handle,
+                                                       artiname)
             except BaseException, e:
                 logging.error(traceback.format_exc())
                 self.app.status(msg='Error while building system',
@@ -602,7 +613,9 @@ class SystemBuilder(BuilderBase):  # pragma: no cover
 
             handle.close()
 
-        self.save_build_times()
+        checksums = { artiname: checksum }
+        self.save_build_info(checksums)
+
         return [self.artifact]
 
     def unpack_one_stratum(self, stratum_artifact, target):

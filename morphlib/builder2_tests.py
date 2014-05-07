@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -204,7 +204,7 @@ class BuilderBaseTests(unittest.TestCase):
     def test_writes_build_times(self):
         with self.builder.build_watch('nothing'):
             pass
-        self.builder.save_build_times()
+        self.builder.save_build_info()
         self.assertTrue(self.artifact_cache.has_source_metadata(
             self.artifact.source, self.artifact.cache_key, 'meta'))
 
@@ -213,7 +213,7 @@ class BuilderBaseTests(unittest.TestCase):
         for event in events:
             with self.builder.build_watch(event):
                 pass
-        self.builder.save_build_times()
+        self.builder.save_build_info()
         meta = json.load(self.artifact_cache.get_source_metadata(
             self.artifact.source, self.artifact.cache_key, 'meta'))
         self.assertEqual(sorted(events),

@@ -29,6 +29,7 @@ import errno
 import stat
 import shutil
 import tarfile
+import zlib
 
 import morphlib
 
@@ -50,10 +51,33 @@ def safe_makefile(self, tarinfo, targetpath):
 tarfile.TarFile.makefile = safe_makefile
 
 
+class ChecksummingOutputStream(object):
+    '''Wrap a stream object and checksum all data that is written.
+
+    The checksum used is Adler32. It is very fast. It's not suited for data
+    under 1KB and does not guard against intentional modifications much,
+    but for detecting corruption in the stored artifacts it is useful.
+
+    '''
+    def __init__(self, f):
+        self.f = f
+        self.checksum = 0
+
+    def read(self, *args, **kwargs):
+        raise NotImplementedError(
+            'Attempted to read from a write-only stream.')
+
+    def write(self, data, *args, **kwargs):
+        self.f.write(data, *args, **kwargs)
+        self.checksum = (self.checksum + zlib.adler32(data)) & 0xFFFFFFFF
+
+
 def create_chunk(rootdir, f, include, dump_memory_profile=None):
     '''Create a chunk from the contents of a directory.
     
     ``f`` is an open file handle, to which the tar file is written.
+
+    This function returns a checksum of the resulting file.
 
     '''
 
@@ -69,7 +93,8 @@ def create_chunk(rootdir, f, include, dump_memory_profile=None):
     
     path_pairs = [(relname, os.path.join(rootdir, relname))
                   for relname in include]
-    with tarfile.open(fileobj=f, mode='w') as tar:
+    stream = ChecksummingOutputStream(f)
+    with tarfile.open(fileobj=stream, mode='w|') as tar:
         for relname, filename in path_pairs:
             # Normalize mtime for everything.
             tarinfo = tar.gettarinfo(filename,
@@ -89,6 +114,8 @@ def create_chunk(rootdir, f, include, dump_memory_profile=None):
             os.remove(filename)
     dump_memory_profile('after removing in create_chunks')
 
+    return stream.checksum
+
 
 def create_system(rootdir, f, name):
     '''Create a system artifact from the contents of a directory.
@@ -103,8 +130,11 @@ def create_system(rootdir, f, name):
             info.linkname = os.path.relpath(info.linkname, unslashy_root)
         return info
 
-    with tarfile.open(fileobj=f, mode="w", name=name) as tar:
+    stream = ChecksummingOutputStream(f)
+    with tarfile.open(fileobj=stream, mode="w|", name=name) as tar:
         tar.add(rootdir, recursive=True, filter=uproot_info)
+
+    return stream.checksum
 
 
 def unpack_binary_from_file(f, dirname):  # pragma: no cover
