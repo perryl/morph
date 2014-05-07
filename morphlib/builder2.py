@@ -341,12 +341,20 @@ class ChunkBuilder(BuilderBase):
             log_name = None
             try:
                 self.get_sources(builddir)
-                with self.local_artifact_cache.put_source_metadata(
-                        self.artifact.source, self.artifact.cache_key,
-                        'build-log') as log:
+                if self.app.settings['build-log-on-stdout']:
+                    logging.debug('Writing build log to stdout')
+                    log = self.app.output
+                else:
+                    cache = self.local_artifact_cache
+                    log = cache.put_source_metadata(self.artifact.source,
+                                                    self.artifact.cache_key,
+                                                    'build-log')
                     log_name = log.real_filename
-                    self.run_commands(builddir, destdir, log)
-                    self.create_devices(destdir)
+
+                self.run_commands(builddir, destdir, log)
+                self.create_devices(destdir)
+                if log_name:
+                    log.close()
             except BaseException, e:
                 logging.error('Caught exception: %s' % str(e))
                 logging.info('Cleaning up staging area')
