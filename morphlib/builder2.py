@@ -597,7 +597,7 @@ class SystemBuilder(BuilderBase):  # pragma: no cover
                 self.unpack_strata(fs_root)
                 self.write_metadata(fs_root, rootfs_name)
                 self.run_system_integration_commands(fs_root)
-                # FIXME: this copy of the kernel escapes the CRC check so far!!!
+                # FIXME: this copy of the kernel escapes the CRC check so far!
                 self.copy_kernel_into_artifact_cache(fs_root)
                 artiname = self.artifact.source.morphology['name']
                 self.app.status(msg='Constructing tarball of root filesystem',
