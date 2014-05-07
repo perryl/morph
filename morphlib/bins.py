@@ -69,19 +69,18 @@ def create_chunk(rootdir, f, include, dump_memory_profile=None):
     
     path_pairs = [(relname, os.path.join(rootdir, relname))
                   for relname in include]
-    tar = tarfile.open(fileobj=f, mode='w')
-    for relname, filename in path_pairs:
-        # Normalize mtime for everything.
-        tarinfo = tar.gettarinfo(filename,
-                                 arcname=relname)
-        tarinfo.ctime = normalized_timestamp
-        tarinfo.mtime = normalized_timestamp
-        if tarinfo.isreg():
-            with open(filename, 'rb') as f:
-                tar.addfile(tarinfo, fileobj=f)
-        else:
-            tar.addfile(tarinfo)
-    tar.close()
+    with tarfile.open(fileobj=f, mode='w') as tar:
+        for relname, filename in path_pairs:
+            # Normalize mtime for everything.
+            tarinfo = tar.gettarinfo(filename,
+                                    arcname=relname)
+            tarinfo.ctime = normalized_timestamp
+            tarinfo.mtime = normalized_timestamp
+            if tarinfo.isreg():
+                with open(filename, 'rb') as f:
+                    tar.addfile(tarinfo, fileobj=f)
+            else:
+                tar.addfile(tarinfo)
 
     for relname, filename in reversed(path_pairs):
         if os.path.isdir(filename) and not os.path.islink(filename):
@@ -104,9 +103,8 @@ def create_system(rootdir, f, name):
             info.linkname = os.path.relpath(info.linkname, unslashy_root)
         return info
 
-    tar = tarfile.open(fileobj=f, mode="w", name=name)
-    tar.add(rootdir, recursive=True, filter=uproot_info)
-    tar.close()
+    with tarfile.open(fileobj=f, mode="w", name=name) as tar:
+        tar.add(rootdir, recursive=True, filter=uproot_info)
 
 
 def unpack_binary_from_file(f, dirname):  # pragma: no cover
