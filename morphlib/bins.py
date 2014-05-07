@@ -91,6 +91,16 @@ def create_chunk(rootdir, f, include, dump_memory_profile=None):
     dump_memory_profile('after removing in create_chunks')
 
 
+def create_system(rootdir, f, name=None, filter=None):
+    '''Create a system artifact from the contents of a directory.
+
+    '''
+
+    tar = tarfile.open(fileobj=f, mode="w", name=name)
+    tar.add(rootdir, recursive=True, filter=filter)
+    tar.close()
+
+
 def unpack_binary_from_file(f, dirname):  # pragma: no cover
     '''Unpack a binary into a directory.
 
