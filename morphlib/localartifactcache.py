@@ -120,8 +120,9 @@ class LocalArtifactCache(object):
         '''
         CacheInfo = collections.namedtuple('CacheInfo', ('artifacts', 'mtime'))
         contents = collections.defaultdict(lambda: CacheInfo(set(), 0))
-        for filename in self.cachefs.walkfiles():
-            cachekey = filename[:63]
+        for filepath in self.cachefs.walkfiles():
+            filename = os.path.basename(filepath)
+            cachekey = filename[:64]
             artifact = filename[65:]
             artifacts, max_mtime = contents[cachekey]
             artifacts.add(artifact)
