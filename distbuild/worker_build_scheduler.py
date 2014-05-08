@@ -468,6 +468,7 @@ class WorkerConnection(distbuild.StateMachine):
         argv = [
             self._morph_instance,
             'worker-build',
+            '--build-log-on-stdout',
             self._job.artifact.name,
         ]
         msg = distbuild.message('exec-request',
