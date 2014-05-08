@@ -16,6 +16,7 @@
 
 import cliapp
 import contextlib
+import os
 import uuid
 
 import morphlib
@@ -71,5 +72,11 @@ class CacheCheckPlugin(cliapp.Plugin):
         artifacts which are used at build time.
 
         '''
+        self.app.status(
+            msg='Checking all locally cached build artifacts for corruption')
+
         lac, rac = morphlib.util.new_artifact_caches(self.app.settings)
-        lac.validate()
+        unpacked_chunk_cache_dir = os.path.join(self.app.settings['tempdir'], 'chunks')
+        lac.validate(unpacked_chunk_cache_dir)
+
+        # FIXME: ccache is not validated! don't use ccache, perhaps!

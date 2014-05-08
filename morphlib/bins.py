@@ -29,6 +29,7 @@ import errno
 import stat
 import shutil
 import tarfile
+import functools
 import zlib
 
 import morphlib
@@ -117,22 +118,64 @@ def create_chunk(rootdir, f, include, dump_memory_profile=None):
     return stream.checksum
 
 
+def make_tarinfo_path_relative_to(root, info):
+    '''Strip rootdir from a file's path before adding to a tarfile.'''
+
+    # tar.gettarinfo() makes all paths relative, we must follow that.
+    root = root.lstrip('/')
+    info.name = os.path.relpath(info.name, root)
+    if info.islnk():
+        info.linkname = os.path.relpath(info.linkname, root)
+    return info
+
+
+def create_chunk_2(rootdir, f, name, include):
+    '''Create a chunk artifact, new way.
+
+    Output should be identical to create_chunk(), but it doesn't delete the
+    files after creating the chunk, and doesn't require the caller to work
+    out all the files that should go in. (But it does that because of chunk
+    splitting!!! *OH*.....)
+    '''
+
+    # This timestamp is used to normalize the mtime for every file in
+    # chunk artifact. This is useful to avoid problems from smallish
+    # clock skew. It needs to be recent enough, however, that GNU tar
+    # does not complain about an implausibly old timestamp.
+    normalized_timestamp = 683074800
+
+    stream = ChecksummingOutputStream(f)
+    with tarfile.open(fileobj=stream, mode='w|') as tar:
+        for filepath in sorted(paths):
+            if filepath == rootdir:
+                # I'm not sure how the ChunkBuilder.assemble_chunk_artifact()
+                # code path manages to avoid adding '.' to the tarfile, but it
+                # does
+                continue
+            # Normalize mtime for everything.
+            tarinfo = tar.gettarinfo(filepath)
+            tarinfo = make_tarinfo_path_relative_to(rootdir, tarinfo)
+            tarinfo.ctime = normalized_timestamp
+            tarinfo.mtime = normalized_timestamp
+            if tarinfo.isreg():
+                # FIXME: why this?
+                with open(filepath, 'rb') as f:
+                    tar.addfile(tarinfo, fileobj=f)
+            else:
+                tar.addfile(tarinfo)
+
+    return stream.checksum
+
 def create_system(rootdir, f, name):
     '''Create a system artifact from the contents of a directory.
 
     '''
 
-    unslashy_root = rootdir[1:]
-    def uproot_info(info):
-        '''Strip rootdir from a file's path before adding to a tarfile.'''
-        info.name = os.path.relpath(info.name, unslashy_root)
-        if info.islnk():
-            info.linkname = os.path.relpath(info.linkname, unslashy_root)
-        return info
-
     stream = ChecksummingOutputStream(f)
+
+    path_filter = functools.partial(make_tarinfo_path_relative_to, rootdir)
     with tarfile.open(fileobj=stream, mode="w|", name=name) as tar:
-        tar.add(rootdir, recursive=True, filter=uproot_info)
+        tar.add(rootdir, recursive=True, filter=path_filter)
 
     return stream.checksum
 
