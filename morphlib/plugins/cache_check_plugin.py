@@ -50,10 +50,12 @@ class CacheCheckPlugin(cliapp.Plugin):
         # Trove is ignored -- validating that is really up to the sysadmin.
         # morph could do that, though.
 
+        self.app.status(
+            msg='Checking all locally cached git repositories for corruption')
         git_errors = lrc.validate()
 
-        self.app.output.write('Found corruption in %i cached git repos.\n' %
-                              len(git_errors))
+        self.app.output.write(
+            'Found corruption in %i cached git repos.\n' % len(git_errors))
 
         for repo_dir, error_text in git_errors.iteritems():
             self.app.output.write('    %s\n' % repo_dir)
