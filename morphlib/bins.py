@@ -30,7 +30,7 @@ import stat
 import shutil
 import tarfile
 import functools
-import zlib
+import hashlib
 
 import morphlib
 
@@ -52,17 +52,25 @@ def safe_makefile(self, tarinfo, targetpath):
 tarfile.TarFile.makefile = safe_makefile
 
 
-class ChecksummingOutputStream(object):
-    '''Wrap a stream object and checksum all data that is written.
+class HashedOutputStream(object):
+    '''Wrap a stream object and hash all data that is written.
 
-    The checksum used is Adler32. It is very fast. It's not suited for data
-    under 1KB and does not guard against intentional modifications much,
-    but for detecting corruption in the stored artifacts it is useful.
+    We use SHA1 as the hash. Currently this is only used to guard against
+    corruption, but if we can ensure that our builds are bit-for-bit reprocible
+    then it could provide a level of tampering-detection as good as that of
+    Git.
+
+    While using a non-secure checksum like Adler32 would be faster, the
+    implementations of these in Python's zlib module don't allow calculating a
+    rolling checksum, so a custom C implementation would be needed.
+
+    In a rough benchmark, calculating a SHA1 hash during tarfile creation
+    using this method slowed throughput by about 5%.
 
     '''
     def __init__(self, f):
         self.f = f
-        self.checksum = 0
+        self.hasher = hashlib.sha1()
 
     def read(self, *args, **kwargs):
         raise NotImplementedError(
@@ -70,7 +78,10 @@ class ChecksummingOutputStream(object):
 
     def write(self, data, *args, **kwargs):
         self.f.write(data, *args, **kwargs)
-        self.checksum = (self.checksum + zlib.adler32(data)) & 0xFFFFFFFF
+        self.hasher.update(data)
+
+    def hash(self):
+        return self.hasher.hexdigest()
 
 
 def create_chunk(rootdir, f, include, dump_memory_profile=None):
@@ -94,7 +105,7 @@ def create_chunk(rootdir, f, include, dump_memory_profile=None):
     
     path_pairs = [(relname, os.path.join(rootdir, relname))
                   for relname in include]
-    stream = ChecksummingOutputStream(f)
+    stream = HashedOutputStream(f)
     with tarfile.open(fileobj=stream, mode='w|') as tar:
         for relname, filename in path_pairs:
             # Normalize mtime for everything.
@@ -115,7 +126,7 @@ def create_chunk(rootdir, f, include, dump_memory_profile=None):
             os.remove(filename)
     dump_memory_profile('after removing in create_chunks')
 
-    return stream.checksum
+    return stream.hash()
 
 
 def make_tarinfo_path_relative_to(root, info):
@@ -144,7 +155,7 @@ def create_chunk_2(rootdir, f, name, include):
     # does not complain about an implausibly old timestamp.
     normalized_timestamp = 683074800
 
-    stream = ChecksummingOutputStream(f)
+    stream = HashedOutputStream(f)
     with tarfile.open(fileobj=stream, mode='w|') as tar:
         for filepath in sorted(paths):
             if filepath == rootdir:
@@ -164,20 +175,21 @@ def create_chunk_2(rootdir, f, name, include):
             else:
                 tar.addfile(tarinfo)
 
-    return stream.checksum
+    return stream.hash()
+
 
 def create_system(rootdir, f, name):
     '''Create a system artifact from the contents of a directory.
 
     '''
 
-    stream = ChecksummingOutputStream(f)
+    stream = HashedOutputStream(f)
 
     path_filter = functools.partial(make_tarinfo_path_relative_to, rootdir)
     with tarfile.open(fileobj=stream, mode="w|", name=name) as tar:
         tar.add(rootdir, recursive=True, filter=path_filter)
 
-    return stream.checksum
+    return stream.hash
 
 
 def unpack_binary_from_file(f, dirname):  # pragma: no cover
