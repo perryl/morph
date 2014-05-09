@@ -80,6 +80,7 @@ class HashedOutputStream(object):
         self.f.write(data, *args, **kwargs)
         self.hasher.update(data)
 
+    # FIXME: rename (hash is a builtin)
     def hash(self):
         return self.hasher.hexdigest()
 
@@ -157,7 +158,7 @@ def create_chunk_2(rootdir, f, name, include):
 
     stream = HashedOutputStream(f)
     with tarfile.open(fileobj=stream, mode='w|') as tar:
-        for filepath in sorted(paths):
+        for filepath in sorted(include):
             if filepath == rootdir:
                 # I'm not sure how the ChunkBuilder.assemble_chunk_artifact()
                 # code path manages to avoid adding '.' to the tarfile, but it
