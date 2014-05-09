@@ -15,9 +15,7 @@
 
 
 import cliapp
-import contextlib
 import os
-import uuid
 
 import morphlib
 
@@ -56,14 +54,13 @@ class CacheCheckPlugin(cliapp.Plugin):
         git_errors = lrc.validate()
 
         self.app.output.write(
-            'Found corruption in %i cached git repos.\n' % len(git_errors))
+            'Found corruption in %i cached git repo(s).\n' % len(git_errors))
 
         for repo_dir, error_text in git_errors.iteritems():
             self.app.output.write('    %s\n' % repo_dir)
-            if self.app.settings['verbose']:
-                error_text_indented = '\n'.join(
-                    ['    ' % line for line in error_text.split('\n')])
-                self.app.output.write("    %s\n" % error_text_indented)
+            error_text_indented = '\n'.join(
+                ['    ' + line for line in error_text.split('\n')])
+            self.app.output.write("    %s\n" % error_text_indented)
 
     def check_artifact_cache(self, args):
         '''Check for corruption in the local cache of built artifacts.
@@ -76,7 +73,22 @@ class CacheCheckPlugin(cliapp.Plugin):
             msg='Checking all locally cached build artifacts for corruption')
 
         lac, rac = morphlib.util.new_artifact_caches(self.app.settings)
-        unpacked_chunk_cache_dir = os.path.join(self.app.settings['tempdir'], 'chunks')
-        lac.validate(unpacked_chunk_cache_dir)
+        unpacked_chunk_cache_dir = os.path.join(
+            self.app.settings['tempdir'], 'chunks')
+        errors, no_checksum = lac.validate(unpacked_chunk_cache_dir)
+
+        if len(no_checksum) > 0:
+            self.app.output.write(
+                '%i builds do not have checksums' % len(no_checksum))
+            if self.app.settings['verbose']:
+                for name in no_checksum:
+                    self.app.output.write('    %s\n' % name)
+
+        self.app.output.write(
+            'Found corruption in %i cached builds(s).\n' % len(errors))
+
+        for cache_key, error_list in errors.iteritems():
+            for line in error_list:
+                self.app.output.write("    %s\n" % line)
 
         # FIXME: ccache is not validated! don't use ccache, perhaps!

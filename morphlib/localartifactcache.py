@@ -15,12 +15,12 @@
 
 
 import collections
+import hashlib
 import json
 import logging
 import os
 import tempfile
 import time
-import zlib
 
 import morphlib
 
@@ -146,11 +146,14 @@ class LocalArtifactCache(object):
     def _calculate_checksum(self, artifact_filename):
         # FIXME: pick a block size
         block_size = 10 * 1024 * 1024 # 10MB
-        checksum = 0
+        hasher = hashlib.sha1()
         with open(artifact_filename, 'rb') as f:
-            block = f.read(block_size)
-            checksum = (checksum + zlib.adler32(block)) & 0xFFFFFFFF
-        return checksum
+            while True:
+                data = f.read(block_size)
+                if len(data) == 0:
+                    break
+                hasher.update(data)
+        return hasher.hexdigest()
 
     def _calculate_unpacked_chunk_checksum(self, chunk_dir):
         # create a chunk artifact from the unpacked chunk and return the
@@ -169,10 +172,9 @@ class LocalArtifactCache(object):
                 filenames = [os.path.join(dirname, x) for x in basenames]
                 for path in [dirname] + subdirsymlinks + filenames:
                     yield path
-        paths = filepaths(rootdir)
+        paths = filepaths(chunk_dir)
 
-        with tempfile.NamedTemporaryFile(delete=False) as f:
-            print ">>>> Filename: %s" % f.name
+        with tempfile.TemporaryFile() as f:
             checksum = morphlib.bins.create_chunk_2(
                 chunk_dir, f, name=None, include=paths)
 
@@ -180,51 +182,55 @@ class LocalArtifactCache(object):
 
     def validate(self, unpacked_chunk_cache_dir):
         '''Check for corruption in all cached binary artifacts.'''
-        cache_key = None
-        errors = {}
+        bad = {}
+        no_checksum = []
 
-        n_artifacts = 0
-        n_checksummed_artifacts = 0
-
-        def error(msg):
-            errors[cache_key] = errors.get(cache_key, '') + '\n' + msg
-            logging.error(
-                'Error in locally cached build %s. %s' % (cache_key, msg))
+        def error(msg, *args):
+            msg = msg % args
+            bad[cache_key] = bad.get(cache_key, []) + [msg]
+            logging.error('Found artifact corruption: %s' % msg)
 
         for cache_key, artifacts, last_used in self.list_contents():
-            if len(cache_key) < 64:
+            binary_artifacts = list(artifacts - {'build-log', 'meta'})
+
+            if len(cache_key) < 64 or len(binary_artifacts) == 0:
                 # Morph itself leaves junk temporary files around in the
                 # artifact cache directory, as does the user. Ignore it.
                 logging.info('Ignoring %s' % cache_key)
                 continue
 
-            binary_artifacts = list(artifacts - {'build-log', 'meta'})
             kind = binary_artifacts[0].split('.', 1)[0]
 
             if kind == 'stratum':
                 continue
 
-            logging.info(
-                msg='Checking artifacts for %s %s' % (kind, cache_key))
-
-            n_artifacts += len(artifacts)
+            display_name = '%s %s' % (kind, cache_key)
+            logging.info('Checking artifacts for %s' % display_name)
 
             filename = self._source_metadata_filename(None, cache_key, 'meta')
+            if not os.path.exists(filename):
+                # This artifact was downloaded from Trove. :(
+                logging.warning('No source metadata for %s.' % display_name)
+                continue
+
             try:
                 with open(filename) as f:
                     build_info = json.load(f)
             except (IOError, OSError, ValueError) as e:
-                error('Unable to read source metadata: %s' % e)
+                error(
+                    '%s: unable to read source metadata: %s', display_name, e)
                 continue
 
             if 'checksums' not in build_info:
                 # This is the case for artifacts created by old versions of
                 # Morph. We don't raise an error, for compatiblity.
-                logging.warning(
-                    'No checksums for build %s %s.' % (kind, cache_key))
+                logging.warning('No checksums for %s.', display_name)
+                no_checksum.append(display_name)
                 continue
 
             for artifact in binary_artifacts:
+                display_name = '%s.%s' % (cache_key, artifact)
+
                 if '.' not in artifact:
                     logging.warning('Invalid artifact name %s' % artifact)
                     continue
@@ -233,7 +239,7 @@ class LocalArtifactCache(object):
                 expected_checksum = build_info['checksums'].get(artifact_name)
 
                 if expected_checksum == None:
-                    error('Checksum missing for artifact %s!' % artifact_name)
+                    error('%s: checksum missing!', display_name)
                     continue
 
                 artifact_filename = self.cachefs.getsyspath(
@@ -241,19 +247,18 @@ class LocalArtifactCache(object):
                 checksum = self._calculate_checksum(artifact_filename)
 
                 if checksum != expected_checksum:
-                    error('Artifact %s has checksum 0x%x, expected 0x%x' %
-                          (artifact, checksum, expected_checksum))
+                    error('%s has bad checksum %s', display_name, checksum)
 
-                n_checksummed_artifacts += 1
+                if kind == 'chunk':
+                    unpacked_name = '%s.%s.d' % (cache_key, artifact)
+                    unpacked_path = os.path.join(
+                        unpacked_chunk_cache_dir, unpacked_name)
+                    if os.path.exists(unpacked_path):
+                        checksum = self._calculate_unpacked_chunk_checksum(
+                            unpacked_path)
 
-                # Check for an unpacked version now.
-                cached_name = '%s.%s.d' % (cache_key, artifact)
-                cached_path = os.path.join(unpacked_chunk_cache_dir,
-                                           cached_name)
-                if os.path.exists(cached_path):
-                    checksum = self._calculate_unpacked_chunk_checksum(
-                        cached_path)
+                        if checksum != expected_checksum:
+                            error('unpacked chunk %s has bad checksum %s',
+                                unpacked_path, checksum)
 
-                    if checksum != expected_checksum:
-                        error('Unpacked chunk artifact %s has checksum 0x%x, expected 0x%x' %
-                            (artifact, checksum, expected_checksum))
+        return bad, no_checksum
