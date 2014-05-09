@@ -156,14 +156,17 @@ class LocalArtifactCache(object):
         return hasher.hexdigest()
 
     def _calculate_unpacked_chunk_checksum(self, chunk_dir):
-        # create a chunk artifact from the unpacked chunk and return the
-        # checksum. It should be identical, right ??
-        #
-        # This code is not the same code used in builder2.ChunkBuilder.
-        # It's actually much better and as soon as I've checked that it
-        # produces identical results it should be used in builder2 too.
-        # I'm especially confused why bins.create_chunk() removes files,
-        # instead of leaving it up to the ChunkBuilder code.
+        '''Calculate checksum of an unpacked chunk artifact.
+
+        The repacked chunk artifact should be identical to the original. This
+        is not true for -misc artifacts, currently, due to '.' being one of
+        the files.
+
+        Currently a different code path is used compared to
+        builder2.ChunkBuilder. This one is much simpler and the old one
+        in ChunkBuilder should be replaced, I think.
+
+        '''
 
         def filepaths(destdir):
             for dirname, subdirs, basenames in os.walk(destdir):

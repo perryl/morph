@@ -80,8 +80,7 @@ class HashedOutputStream(object):
         self.f.write(data, *args, **kwargs)
         self.hasher.update(data)
 
-    # FIXME: rename (hash is a builtin)
-    def hash(self):
+    def hexdigest(self):
         return self.hasher.hexdigest()
 
 
@@ -127,7 +126,7 @@ def create_chunk(rootdir, f, include, dump_memory_profile=None):
             os.remove(filename)
     dump_memory_profile('after removing in create_chunks')
 
-    return stream.hash()
+    return stream.hexdigest()
 
 
 def make_tarinfo_path_relative_to(root, info):
@@ -144,10 +143,10 @@ def make_tarinfo_path_relative_to(root, info):
 def create_chunk_2(rootdir, f, name, include):
     '''Create a chunk artifact, new way.
 
-    Output should be identical to create_chunk(), but it doesn't delete the
-    files after creating the chunk, and doesn't require the caller to work
-    out all the files that should go in. (But it does that because of chunk
-    splitting!!! *OH*.....)
+    Output is identical to create_chunk(), but it doesn't delete the files
+    after creating the chunk (which we don't want when verifying an unpacked
+    chunk artifact).
+
     '''
 
     # This timestamp is used to normalize the mtime for every file in
@@ -160,11 +159,12 @@ def create_chunk_2(rootdir, f, name, include):
     with tarfile.open(fileobj=stream, mode='w|') as tar:
         for filepath in sorted(include):
             if filepath == rootdir:
-                # I'm not sure how the ChunkBuilder.assemble_chunk_artifact()
-                # code path manages to avoid adding '.' to the tarfile, but it
-                # does
+                # Avoid '.' in the tarfile. This makes us compatible with
+                # most existing chunk artifacts, but generally the -misc
+                # artifact actually *does* contain '.'. We should prevent
+                # that so that packed chunks can be fully reproduced from
+                # unpacked ones.
                 continue
-            # Normalize mtime for everything.
             tarinfo = tar.gettarinfo(filepath)
             tarinfo = make_tarinfo_path_relative_to(rootdir, tarinfo)
             tarinfo.ctime = normalized_timestamp
@@ -176,7 +176,7 @@ def create_chunk_2(rootdir, f, name, include):
             else:
                 tar.addfile(tarinfo)
 
-    return stream.hash()
+    return stream.hexdigest()
 
 
 def create_system(rootdir, f, name):
@@ -190,7 +190,7 @@ def create_system(rootdir, f, name):
     with tarfile.open(fileobj=stream, mode="w|", name=name) as tar:
         tar.add(rootdir, recursive=True, filter=path_filter)
 
-    return stream.hash
+    return stream.hexdigest()
 
 
 def unpack_binary_from_file(f, dirname):  # pragma: no cover
