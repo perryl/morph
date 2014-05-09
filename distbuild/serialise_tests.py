@@ -23,10 +23,10 @@ import distbuild
 
 class MockMorphology(object):
 
-    def __init__(self, name):
+    def __init__(self, name, kind):
         self.dict = {
             'name': '%s.morphology.name' % name,
-            'kind': '%s.morphology.kind' % name,
+            'kind': kind,
         }
         self.needs_staging_area = None
         self.needs_artifact_metadata_cached = None
@@ -46,7 +46,7 @@ class MockSource(object):
         self.original_ref = '%s.source.original_ref' % name
         self.sha1 = '%s.source.sha1' % name
         self.tree = '%s.source.tree' % name
-        self.morphology = MockMorphology(name)
+        self.morphology = MockMorphology(name, 'chunk')
         self.filename = '%s.source.filename' % name
 
 
