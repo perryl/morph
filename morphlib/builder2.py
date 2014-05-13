@@ -67,6 +67,10 @@ class Logger(threading.Thread):
     def close(self):
         os.close(self.write)
 
+    def flush(self):
+        for f in self.files:
+            f.flush()
+
 
 def extract_sources(app, repo_cache, repo, sha1, srcdir): #pragma: no cover
     '''Get sources from git to a source directory, including submodules'''
