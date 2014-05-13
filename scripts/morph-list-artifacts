@@ -1,0 +1,113 @@
+#!/usr/bin/env python
+#
+# Copyright (C) 2014 Codethink Ltd. <sam.thursfield@codethink.co.uk>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+import sys
+
+import cliapp
+import morphlib
+
+
+class MorphListArtifactsCommand(morphlib.app.Morph):
+    '''List all artifact files that correspond to a given system.
+
+    This is useful when transferring release artifacts built on one
+    Trove to a different one.
+
+    Usage: morph-list-artifacts REPO REF MORPH
+
+    Once you've got your list of artifact files you might want to copy them
+    to a Trove's artifact cache. One hacky way to do this is give yourself
+    access as the 'cache' user on the target Trove, then run:
+
+        rsync --chmod ugo=wrr --compress --verbose \
+            $(morph-list-artifacts XXX) cache@TROVEHOST:artifacts
+
+    There is a potential security issue in allowing uploads directly to the
+    artifact cache, so remove your access again afterwards and think about
+    how we can avoid needing to do this in the future.
+
+    '''
+    def __init__(self):
+        super(morphlib.app.Morph, self).__init__(progname='morph')
+
+        self.add_subcommand('list-artifacts', self.list_artifacts,
+                arg_synopsis='REPO REF MORPH')
+
+    def process_args(self, args):
+        self.settings['no-git-update'] = True
+        morphlib.app.Morph.process_args(self, ['list-artifacts'] + args)
+
+    def list_artifacts(self, args):
+        if len(args) != 3:
+            raise morphlib.Error('Usage: morph-list-artifacts REPO REF MORPH')
+
+        repo, ref, morph = args
+        morph_name = morphlib.util.strip_morph_extension(morph)
+
+        build_command = morphlib.buildcommand.BuildCommand(self)
+
+        # This command takes a very long time due to trying to detect the
+        # build system of every chunk using git-ls-tree and git-rev-parse.
+        source_pool = build_command.create_source_pool(
+            repo, ref, morph_name + '.morph')
+
+        # Disable the "are you trying to cross-build" warning, so the
+        # command works for systems of any architecture.
+        build_command._validate_architecture = lambda x: None
+
+        # This command takes a long time to calculate cache keys of everything.
+        root_artifact = build_command.resolve_artifacts(source_pool)
+
+        lac, rac = morphlib.util.new_artifact_caches(self.settings)
+
+        local_sources = set()
+        missing_sources = set()
+
+        for artifact in root_artifact.walk():
+            if lac.has(artifact):
+                local_sources.add(artifact.source)
+            else:
+                missing_sources.add(artifact.source)
+
+        for source in local_sources:
+            for filename in self._all_artifact_files_for_source(lac, source):
+                sys.stdout.write(filename)
+                sys.stdout.write('\n')
+
+        for source in missing_sources:
+            first_artifact = source.artifacts.itervalues().next()
+            kind = source.morphology['kind']
+            sys.stderr.write(
+                'MISSING: %8s %s\n' % (kind, first_artifact.cache_key))
+
+    def _all_artifact_files_for_source(self, lac, source):
+        '''List all artifact files for one source.
+
+        Ideally the source metadata would track all the artifact files.
+        Currently, it doesn't, so rather than hardcode what is required we
+        return any file in the artifact cache that starts with the source's
+        cache key. That will work in most cases.
+
+        '''
+        first_artifact = source.artifacts.itervalues().next()
+        artifact_files_gen = lac.cachefs.ilistdir(
+            '/', wildcard=first_artifact.cache_key + '.*')
+        return (lac.cachefs.getsyspath(f) for f in artifact_files_gen)
+
+
+MorphListArtifactsCommand().run()
