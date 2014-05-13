@@ -371,10 +371,12 @@ class ChunkBuilder(BuilderBase):
             log_name = None
             try:
                 self.get_sources(builddir)
+
                 with self.local_artifact_cache.put_source_metadata(
                         self.artifact.source, self.artifact.cache_key,
                         'build-log') as log:
                     log_name = log.real_filename
+
                     self.run_commands(builddir, destdir, log)
                     self.create_devices(destdir)
             except BaseException, e:
@@ -393,7 +395,6 @@ class ChunkBuilder(BuilderBase):
 
         self.save_build_times()
         return built_artifacts
-
 
     def run_commands(self, builddir, destdir, logfile):  # pragma: no cover
         m = self.artifact.source.morphology
@@ -438,15 +439,22 @@ class ChunkBuilder(BuilderBase):
                         # buffers, but flush handles both
                         logfile.write('# # %s\n' % cmd)
                         logfile.flush()
-                        self.runcmd(['sh', '-c', cmd],
+
+                        stdout = logfile
+                        if self.app.settings['build-log-on-stdout']:
+                            stdout = Logger([self.app.output, logfile])
+
+                        cmdoutput = self.runcmd(['sh', '-c', cmd],
                                     extra_env=extra_env,
                                     cwd=relative_builddir,
-                                    stdout=logfile,
+                                    stdout=stdout,
                                     stderr=subprocess.STDOUT)
                         logfile.flush()
+                        stdout.close()
                     except cliapp.AppException, e:
                         logfile.flush()
                         with open(logfile.name, 'r') as readlog:
+                            # TODO: fixme when stdout flag used
                             self.app.output.write("%s failed\n" % step)
                             shutil.copyfileobj(readlog, self.app.output)
                         raise e
