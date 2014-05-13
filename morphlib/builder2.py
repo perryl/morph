@@ -341,11 +341,15 @@ class ChunkBuilder(BuilderBase):
             log_name = None
             try:
                 self.get_sources(builddir)
+                stdout = (self.app.output
+                    if self.app.settings['build-log-on-stdout'] else None)
+
                 with self.local_artifact_cache.put_source_metadata(
                         self.artifact.source, self.artifact.cache_key,
                         'build-log') as log:
                     log_name = log.real_filename
-                    self.run_commands(builddir, destdir, log)
+
+                    self.run_commands(builddir, destdir, log, stdout)
                     self.create_devices(destdir)
             except BaseException, e:
                 logging.error('Caught exception: %s' % str(e))
@@ -365,7 +369,7 @@ class ChunkBuilder(BuilderBase):
         return built_artifacts
 
 
-    def run_commands(self, builddir, destdir, logfile):  # pragma: no cover
+    def run_commands(self, builddir, destdir, logfile, stdout):  # pragma: no cover
         m = self.artifact.source.morphology
         bs = morphlib.buildsystem.lookup_build_system(m['build-system'])
 
@@ -408,15 +412,20 @@ class ChunkBuilder(BuilderBase):
                         # buffers, but flush handles both
                         logfile.write('# # %s\n' % cmd)
                         logfile.flush()
-                        self.runcmd(['sh', '-c', cmd],
+                        cmdoutput = self.runcmd(['sh', '-c', cmd],
                                     extra_env=extra_env,
                                     cwd=relative_builddir,
-                                    stdout=logfile,
+                                    stdout=stdout or subprocess.PIPE,
                                     stderr=subprocess.STDOUT)
                         logfile.flush()
+
+                        for line in cmdoutput:
+                            logfile.write(cmdoutput)
+
                     except cliapp.AppException, e:
                         logfile.flush()
                         with open(logfile.name, 'r') as readlog:
+                            # TODO: fixme when stdout flag used
                             self.app.output.write("%s failed\n" % step)
                             shutil.copyfileobj(readlog, self.app.output)
                         raise e
