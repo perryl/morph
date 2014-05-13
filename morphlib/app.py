@@ -84,6 +84,10 @@ class Morph(cliapp.Application):
                               'do not update the cached git repositories '
                               'automatically',
                               group=group_advanced)
+        self.settings.boolean(['build-log-on-stdout'],
+                              'write build log on stdout',
+                              default='no',
+                              group=group_advanced)
         self.settings.string_list(['repo-alias'],
                                   'list of URL prefix definitions, in the '
                                   'form: example=git://git.example.com/%s'
