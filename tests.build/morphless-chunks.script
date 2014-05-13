@@ -39,7 +39,7 @@ git add Makefile configure
 git commit -q -m "Convert hello into an autodetectable chunk"
 
 
-"$SRCDIR/scripts/test-morph" build-morphology \
+"$SRCDIR/scripts/test-morph" build-release \
     test:morphs-repo master hello-system
 
 for chunk in "$DATADIR/cache/artifacts/"*.chunk.*

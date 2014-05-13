@@ -23,7 +23,7 @@ set -eu
 . "$SRCDIR/tests.as-root/lib"
 
 # Build first image. Remember the stratum.
-"$SRCDIR/scripts/test-morph" build-morphology \
+"$SRCDIR/scripts/test-morph" build-release \
     test:morphs master linux-system
 
 system=$(find "$DATADIR/cache/artifacts" -maxdepth 1 -name '*.system.*-rootfs')

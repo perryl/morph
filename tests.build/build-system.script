@@ -20,7 +20,7 @@
 
 set -eu
 
-"$SRCDIR/scripts/test-morph" build-morphology \
+"$SRCDIR/scripts/test-morph" build-release \
     test:morphs-repo master hello-system
 
 system=$(ls "$DATADIR/cache/artifacts/"*hello-system-rootfs)

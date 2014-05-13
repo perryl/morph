@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -35,7 +35,7 @@ git add autogen.sh
 git rm -q hello.morph
 git commit -q -m "Convert hello to a broken autotools project"
 
-"$SRCDIR/scripts/test-morph" build-morphology \
+"$SRCDIR/scripts/test-morph" build-release \
     test:morphs-repo master hello-system \
     >/dev/null 2> /dev/null
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -34,5 +34,5 @@ git add hello-stratum.morph hello-system.morph
 
 git commit --quiet -m "add empty stratum"
 
-"$SRCDIR/scripts/test-morph" build-morphology \
+"$SRCDIR/scripts/test-morph" build-release \
     test:morphs-repo empty-stratum hello-system

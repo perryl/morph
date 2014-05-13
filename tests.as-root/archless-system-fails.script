@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2011-2013  Codethink Limited
+# Copyright (C) 2011-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -39,4 +39,4 @@ git add archless-system.morph
 git commit --quiet -m "add archless system"
 
 "$SRCDIR/scripts/test-morph" \
-    build-morphology test:morphs archless archless-system
+    build-release test:morphs archless archless-system

@@ -30,7 +30,7 @@ set -eu
 cd "$SRCDIR"
 
 tar=$("$SRCDIR/scripts/test-morph" --find-system-artifact \
-    build-morphology test:morphs tarball hello-tarball)
+    build-release test:morphs tarball hello-tarball)
 
 extracted="$DATADIR/extracted"
 mkdir -p "$extracted"

@@ -48,7 +48,7 @@ EOF
 git add hello.morph
 git commit --quiet -m "Convert hello to a cmake project"
 
-"$SRCDIR/scripts/test-morph" build-morphology \
+"$SRCDIR/scripts/test-morph" build-release \
     test:morphs-repo master hello-system
 
 for chunk in "$DATADIR/cache/artifacts/"*.chunk.*

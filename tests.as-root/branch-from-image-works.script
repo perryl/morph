@@ -26,7 +26,7 @@ set -eu
 . "$SRCDIR/scripts/fix-committer-info"
 
 tar=$("$SRCDIR/scripts/test-morph" --find-system-artifact \
-    build-morphology test:morphs tarball hello-tarball)
+    build-release test:morphs tarball hello-tarball)
 
 extracted="$DATADIR/extracted"
 mkdir -p "$extracted"

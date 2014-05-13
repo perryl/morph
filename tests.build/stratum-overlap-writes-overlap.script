@@ -24,7 +24,7 @@ set -eu
 cache="$DATADIR/cache/artifacts"
 
 
-"$SRCDIR/scripts/test-morph" build-morphology \
+"$SRCDIR/scripts/test-morph" build-release \
     test:morphs-repo overlap hello-system > /dev/null
 "$SRCDIR/scripts/list-overlaps" groups \
         "$cache"/*.stratum.hello-stratum-*.overlaps |

@@ -74,7 +74,7 @@ git add hello-stratum.morph
 git commit -q -m "Set custom install prefix for hello"
 
 
-"$SRCDIR/scripts/test-morph" build-morphology \
+"$SRCDIR/scripts/test-morph" build-release \
     test:morphs-repo master hello-system
 
 for chunk in "$DATADIR/cache/artifacts/"*.chunk.*

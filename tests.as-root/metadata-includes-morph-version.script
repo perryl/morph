@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -34,7 +34,7 @@ tree="$(git rev-parse 'HEAD^{tree}')"
 ref="$(git rev-parse --symbolic-full-name 'HEAD')"
 
 tar=$("$SRCDIR/scripts/test-morph" --find-system-artifact \
-    build-morphology test:morphs tarball hello-tarball)
+    build-release test:morphs tarball hello-tarball)
 
 extracted="$DATADIR/extracted"
 mkdir -p "$extracted"

@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2011-2013  Codethink Limited
+# Copyright (C) 2011-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@ warning_mentions(){
     grep -F "$1" <"$warnings" >/dev/null 2>/dev/null
 }
 
-"$SRCDIR/scripts/test-morph" build-morphology --log=$log \
+"$SRCDIR/scripts/test-morph" build-release --log=$log \
     test:morphs-repo overlap hello-system > /dev/null
 grep WARNING "$log" >"$warnings"
 for str in hello-stratum \

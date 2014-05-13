@@ -24,12 +24,11 @@ import morphlib
 class BuildPlugin(cliapp.Plugin):
 
     def enable(self):
-        self.app.add_subcommand('build-morphology', self.build_morphology,
+        self.app.add_subcommand('build-release', self.build_release,
                                 arg_synopsis='(REPO REF FILENAME)...')
         self.app.add_subcommand('build', self.build,
                                 arg_synopsis='SYSTEM')
-        self.app.add_subcommand('distbuild-morphology',
-                                self.distbuild_morphology,
+        self.app.add_subcommand('distbuild-release', self.distbuild_release,
                                 arg_synopsis='SYSTEM')
         self.app.add_subcommand('distbuild', self.distbuild,
                                 arg_synopsis='SYSTEM')
@@ -38,7 +37,7 @@ class BuildPlugin(cliapp.Plugin):
     def disable(self):
         self.use_distbuild = False
 
-    def distbuild_morphology(self, args):
+    def distbuild_release(self, args):
         '''Distbuild a system, outside of a system branch.
 
         Command line arguments:
@@ -47,7 +46,7 @@ class BuildPlugin(cliapp.Plugin):
         * `REF` is a branch or other commit reference in that repository.
         * `FILENAME` is a morphology filename at that ref.
 
-        See 'help distbuild' and 'help build-morphology' for more information.
+        See 'help distbuild' and 'help build-release' for more information.
 
         '''
 
@@ -83,7 +82,7 @@ class BuildPlugin(cliapp.Plugin):
         self.use_distbuild = True
         self.build(args)
 
-    def build_morphology(self, args):
+    def build_release(self, args):
         '''Build a system, outside of a system branch.
 
         Command line arguments:
@@ -103,7 +102,7 @@ class BuildPlugin(cliapp.Plugin):
 
         Example:
 
-            morph build-morphology baserock:baserock/morphs \
+            morph build-release baserock:baserock/morphs \
                 master devel-system-x86_64-generic
 
         '''

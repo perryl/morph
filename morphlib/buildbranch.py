@@ -47,7 +47,7 @@ class BuildBranch(object):
     # TODO: This currently always uses the temporary build ref. It
     # would be better to not use local repositories and temporary refs,
     # so building from a workspace appears to be identical to using
-    # `morph build-morphology`
+    # `morph build-release`
     def __init__(self, sb, build_ref_prefix, push_temporary):
 
         self._sb = sb

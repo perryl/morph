@@ -40,7 +40,7 @@ git add linux.morph
 git commit --quiet -m 'Make the kernel create a dummy zImage'
 
 "$SRCDIR/scripts/test-morph" \
-    build-morphology test:morphs master linux-system > /dev/null
+    build-release test:morphs master linux-system > /dev/null
 
 for suffix in kernel rootfs
 do

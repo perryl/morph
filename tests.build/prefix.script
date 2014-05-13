@@ -78,7 +78,7 @@ EOF
 git add hello-stratum.morph
 git commit -q -m "Update stratum"
 
-"$SRCDIR/scripts/test-morph" build-morphology \
+"$SRCDIR/scripts/test-morph" build-release \
     test:morphs-repo master hello-system
 
 cd "$DATADIR/cache/artifacts"

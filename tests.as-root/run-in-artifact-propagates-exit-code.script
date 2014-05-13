@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ set -eu
 . "$SRCDIR/tests.as-root/lib"
 
 # Build first image. Remember the stratum.
-"$SRCDIR/scripts/test-morph" build-morphology \
+"$SRCDIR/scripts/test-morph" build-release \
     test:morphs master linux-system
 
 system=$(find "$DATADIR/cache/artifacts" -maxdepth 1 -name '*.system.*-rootfs')
