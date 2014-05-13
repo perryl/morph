@@ -380,7 +380,6 @@ class ChunkBuilder(BuilderBase):
                         self.artifact.source, self.artifact.cache_key,
                         'build-log') as log:
                     log_name = log.real_filename
-
                     self.run_commands(builddir, destdir, log)
                     self.create_devices(destdir)
             except BaseException, e:
@@ -444,23 +443,24 @@ class ChunkBuilder(BuilderBase):
                         logfile.write('# # %s\n' % cmd)
                         logfile.flush()
 
-                        stdout = logfile
+                        stream = logfile
                         if self.app.settings['build-log-on-stdout']:
-                            stdout = Logger([self.app.output, logfile])
+                            stream = Logger([self.app.output, logfile])
 
                         cmdoutput = self.runcmd(['sh', '-c', cmd],
                                     extra_env=extra_env,
                                     cwd=relative_builddir,
-                                    stdout=stdout,
+                                    stdout=stream,
                                     stderr=subprocess.STDOUT)
-                        logfile.flush()
-                        stdout.close()
+                        stream.flush()
+                        stream.close()
                     except cliapp.AppException, e:
-                        logfile.flush()
-                        with open(logfile.name, 'r') as readlog:
-                            # TODO: fixme when stdout flag used
-                            self.app.output.write("%s failed\n" % step)
-                            shutil.copyfileobj(readlog, self.app.output)
+                        stream.flush()
+                        if not self.app.settings['build-log-on-stdout']:
+                            with open(logfile.name, 'r') as readlog:
+                                self.app.output.write("%s failed\n" % step)
+                                shutil.copyfileobj(readlog, self.app.output)
+
                         raise e
 
     def write_system_integration_commands(self, destdir,
