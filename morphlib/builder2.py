@@ -29,6 +29,7 @@ import traceback
 import subprocess
 import tempfile
 import gzip
+import threading
 
 import cliapp
 
@@ -37,6 +38,35 @@ from morphlib.artifactcachereference import ArtifactCacheReference
 import morphlib.gitversion
 
 SYSTEM_INTEGRATION_PATH = os.path.join('baserock', 'system-integration')
+
+
+class Logger(threading.Thread):
+
+    def __init__(self, files):
+        super(Logger, self).__init__()
+        self.read, self.write = os.pipe()
+        self.reader = os.fdopen(self.read)
+        self.files = files
+        self.start()
+
+    def run(self):
+        while True:
+            line = self.reader.readline()
+
+            if line == '':
+                break
+
+            for f in self.files:
+                f.write(line)
+
+        self.reader.close()
+
+    def fileno(self):
+        return self.write
+
+    def close(self):
+        os.close(self.write)
+
 
 def extract_sources(app, repo_cache, repo, sha1, srcdir): #pragma: no cover
     '''Get sources from git to a source directory, including submodules'''
