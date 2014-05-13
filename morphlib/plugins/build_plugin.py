@@ -28,12 +28,35 @@ class BuildPlugin(cliapp.Plugin):
                                 arg_synopsis='(REPO REF FILENAME)...')
         self.app.add_subcommand('build', self.build,
                                 arg_synopsis='SYSTEM')
+        self.app.add_subcommand('distbuild-morphology',
+                                self.distbuild_morphology,
+                                arg_synopsis='SYSTEM')
         self.app.add_subcommand('distbuild', self.distbuild,
                                 arg_synopsis='SYSTEM')
         self.use_distbuild = False
 
     def disable(self):
         self.use_distbuild = False
+
+    def distbuild_morphology(self, args):
+        '''Distbuild a system, outside of a system branch.
+
+        Command line arguments:
+
+        * `REPO` is a git repository URL.
+        * `REF` is a branch or other commit reference in that repository.
+        * `FILENAME` is a morphology filename at that ref.
+
+        See 'help distbuild' and 'help build-morphology' for more information.
+
+        '''
+
+        addr = self.app.settings['controller-initiator-address']
+        port = self.app.settings['controller-initiator-port']
+
+        build_command = morphlib.buildcommand.InitiatorBuildCommand(
+            self.app, addr, port)
+        build_command.build(args)
 
     def distbuild(self, args):
         '''Distbuild a system image in the current system branch
