@@ -309,7 +309,15 @@ class StagingArea(object):
         real_argv += argv
 
         try:
-            return self._app.runcmd(real_argv, **kwargs)
+            if 'logfile' in kwargs:
+                logfile = kwargs['logfile']
+                del kwargs['logfile']
+
+                if logfile:
+                    teecmd = ['tee', '-a', logfile]
+                    return self._app.runcmd(real_argv, teecmd, **kwargs)
+                else:
+                    return self._app.runcmd(real_argv, **kwargs)
         except cliapp.AppException as e:
             raise cliapp.AppException('In staging area %s: running '
                                       'command \'%s\' failed.' % 
