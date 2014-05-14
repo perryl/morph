@@ -335,29 +335,41 @@ class ChunkBuilder(BuilderBase):
     def build_and_cache(self):  # pragma: no cover
         with self.build_watch('overall-build'):
 
-            builddir, destdir = \
-                self.staging_area.chroot_open(self.artifact.source,
-                                              self.setup_mounts)
-            log_name = None
+            builddir, destdir = self.staging_area.chroot_open(
+                self.artifact.source, self.setup_mounts)
+
+            stdout = (self.app.output
+                if self.app.settings['build-log-on-stdout'] else None)
+
+            cache = self.local_artifact_cache
+            logpath = cache.get_source_metadata_filename(
+                self.artifact.source, self.artifact.cache_key, 'build-log')
+
+            _, temppath = tempfile.mkstemp(dir=os.path.dirname(logpath))
+
             try:
                 self.get_sources(builddir)
-                with self.local_artifact_cache.put_source_metadata(
-                        self.artifact.source, self.artifact.cache_key,
-                        'build-log') as log:
-                    log_name = log.real_filename
-                    self.run_commands(builddir, destdir, log)
-                    self.create_devices(destdir)
+                self.run_commands(builddir, destdir, temppath, stdout)
+                self.create_devices(destdir)
+
+                os.rename(temppath, logpath)
             except BaseException, e:
                 logging.error('Caught exception: %s' % str(e))
                 logging.info('Cleaning up staging area')
                 self.staging_area.chroot_close()
-                if log_name:
-                    with open(log_name) as f:
+                if os.path.isfile(temppath):
+                    with open(temppath) as f:
                         for line in f:
                             logging.error('OUTPUT FROM FAILED BUILD: %s' %
                                           line.rstrip('\n'))
+
+                    os.rename(temppath, logpath)
+                else:
+                    logging.error("Couldn't find build log at %s", temppath)
+
                 self.staging_area.abort()
                 raise
+
             self.staging_area.chroot_close()
             built_artifacts = self.assemble_chunk_artifacts(destdir)
 
@@ -365,7 +377,8 @@ class ChunkBuilder(BuilderBase):
         return built_artifacts
 
 
-    def run_commands(self, builddir, destdir, logfile):  # pragma: no cover
+    def run_commands(self, builddir, destdir,
+                     logfilepath, stdout=None):  # pragma: no cover
         m = self.artifact.source.morphology
         bs = morphlib.buildsystem.lookup_build_system(m['build-system'])
 
@@ -392,8 +405,10 @@ class ChunkBuilder(BuilderBase):
                 key = '%s-commands' % step
                 cmds = m.get_commands(key)
                 if cmds:
-                    self.app.status(msg='Running %(key)s', key=key)
-                    logfile.write('# %s\n' % step)
+                    with open(logfilepath, 'a') as log:
+                        self.app.status(msg='Running %(key)s', key=key)
+                        log.write('# %s\n' % step)
+
                 for cmd in cmds:
                     if in_parallel:
                         max_jobs = self.artifact.source.morphology['max-jobs']
@@ -402,23 +417,31 @@ class ChunkBuilder(BuilderBase):
                         extra_env['MAKEFLAGS'] = '-j%s' % max_jobs
                     else:
                         extra_env['MAKEFLAGS'] = '-j1'
+
                     try:
+                        with open(logfilepath, 'a') as log:
+                            log.write('# # %s\n' % cmd)
+
                         # flushing is needed because writes from python and
                         # writes from being the output in Popen have different
                         # buffers, but flush handles both
-                        logfile.write('# # %s\n' % cmd)
-                        logfile.flush()
+                        if stdout:
+                            stdout.flush()
+
                         self.runcmd(['sh', '-c', cmd],
                                     extra_env=extra_env,
                                     cwd=relative_builddir,
-                                    stdout=logfile,
-                                    stderr=subprocess.STDOUT)
-                        logfile.flush()
+                                    stdout=stdout or subprocess.PIPE,
+                                    stderr=subprocess.STDOUT,
+                                    logfile=logfilepath)
+
+                        if stdout:
+                            stdout.flush()
                     except cliapp.AppException, e:
-                        logfile.flush()
-                        with open(logfile.name, 'r') as readlog:
-                            self.app.output.write("%s failed\n" % step)
-                            shutil.copyfileobj(readlog, self.app.output)
+                        if not stdout:
+                            with open(logfilepath, 'r') as log:
+                                self.app.output.write("%s failed\n" % step)
+                                shutil.copyfileobj(log, self.app.output)
                         raise e
 
     def write_system_integration_commands(self, destdir,
