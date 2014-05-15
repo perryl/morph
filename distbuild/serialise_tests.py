@@ -201,12 +201,12 @@ class SerialisationTests(unittest.TestCase):
         encoded = distbuild.serialise_artifact(self.art1)
         self.assertEqual(type(encoded), str)
 
-    #def test_works_without_dependencies(self):
-    #    self.verify_round_trip(self.art1)
+    def test_works_without_dependencies(self):
+        self.verify_round_trip(self.art1)
 
-    #def test_works_with_single_dependency(self):
-    #    self.art1.dependencies = [self.art2]
-    #    self.verify_round_trip(self.art1)
+    def test_works_with_single_dependency(self):
+        self.art1.dependencies = [self.art2]
+        self.verify_round_trip(self.art1)
 
     #def test_works_with_two_dependencies(self):
     #    self.art1.dependencies = [self.art2, self.art3]
