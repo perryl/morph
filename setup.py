@@ -127,7 +127,7 @@ class Check(Command):
     def run(self):
         subprocess.check_call(['python', '-m', 'CoverageTestRunner',
                                '--ignore-missing-from=without-test-modules',
-                               'morphlib'])
+                               'morphlib', 'distbuild'])
         os.remove('.coverage')
 
 
