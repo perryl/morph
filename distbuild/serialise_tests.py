@@ -18,6 +18,7 @@
 
 import unittest
 
+import morphlib
 import distbuild
 
 
@@ -38,10 +39,9 @@ class MockMorphology(object):
         return self.dict[key]
 
 
-class MockSource(object):
+class MockSource(morphlib.source.Source):
 
     def __init__(self, name):
-        self.repo = None
         self.repo_name = '%s.source.repo_name' % name
         self.original_ref = '%s.source.original_ref' % name
         self.sha1 = '%s.source.sha1' % name
@@ -49,6 +49,12 @@ class MockSource(object):
         self.morphology = MockMorphology(name, 'chunk')
         self.filename = '%s.source.filename' % name
 
+        super(MockSource, self).__init__(self.repo_name,
+                                         self.original_ref,
+                                         self.sha1,
+                                         self.tree,
+                                         self.morphology,
+                                         self.filename)
 
 class MockArtifact(object):
 
