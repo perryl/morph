@@ -17,26 +17,86 @@
 
 
 import unittest
+import json
 
 import morphlib
 import distbuild
 
+# TODO: these were taken from artifactresolver_tests
+# they should be moved to a more sensible place so both tests
+# can share these classes
+class FakeChunkMorphology(morphlib.morph2.Morphology):
 
-class MockMorphology(object):
+    def __init__(self, name, artifact_names=[]):
+        assert(isinstance(artifact_names, list))
 
-    def __init__(self, name, kind):
-        self.dict = {
-            'name': '%s.morphology.name' % name,
-            'kind': kind,
-        }
-        self.needs_staging_area = None
-        self.needs_artifact_metadata_cached = None
-        
-    def keys(self):
-        return self.dict.keys()
-        
-    def __getitem__(self, key):
-        return self.dict[key]
+        if artifact_names:
+            # fake a list of artifacts
+            artifacts = []
+            for artifact_name in artifact_names:
+                artifacts.append({'artifact': artifact_name,
+                                  'include': artifact_name})
+            text = json.dumps({
+                        "name": name,
+                        "kind": "chunk",
+                        "products": artifacts
+                    })
+            self.builds_artifacts = artifact_names
+        else:
+            text = ('''
+                    {
+                        "name": "%s",
+                        "kind": "chunk"
+                    }
+                    ''' % name)
+            self.builds_artifacts = [name]
+        morphlib.morph2.Morphology.__init__(self, text)
+
+
+class FakeStratumMorphology(morphlib.morph2.Morphology):
+
+    def __init__(self, name, chunks=[], build_depends=[]):
+        assert(isinstance(chunks, list))
+        assert(isinstance(build_depends, list))
+
+        chunks_list = []
+        for source_name, morph, repo, ref in chunks:
+            chunks_list.append({
+                'name': source_name,
+                'morph': morph,
+                'repo': repo,
+                'ref': ref,
+                'build-depends': [],
+            })
+        build_depends_list = []
+        for morph, repo, ref in build_depends:
+            build_depends_list.append({
+                'morph': morph,
+                'repo': repo,
+                'ref': ref
+            })
+        if chunks_list:
+            text = ('''
+                    {
+                        "name": "%s",
+                        "kind": "stratum",
+                        "build-depends": %s,
+                        "chunks": %s
+                    }
+                    ''' % (name,
+                           json.dumps(build_depends_list),
+                           json.dumps(chunks_list)))
+        else:
+            text = ('''
+                    {
+                        "name": "%s",
+                        "kind": "stratum",
+                        "build-depends": %s
+                    }
+                    ''' % (name,
+                           json.dumps(build_depends_list)))
+        self.builds_artifacts = [name]
+        morphlib.morph2.Morphology.__init__(self, text)
 
 
 class MockSource(morphlib.source.Source):
@@ -46,7 +106,10 @@ class MockSource(morphlib.source.Source):
         self.original_ref = '%s.source.original_ref' % name
         self.sha1 = '%s.source.sha1' % name
         self.tree = '%s.source.tree' % name
-        self.morphology = MockMorphology(name, 'chunk')
+
+        self.morphology = FakeChunkMorphology('%s.source.morphology' %
+                                              name)
+
         self.filename = '%s.source.filename' % name
 
         super(MockSource, self).__init__(self.repo_name,
