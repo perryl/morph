@@ -177,6 +177,10 @@ class SerialisationTests(unittest.TestCase):
     def verify_round_trip(self, artifact):
         encoded = distbuild.serialise_artifact(artifact)
         decoded = distbuild.deserialise_artifact(encoded)
+
+        print 'encoded: ', encoded
+        print 'decoded: ', decoded
+
         self.assertEqualArtifacts(artifact, decoded)
         
         def key(a):
