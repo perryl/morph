@@ -112,7 +112,8 @@ class MockSource(morphlib.source.Source):
                                               name)
 
         self.filename = '%s.source.filename' % name
-        self.build_mode = 'staging'
+        self.build_mode = '%s.source.build_mode' % name
+        self.prefix = '%s.source.prefix' % name
 
         super(MockSource, self).__init__(self.repo_name,
                                          self.original_ref,
