@@ -206,7 +206,10 @@ class SerialisationTests(unittest.TestCase):
         self.verify_round_trip(self.art1)
 
     def test_works_with_single_dependency(self):
-        self.art1.dependencies = [self.art2]
+        # You can no longer add dependencies directly,
+        # need to user artifact.add_dependency
+        #self.art1.dependencies = [self.art2]
+        self.art1.add_dependency(art2)
         self.verify_round_trip(self.art1)
 
     #def test_works_with_two_dependencies(self):
