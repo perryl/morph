@@ -119,11 +119,12 @@ class MockSource(morphlib.source.Source):
                                          self.morphology,
                                          self.filename)
 
-class MockArtifact(object):
+class MockChunkArtifact(object):
 
     def __init__(self, name):
         self.source = MockSource(name)
         self.name = name
+        self.arch = 'arch'
         self.cache_id = {
             'blip': '%s.blip' % name,
             'integer': 42,
@@ -135,10 +136,10 @@ class MockArtifact(object):
 class SerialisationTests(unittest.TestCase):
 
     def setUp(self):
-        self.art1 = MockArtifact('name1')
-        self.art2 = MockArtifact('name2')
-        self.art3 = MockArtifact('name3')
-        self.art4 = MockArtifact('name4')
+        self.art1 = MockChunkArtifact('name1')
+        self.art2 = MockChunkArtifact('name2')
+        self.art3 = MockChunkArtifact('name3')
+        self.art4 = MockChunkArtifact('name4')
 
     def assertEqualMorphologies(self, a, b):
         self.assertEqual(sorted(a.keys()), sorted(b.keys()))
