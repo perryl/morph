@@ -18,6 +18,7 @@
 
 import unittest
 import json
+import yaml
 
 import morphlib
 import distbuild
@@ -176,10 +177,10 @@ class SerialisationTests(unittest.TestCase):
 
     def verify_round_trip(self, artifact):
         encoded = distbuild.serialise_artifact(artifact)
-        print 'encoded: ', encoded
+        print 'encoded: ', yaml.dump(yaml.load(encoded))
 
         decoded = distbuild.deserialise_artifact(encoded)
-        print 'decoded: ', decoded
+        print 'decoded: ', yaml.dump(yaml.load(decoded))
 
         self.assertEqualArtifacts(artifact, decoded)
         
