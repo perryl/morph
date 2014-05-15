@@ -51,6 +51,7 @@ class FakeChunkMorphology(morphlib.morph2.Morphology):
                     ''' % name)
             self.builds_artifacts = [name]
         morphlib.morph2.Morphology.__init__(self, text)
+        self.needs_artifact_metadata_cached = True
 
 
 class FakeStratumMorphology(morphlib.morph2.Morphology):
