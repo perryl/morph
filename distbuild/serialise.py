@@ -37,16 +37,6 @@ def serialise_artifact(artifact):
         for x in morphology_attributes:
             result['__%s' % x] = getattr(morphology, x)
         return result
-
-    def encode_artifact(artifact):
-        return {
-            'name': artifact.name,
-            'cache_id': artifact.cache_id,
-            'cache_key': artifact.cache_key,
-            'dependencies': artifact.dependencies,
-            'dependents': artifact.dependents,
-            'metadata_version': artifact.metadata_version,
-        }
     
     def encode_source(source):
         source_dic = {
