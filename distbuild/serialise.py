@@ -159,16 +159,6 @@ def deserialise_artifact(encoded):
             del morphology['__%s' % x]
         return morphology
 
-    def unserialise_source_artifacts(source, artifacts_dict):
-        '''Convert this dict into a list of artifacts'''
-        return {a['name']: Artifact(source,
-            a['name'],
-            a['cache_id'],
-            a['cache_key'],
-            a['dependencies'],
-            a['dependents'],
-            a['metadata_version']) for a in artifacts_dict}
-
     def unserialise_source(le_dict):
         '''Convert a dict into a Source object.'''
 
