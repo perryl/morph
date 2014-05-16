@@ -601,8 +601,6 @@ class SystemBuilder(BuilderBase):  # pragma: no cover
                         system_name=self.artifact.source.morphology['name'])
 
         with self.build_watch('overall-build'):
-            arch = self.artifact.source.morphology['arch']
-
             rootfs_name = self.artifact.source.morphology['name'] + '-rootfs'
             rootfs_artifact = self.new_artifact(rootfs_name)
             handle = self.local_artifact_cache.put(rootfs_artifact)
