@@ -142,11 +142,11 @@ class MockChunkArtifact(object):
 
 class SerialisationTests(unittest.TestCase):
 
-    def setUp(self):
-        self.art1 = morphlib.artifact('name1')
-        self.art2 = morphlib.artifact('name2')
-        self.art3 = morphlib.artifact('name3')
-        self.art4 = morphlib.artifact('name4')
+    #def setUp(self):
+    #    self.art1 = morphlib.artifact('name1')
+    #    self.art2 = morphlib.artifact('name2')
+    #    self.art3 = morphlib.artifact('name3')
+    #    self.art4 = morphlib.artifact('name4')
 
     def assertEqualMorphologies(self, a, b):
         self.assertEqual(sorted(a.keys()), sorted(b.keys()))
@@ -262,9 +262,9 @@ class SerialisationTests(unittest.TestCase):
         self.verify_round_trip(root_artifact)
 
 
-    def test_returns_string(self):
-        encoded = distbuild.serialise_artifact(self.art1)
-        self.assertEqual(type(encoded), str)
+    ##def test_returns_string(self):
+    ##    encoded = distbuild.serialise_artifact(self.art1)
+    ##    self.assertEqual(type(encoded), str)
 
     #def test_works_without_dependencies(self):
     #    self.verify_round_trip(self.art1)
