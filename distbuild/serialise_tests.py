@@ -147,6 +147,8 @@ class SerialisationTests(unittest.TestCase):
     #    self.art2 = morphlib.artifact('name2')
     #    self.art3 = morphlib.artifact('name3')
     #    self.art4 = morphlib.artifact('name4')
+    def setUp(self):
+        self.resolver = morphlib.artifactresolver.ArtifactResolver()
 
     def assertEqualMorphologies(self, a, b):
         self.assertEqual(sorted(a.keys()), sorted(b.keys()))
