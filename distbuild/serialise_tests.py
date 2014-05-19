@@ -259,7 +259,11 @@ class SerialisationTests(unittest.TestCase):
 
         artifacts = self.resolver.resolve_artifacts(pool)
 
+        # FIXME: the arch field should be added by the resolver
+        # At the moment it gets added by serialise()
+
         root_artifact = artifacts[0]
+        root_artifact.arch = 'arch'
 
         self.verify_round_trip(root_artifact)
 
