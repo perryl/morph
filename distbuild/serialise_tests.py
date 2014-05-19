@@ -256,6 +256,8 @@ class SerialisationTests(unittest.TestCase):
 
         artifacts = self.resolver.resolve_artifacts(pool)
 
+        print 'artifacts[0].dependencies: %s' % artifacts[0].dependencies
+
         # FIXME: the arch field should be added by the resolver
         # At the moment it gets added by serialise()
 
