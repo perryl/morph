@@ -185,7 +185,7 @@ class SerialisationTests(unittest.TestCase):
         print 'encoded: ', yaml.dump(yaml.load(encoded))
 
         decoded = distbuild.deserialise_artifact(encoded)
-        print 'decoded: ', yaml.dump(yaml.load(decoded))
+        print 'decoded: ', yaml.dump(decoded)
 
         self.assertEqualArtifacts(artifact, decoded)
         
