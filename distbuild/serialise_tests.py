@@ -258,6 +258,10 @@ class SerialisationTests(unittest.TestCase):
 
         print 'artifacts[0].dependencies: %s' % artifacts[0].dependencies
 
+        for artifact in artifacts:
+            print 'artifact: %s' % artifact.name
+            print 'artifact.dependencies: %s' % artifact.dependencies
+
         # FIXME: the arch field should be added by the resolver
         # At the moment it gets added by serialise()
 
