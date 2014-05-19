@@ -156,11 +156,8 @@ class SerialisationTests(unittest.TestCase):
         a_values = [a[k] for k in keys]
         b_values = [b[k] for k in keys]
         self.assertEqual(a_values, b_values)
-        self.assertEqual(a.needs_staging_area, b.needs_staging_area)
         self.assertEqual(a.needs_artifact_metadata_cached, 
                          b.needs_artifact_metadata_cached)
-        self.assertEqual(a.needs_staging_area, 
-                         b.needs_staging_area)
 
     def assertEqualSources(self, a, b):
         self.assertEqual(a.repo, b.repo)
