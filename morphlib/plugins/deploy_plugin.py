@@ -49,6 +49,10 @@ class DeployPlugin(cliapp.Plugin):
 
         * `CLUSTER` is the name of the cluster to deploy.
 
+        * `DEPLOYMENT...` is the name of zero or more deployments in the
+          morphology to deploy. If none are specified then all deployments
+          in the morphology are deployed.
+
         * `SYSTEM.KEY=VALUE` can be used to assign `VALUE` to a parameter
           named `KEY` for the system identified by `SYSTEM` in the cluster
           morphology (see below). This will override parameters defined
@@ -248,7 +252,7 @@ class DeployPlugin(cliapp.Plugin):
 
         Deployment configuration is stored in the deployed system as
         /baserock/deployment.meta. THIS CONTAINS ALL ENVIRONMENT VARIABLES SET
-        DURINGR DEPLOYMENT, so make sure you have no sensitive information in
+        DURING DEPLOYMENT, so make sure you have no sensitive information in
         your environment that is being leaked. As a special case, any
         environment/deployment variable that contains 'PASSWORD' in its name is
         stripped out and not stored in the final system.
