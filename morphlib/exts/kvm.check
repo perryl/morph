@@ -18,6 +18,7 @@
 
 import cliapp
 import re
+import os
 import urlparse
 
 import morphlib.writeexts
@@ -43,6 +44,27 @@ class KvmPlusSshCheckExtension(morphlib.writeexts.WriteExtension):
         self.check_ssh_connectivity(ssh_host)
         self.check_no_existing_libvirt_vm(ssh_host, vm_name)
         self.check_extra_disks_exist(ssh_host, self.parse_attach_disks())
+        self.check_vmpath(ssh_host, vm_path)
+
+    def check_vmpath(self, ssh_host, vm_path):
+        dir, file = os.path.split(vm_path)
+
+        if file == '':
+            raise cliapp.AppException('No filename given for vm disk image '
+                                      "(location path is `%s')" % vm_path)
+        else:
+            try:
+                cliapp.ssh_runcmd(ssh_host, ['test', '-e', vm_path])
+            except:
+                pass
+            else:
+                raise cliapp.AppException("`%s' already exists" % vm_path)
+
+        try:
+            cliapp.ssh_runcmd(ssh_host, ['test', '-d', dir])
+        except cliapp.AppException as e:
+            raise cliapp.AppException("Deployment directory `%s' "
+                                      'is not a directory' % dir)
 
     def check_and_parse_location(self, location):
         '''Check and parse the location argument to get relevant data.'''
