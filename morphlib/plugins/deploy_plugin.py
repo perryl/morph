@@ -35,10 +35,16 @@ class DeployPlugin(cliapp.Plugin):
                                   'existing cluster of systems rather than do '
                                   'an initial deployment',
                                   group=group_deploy)
+        self.app.settings.string_list(['param'],
+                                      'pass a variable of the form '
+                                      '"SYSTEM.KEY=VALUE" to override the '
+                                      'corresponding parameter in the '
+                                      'morphology',
+                                      group=group_deploy)
 
         self.app.add_subcommand(
             'deploy', self.deploy,
-            arg_synopsis='CLUSTER [SYSTEM.KEY=VALUE]')
+            arg_synopsis='CLUSTER [DEPLOYMENT...]')
 
     def disable(self):
         pass
@@ -275,7 +281,8 @@ class DeployPlugin(cliapp.Plugin):
             '/', 0)
 
         cluster_name = morphlib.util.strip_morph_extension(args[0])
-        env_vars = args[1:]
+        deployments = set(args[1:])
+        env_vars = self.app.settings['param']
 
         ws = morphlib.workspace.open('.')
         sb = morphlib.sysbranchdir.open_from_within('.')
@@ -335,7 +342,7 @@ class DeployPlugin(cliapp.Plugin):
                     self.deploy_system(build_command, deploy_tempdir,
                                        root_repo_dir, bb.root_repo_url,
                                        bb.root_ref, system, env_vars,
-                                       parent_location='')
+                                       deployments, parent_location='')
             finally:
                 shutil.rmtree(deploy_tempdir)
 
@@ -343,7 +350,10 @@ class DeployPlugin(cliapp.Plugin):
 
     def deploy_system(self, build_command, deploy_tempdir,
                       root_repo_dir, build_repo, ref, system, env_vars,
-                      parent_location):
+                      deployments, parent_location):
+        sys_ids = [sys_id for sys_id, _ in system['deploy'].iteritems()]
+        if not set.intersection(set(sys_ids), deployments) and deployments:
+            return
         old_status_prefix = self.app.status_prefix
         system_status_prefix = '%s[%s]' % (old_status_prefix, system['morph'])
         self.app.status_prefix = system_status_prefix
@@ -356,8 +366,9 @@ class DeployPlugin(cliapp.Plugin):
             artifact = build_command.resolve_artifacts(srcpool)
 
             deploy_defaults = system.get('deploy-defaults', {})
-            deployments = system['deploy']
-            for system_id, deploy_params in deployments.iteritems():
+            for system_id, deploy_params in system['deploy'].iteritems():
+                if not system_id in deployments and deployments:
+                    continue
                 deployment_status_prefix = '%s[%s]' % (
                     system_status_prefix, system_id)
                 self.app.status_prefix = deployment_status_prefix
@@ -399,6 +410,7 @@ class DeployPlugin(cliapp.Plugin):
                         self.deploy_system(build_command, deploy_tempdir,
                                            root_repo_dir, build_repo,
                                            ref, subsystem, env_vars,
+                                           deployments,
                                            parent_location=system_tree)
                     if parent_location:
                         deploy_location = os.path.join(parent_location,
