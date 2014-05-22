@@ -35,10 +35,9 @@ class DeployPlugin(cliapp.Plugin):
                                   'existing cluster of systems rather than do '
                                   'an initial deployment',
                                   group=group_deploy)
-
         self.app.add_subcommand(
             'deploy', self.deploy,
-            arg_synopsis='CLUSTER [SYSTEM.KEY=VALUE]')
+            arg_synopsis='CLUSTER [DEPLOYMENT...] [SYSTEM.KEY=VALUE]')
 
     def disable(self):
         pass
@@ -276,7 +275,6 @@ class DeployPlugin(cliapp.Plugin):
 
         self.app.settings['no-git-update'] = True
         cluster_name = morphlib.util.strip_morph_extension(args[0])
-        env_vars = args[1:]
 
         ws = morphlib.workspace.open('.')
         sb = morphlib.sysbranchdir.open_from_within('.')
@@ -302,6 +300,35 @@ class DeployPlugin(cliapp.Plugin):
             raise cliapp.AppException(
                 "Error: morph deploy is only supported for cluster"
                 " morphologies.")
+
+        # parse the rest of the args
+        all_subsystems = set()
+        all_deployments = set()
+        deployments = set()
+        for system in cluster_morphology['systems']:
+            all_deployments.update([sys_id for sys_id in system['deploy']])
+            if system.get('subsystems'):
+                loader._get_subsystem_names(system, all_subsystems)
+        for item in args[1:]:
+            if not item in all_deployments:
+                break
+            deployments.add(item)
+        env_vars = args[len(deployments) + 1:]
+        for var in env_vars:
+            for subsystem in all_subsystems:
+                if subsystem == var:
+                    raise cliapp.AppException(
+                        'Cannot directly deploy subsystems. Create a top '
+                        'level deployment for the subsystem instead: %s' %
+                        subsystem)
+                if subsystem in var:
+                    # if the subsystem is in the env var, then a deployment
+                    # name probably won't be, so skip the next check
+                    continue
+            if not any(deployment in var for deployment in all_deployments):
+                raise cliapp.AppException(
+                    'Variable referenced a non-existent deployment name: %s' %
+                    var)
 
         bb = morphlib.buildbranch.BuildBranch(sb, build_ref_prefix,
                                               push_temporary=False)
@@ -336,7 +363,7 @@ class DeployPlugin(cliapp.Plugin):
                     self.deploy_system(build_command, deploy_tempdir,
                                        root_repo_dir, bb.root_repo_url,
                                        bb.root_ref, system, env_vars,
-                                       parent_location='')
+                                       deployments, parent_location='')
             finally:
                 shutil.rmtree(deploy_tempdir)
 
@@ -344,7 +371,11 @@ class DeployPlugin(cliapp.Plugin):
 
     def deploy_system(self, build_command, deploy_tempdir,
                       root_repo_dir, build_repo, ref, system, env_vars,
-                      parent_location):
+                      deployments, parent_location):
+        sys_ids = set(sys_id for sys_id, _ in system['deploy'].iteritems())
+        if deployments and not \
+                any(sys_id in deployments for sys_id in sys_ids):
+            return
         old_status_prefix = self.app.status_prefix
         system_status_prefix = '%s[%s]' % (old_status_prefix, system['morph'])
         self.app.status_prefix = system_status_prefix
@@ -357,8 +388,9 @@ class DeployPlugin(cliapp.Plugin):
             artifact = build_command.resolve_artifacts(srcpool)
 
             deploy_defaults = system.get('deploy-defaults', {})
-            deployments = system['deploy']
-            for system_id, deploy_params in deployments.iteritems():
+            for system_id, deploy_params in system['deploy'].iteritems():
+                if not system_id in deployments and deployments:
+                    continue
                 deployment_status_prefix = '%s[%s]' % (
                     system_status_prefix, system_id)
                 self.app.status_prefix = deployment_status_prefix
@@ -399,7 +431,7 @@ class DeployPlugin(cliapp.Plugin):
                     for subsystem in system.get('subsystems', []):
                         self.deploy_system(build_command, deploy_tempdir,
                                            root_repo_dir, build_repo,
-                                           ref, subsystem, env_vars,
+                                           ref, subsystem, env_vars, [],
                                            parent_location=system_tree)
                     if parent_location:
                         deploy_location = os.path.join(parent_location,
