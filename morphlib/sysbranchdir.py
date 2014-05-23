@@ -178,7 +178,9 @@ class SystemBranchDirectory(object):
         mf = morphlib.morphologyfinder.MorphologyFinder(gd)
         for morph in mf.list_morphologies():
             text, filename = mf.read_morphology(morph)
-            m = loader.load_from_string(text, filename=filename)
+            m = loader.parse_morphology_text(text, filename)
+            loader.set_defaults(m)
+            m.filename = filename
             m.repo_url = self.root_repository_url
             m.ref = self.system_branch_name
             yield m
