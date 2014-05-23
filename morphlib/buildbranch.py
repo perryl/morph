@@ -140,7 +140,11 @@ class BuildBranch(object):
 
         morphs.traverse_specs(process, filter)
 
-        if any(m.dirty for m in morphs.morphologies):
+        dirtied = [m for m in morphs.morphologies if m.dirty]
+
+        if dirtied:
+            for morph in dirtied:
+                loader.validate(morph)
             yield self._root
 
         self._root_index.add_files_from_index_info(

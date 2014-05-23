@@ -266,6 +266,10 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
         for morph in morphs:
             if morph.dirty:
                 logging.debug(
+                    'Validating morphology: %s %s %s' %
+                        (morph.repo_url, morph.ref, morph.filename))
+                loader.validate(morph)
+                logging.debug(
                     'Saving morphology: %s %s %s' %
                         (morph.repo_url, morph.ref, morph.filename))
                 loader.unset_defaults(morph)
