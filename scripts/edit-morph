@@ -209,7 +209,7 @@ class EditMorph(cliapp.Application):
             d = yaml.load(f)
         yield d
         with open(path, 'w') as f:
-            yaml.dump(d, f)
+            yaml.dump(d, f, default_flow_style=False)
 
     def cmd_set_system_artifact_depends(self, args):
         '''Change the artifacts used by a System.

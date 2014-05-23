@@ -657,6 +657,16 @@ them, so they can be added to the end of the implements section.
     if [ $MATCH_1 == "deploys" ]; then run_morph "$@"
     else attempt_morph "$@"; fi
 
+    IMPLEMENTS WHEN the user (attempts to deploy|deploys) the following systems from cluster (\S+) in branch (\S+): (.*)
+    cd "$DATADIR/workspace/$MATCH_3"
+    set -- deploy "$MATCH_2"
+    if [ "$MATCH_4" != '' ]; then
+        # eval used so word splitting in the text is preserved
+        eval set -- '"$@"' $MATCH_4
+    fi
+    if [ $MATCH_1 == "deploys" ]; then run_morph "$@"
+    else attempt_morph "$@"; fi
+
     IMPLEMENTS WHEN the user (attempts to upgrade|upgrades) the (system|cluster) (\S+) in branch (\S+)( with options (.*))?
     cd "$DATADIR/workspace/$MATCH_4"
     set -- deploy --upgrade "$MATCH_3"
@@ -711,6 +721,9 @@ Check attributes of a file on the filesystem
 
     IMPLEMENTS THEN file (\S+) exists
     test -e "$DATADIR/$MATCH_1"
+
+    IMPLEMENTS THEN file (\S+) does not exist
+    test ! -e "$DATADIR/$MATCH_1"
 
     IMPLEMENTS THEN file (\S+) has permissions (\S+)
     stat -c %A "$DATADIR/$MATCH_1" | grep -Fx -e "$MATCH_2"

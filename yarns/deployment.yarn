@@ -185,3 +185,191 @@ will mention the initramfs, and the UUID of the disk.
     AND file mnt/extlinux.conf matches initramfs
     AND file mnt/extlinux.conf matches root=UUID=
     FINALLY mnt is unmounted
+
+Partial deployments
+===================
+
+Deploy part of a cluster
+------------------------
+
+We may not always want to deploy every system in a cluster, for example
+if we only want to deploy a distbuild controller but we have a cluster
+for a full network.
+
+    SCENARIO partially deploying a cluster morphology
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    GIVEN a cluster called test-cluster in system branch master
+    AND a system in cluster test-cluster in branch master called test-system
+    AND system test-system in cluster test-cluster in branch master builds test-system
+    AND system test-system in cluster test-cluster in branch master has deployment type: tar
+    AND system test-system in cluster test-cluster in branch master has deployment location: test-system.tar
+
+We now want to add a second system to the cluster, so we can choose
+which one to deploy.
+
+    GIVEN a system in cluster test-cluster in branch master called second-system
+    AND system second-system in cluster test-cluster in branch master builds test-system
+    AND system second-system in cluster test-cluster in branch master has deployment type: tar
+    AND system second-system in cluster test-cluster in branch master has deployment location: second-system.tar
+
+    WHEN the user builds the system test-system in branch master
+    AND the user attempts to deploy the following systems from cluster test-cluster in branch master: test-system
+    THEN morph succeeded
+
+Morph succeeding alone does not satisfy the requirements of this test.
+It may have deployed both systems, or the wrong system, so we need to
+make sure only the correct tarball exists.
+
+    THEN file workspace/master/test/morphs/test-system.tar exists
+    AND file workspace/master/test/morphs/second-system.tar does not exist
+
+Deploy all of a multi-system cluster
+------------------------------------
+
+We should also test that not specifying a system deploys both systems.
+
+    SCENARIO deploying a cluster morphology that contains multiple systems
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    GIVEN a cluster called test-cluster in system branch master
+    AND a system in cluster test-cluster in branch master called test-system
+    AND system test-system in cluster test-cluster in branch master builds test-system
+    AND system test-system in cluster test-cluster in branch master has deployment type: tar
+    AND system test-system in cluster test-cluster in branch master has deployment location: test-system.tar
+
+We now want to add a second system deployment to the cluster, so we can
+check that deployment of clusters with multiple systems actually deploys
+multiple systems.
+
+    GIVEN a system in cluster test-cluster in branch master called second-system
+    AND system second-system in cluster test-cluster in branch master builds test-system
+    AND system second-system in cluster test-cluster in branch master has deployment type: tar
+    AND system second-system in cluster test-cluster in branch master has deployment location: second-system.tar
+
+    WHEN the user builds the system test-system in branch master
+    AND the user attempts to deploy the cluster test-cluster in branch master
+    THEN morph succeeded
+
+We should also check that both systems were deployed as expected.
+
+    THEN file workspace/master/test/morphs/test-system.tar exists
+    AND file workspace/master/test/morphs/second-system.tar exists
+
+Deploy part of a cluster that contains a nested deployment
+----------------------------------------------------------
+
+Cluster morphs can contain "nested systems", i.e. systems which have
+subsystems to deploy as part of them. We should test that partial
+deployment works as expected here.
+
+    SCENARIO partially deploying a cluster morphology containing a nested deployment
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    GIVEN a cluster called test-cluster in system branch master
+    AND a system in cluster test-cluster in branch master called test-system
+    AND system test-system in cluster test-cluster in branch master builds test-system
+    AND system test-system in cluster test-cluster in branch master has deployment type: tar
+    AND system test-system in cluster test-cluster in branch master has deployment location: test-system.tar
+
+After the usual setup, we also add a subsystem to the cluster.
+
+    GIVEN a subsystem in cluster test-cluster in branch master called test-system.sysroot
+    AND subsystem test-system.sysroot in cluster test-cluster in branch master builds test-system
+    AND subsystem test-system.sysroot in cluster test-cluster in branch master has deployment type: sysroot
+
+We specify the location as a file path, this is relative to the parent
+system's extracted rootfs, before it is configured.
+
+    AND subsystem test-system.sysroot in cluster test-cluster in branch master has deployment location: var/lib/sysroots/test-system
+
+We now want to add a second system to the cluster, so we can choose
+which one to deploy.
+
+    GIVEN a system in cluster test-cluster in branch master called second-system
+    AND system second-system in cluster test-cluster in branch master builds test-system
+    AND system second-system in cluster test-cluster in branch master has deployment type: tar
+    AND system second-system in cluster test-cluster in branch master has deployment location: second-system.tar
+
+    WHEN the user builds the system test-system in branch master
+    AND the user attempts to deploy the following systems from cluster test-cluster in branch master: test-system
+    THEN morph succeeded
+
+Morph succeeding alone does not satisfy the requirements of this test.
+It may have deployed both systems, or the wrong system, so we need to
+make sure only the correct tarball exists.
+
+    THEN file workspace/master/test/morphs/test-system.tar exists
+    AND file workspace/master/test/morphs/second-system.tar does not exist
+
+Fail if attempting to deploy a system which does not exist in the cluster
+-------------------------------------------------------------------------
+
+If the user asks to deploy a non-existent deployment, then morph should
+fail. We should test that morph fails in this case, rather than treating
+the bad name as if it were a deployment option.
+
+    SCENARIO fail to deploy a non-existent system
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    GIVEN a cluster called test-cluster in system branch master
+    AND a system in cluster test-cluster in branch master called test-system
+    AND system test-system in cluster test-cluster in branch master builds test-system
+    AND system test-system in cluster test-cluster in branch master has deployment type: tar
+    AND system test-system in cluster test-cluster in branch master has deployment location: test-system.tar
+
+We now want to add a second system to the cluster, so we can choose
+which one to deploy.
+
+    GIVEN a system in cluster test-cluster in branch master called second-system
+    AND system second-system in cluster test-cluster in branch master builds test-system
+    AND system second-system in cluster test-cluster in branch master has deployment type: tar
+    AND system second-system in cluster test-cluster in branch master has deployment location: second-system.tar
+
+    WHEN the user builds the system test-system in branch master
+    AND the user attempts to deploy the following systems from cluster test-cluster in branch master: not-a-system
+    THEN morph failed
+
+Fail to deploy a subsystem
+--------------------------
+
+Cluster morphs can contain "nested systems", i.e. systems which have
+subsystems to deploy as part of them. We should test that attempting
+to deploy a subsystem results in failure.
+
+    SCENARIO fail to deploy a subsystem
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    GIVEN a cluster called test-cluster in system branch master
+    AND a system in cluster test-cluster in branch master called test-system
+    AND system test-system in cluster test-cluster in branch master builds test-system
+    AND system test-system in cluster test-cluster in branch master has deployment type: tar
+    AND system test-system in cluster test-cluster in branch master has deployment location: test-system.tar
+
+After the usual setup, we also add a subsystem to the cluster.
+
+    GIVEN a subsystem in cluster test-cluster in branch master called test-system.sysroot
+    AND subsystem test-system.sysroot in cluster test-cluster in branch master builds test-system
+    AND subsystem test-system.sysroot in cluster test-cluster in branch master has deployment type: sysroot
+
+We specify the location as a file path, this is relative to the parent
+system's extracted rootfs, before it is configured.
+
+    AND subsystem test-system.sysroot in cluster test-cluster in branch master has deployment location: var/lib/sysroots/test-system
+
+We now want to add a second system to the cluster, so we can choose
+which one to deploy.
+
+    GIVEN a system in cluster test-cluster in branch master called second-system
+    AND system second-system in cluster test-cluster in branch master builds test-system
+    AND system second-system in cluster test-cluster in branch master has deployment type: tar
+    AND system second-system in cluster test-cluster in branch master has deployment location: second-system.tar
+
+    WHEN the user builds the system test-system in branch master
+    AND the user attempts to deploy the following systems from cluster test-cluster in branch master: test-system.sysroot
+    THEN morph failed
