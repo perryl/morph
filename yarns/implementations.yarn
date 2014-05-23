@@ -720,6 +720,9 @@ Check attributes of a file on the filesystem
     IMPLEMENTS THEN file (\S+) exists
     test -e "$DATADIR/$MATCH_1"
 
+    IMPLEMENTS THEN file (\S+) does not exist
+    test ! -e "$DATADIR/$MATCH_1"
+
     IMPLEMENTS THEN file (\S+) has permissions (\S+)
     stat -c %A "$DATADIR/$MATCH_1" | grep -Fx -e "$MATCH_2"
 

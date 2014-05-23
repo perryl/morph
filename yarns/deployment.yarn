@@ -102,3 +102,70 @@ deployed system contains the other. Since the baserock directory is in
 every system, we can check for that.
 
     AND tarball test.tar contains var/lib/sysroots/test-system/baserock
+
+Partial deployments
+===================
+
+Deploy part of a cluster
+------------------------
+
+We may not always want to deploy every system in a cluster, for example
+if we only want to deploy a distbuild controller but we have a cluster
+for a full network.
+
+    SCENARIO partially deploying a cluster morphology
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    GIVEN a cluster called test-cluster in system branch master
+    AND a system in cluster test-cluster in branch master called test-system
+    AND system test-system in cluster test-cluster in branch master builds test-system
+    AND system test-system in cluster test-cluster in branch master has deployment type: tar
+
+We now want to add a second system to the cluster, so we can choose
+which one to deploy.
+
+    GIVEN a system in cluster test-cluster in branch master called second-system
+    AND system second-system in cluster test-cluster in branch master builds second-system
+    AND system second-system in cluster test-cluster in branch master has deployment type: tar
+
+    WHEN the user builds the system test-system in branch master
+    AND the user attempts to deploy the cluster test-cluster in branch master with options test-system test-system.location="$DATADIR/test-system.tar" second-system.location="$DATADIR/second-system.tar"
+    THEN morph succeeded
+
+Morph succeeding alone does not satisfy the requirements of this test.
+It may have deployed both systems, or the wrong system, so we need to
+make sure only the correct tarball exists.
+
+    THEN file test-system.tar exists
+    AND file second-system.tar does not exist
+
+Deploy all of a multi-system cluster
+------------------------------------
+
+We should also test that not specifying a system deploys both systems.
+
+    SCENARIO deploying a cluster morphology that contains multiple systems
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    GIVEN a cluster called test-cluster in system branch master
+    AND a system in cluster test-cluster in branch master called test-system
+    AND system test-system in cluster test-cluster in branch master builds test-system
+    AND system test-system in cluster test-cluster in branch master has deployment type: tar
+
+We now want to add a second system deployment to the cluster, so we can
+choose which one to deploy.
+
+    GIVEN a system in cluster test-cluster in branch master called second-system
+    AND system second-system in cluster test-cluster in branch master builds test-system
+    AND system second-system in cluster test-cluster in branch master has deployment type: tar
+
+    WHEN the user builds the system test-system in branch master
+    AND the user attempts to deploy the cluster test-cluster in branch master with options test-system.location="$DATADIR/test-system.tar" second-system.location="$DATADIR/second-system.tar"
+    THEN morph succeeded
+
+We should also check that both systems were deployed as expected.
+
+    THEN file test-system.tar exists
+    AND file second-system.tar exists
