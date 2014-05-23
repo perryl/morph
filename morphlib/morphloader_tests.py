@@ -458,6 +458,21 @@ build-system: dummy
             self.loader.validate(m)
         self.assertEqual(cm.exception.strata, ["foo"])
 
+    def test_validate_requires_unique_deployment_names_in_cluster(self):
+        subsystem = [{'morph': 'baz', 'deploy': {'foobar': None}}]
+        m = morphlib.morph3.Morphology(
+            name='cluster',
+            kind='cluster',
+            systems=[{'morph': 'foo',
+                      'deploy': {'deployment': {}},
+                      'subsystems': subsystem},
+                     {'morph': 'bar',
+                      'deploy': {'deployment': {}},
+                      'subsystems': subsystem}])
+        self.assertRaises(
+            morphlib.morphloader.DuplicateDeploymentNameError,
+            self.loader.validate, m)
+
     def test_loads_yaml_from_string(self):
         string = '''\
 name: foo
