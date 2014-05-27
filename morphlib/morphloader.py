@@ -424,6 +424,8 @@ class MorphologyLoader(object):
         deployments = collections.Counter()
         for system in morph['systems']:
             deployments.update(system['deploy'].iterkeys())
+            for subsystem in system.get('subsystems', []):
+                deployments.update(subsystem['deploy'].iterkeys())
         duplicates = set(deployment for deployment, count
                          in deployments.iteritems() if count > 1)
         if duplicates:
