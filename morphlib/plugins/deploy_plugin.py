@@ -314,7 +314,7 @@ class DeployPlugin(cliapp.Plugin):
                 break
             deployments.add(item)
         env_vars = args[len(deployments) + 1:]
-        print env_vars
+
         bb = morphlib.buildbranch.BuildBranch(sb, build_ref_prefix,
                                               push_temporary=False)
         with contextlib.closing(bb) as bb:
