@@ -119,15 +119,30 @@ class SshRsyncWriteExtension(morphlib.writeexts.WriteExtension):
                            temp_root):
         '''Create the subvolume version_root/orig on location'''
 
+        deltas = os.getenv('DELTAS')
+
+        if not deltas:
+            raise cliapp.AppException('Cannot proceed: no deltas provided')
+
         self.status(msg='Creating "orig" subvolume')
         old_orig = self.get_old_orig(location, remote_mnt)
         new_orig = os.path.join(version_root, 'orig')
         cliapp.ssh_runcmd(location, ['btrfs', 'subvolume', 'snapshot',
                                      old_orig, new_orig])
 
-        cliapp.runcmd(['rsync', '-as', '--checksum', '--numeric-ids',
-                       '--delete', temp_root + os.path.sep,
-                       '%s:%s' % (location, new_orig)])
+        #cliapp.runcmd(['rsync', '-as', '--checksum', '--numeric-ids',
+        #               '--delete', temp_root + os.path.sep,
+        #               '%s:%s' % (location, new_orig)])
+
+        cliapp.runcmd(['scp', deltas, "%s:/deltas.tar" % location])
+
+        try:
+            cliapp.ssh_runcmd(['applydeltas', '/deltas.tar'])
+        except cliapp.AppException as e:
+            # undo
+            cliapp.ssh_runcmd(location, ['btrfs', 'subvolume', 'delete',
+                                         new_orig])
+            raise e
 
     def get_old_orig(self, location, remote_mnt):
         '''Identify which subvolume to snapshot from'''
