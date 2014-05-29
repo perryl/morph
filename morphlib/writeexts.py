@@ -37,7 +37,7 @@ class Fstab(object):
     def __init__(self, filepath='/etc/fstab'):
         if os.path.exists(filepath):
             with open(filepath, 'r') as f:
-                self.text= f.read()
+                self.text = f.read()
         else:
             self.text = ''
         self.filepath = filepath
@@ -121,6 +121,11 @@ class WriteExtension(cliapp.Application):
         try:
             self.create_btrfs_system_layout(
                 temp_root, mp, version_label='factory')
+
+            kernel_path = os.environ.get('KERNEL')
+
+            if kernel_path:
+                self.write_kernel_image(kernel_path, temp_root)
         except BaseException, e:
             sys.stderr.write('Error creating Btrfs system layout')
             self.unmount(mp)
@@ -322,6 +327,15 @@ class WriteExtension(cliapp.Application):
         fstab.write()
         return state_dirs_to_create
 
+    def write_kernel_image(self, path, temp_root):
+        self.status(msg='Writing kernel image to %s' % path)
+
+        for name in ['vmlinuz', 'zImage', 'uImage']:
+            try_path = os.path.join(temp_root, 'boot', name)
+            if os.path.exists(try_path):
+                shutil.copyfile(os.path.join(temp_root, 'boot', name), path)
+                break
+
     def install_kernel(self, version_root, temp_root):
         '''Install the kernel outside of 'orig' or 'run' subvolumes'''
 
@@ -332,6 +346,7 @@ class WriteExtension(cliapp.Application):
             try_path = os.path.join(temp_root, 'boot', name)
             if os.path.exists(try_path):
                 cliapp.runcmd(['cp', '-a', try_path, kernel_dest])
+
                 break
 
     def get_extra_kernel_args(self):
