@@ -89,7 +89,8 @@ class KvmPlusSshWriteExtension(morphlib.writeexts.WriteExtension):
     def transfer(self, raw_disk, ssh_host, vm_path):
         '''Transfer raw disk image to libvirt host.'''
 
-        self.status(msg='Transferring disk image')
+        self.status(msg='Transferring disk image to %s on %s' %
+                    (vm_path, ssh_host))
         target = '%s:%s' % (ssh_host, vm_path)
         with open(raw_disk, 'rb') as f:
             cliapp.runcmd(['rsync', '-szS', raw_disk, target])
