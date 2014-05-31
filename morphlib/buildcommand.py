@@ -21,7 +21,8 @@ import tempfile
 
 import morphlib
 import distbuild
-
+import pdb
+import json
 
 class MultipleRootArtifactsError(morphlib.Error):
 
@@ -274,26 +275,34 @@ class BuildCommand(object):
                     'name': a.name,
                 })
 
-            self.app.status(msg='Checking if %(kind)s needs '
+            self.app.status(msg='Checking if %(kind)s %(name)s needs '
                                 'building %(sha1)s',
+                            name=a.name,
                             kind=a.source.morphology['kind'],
                             sha1=a.source.sha1[:7])
 
-            if self.is_built(a):
-                self.cache_artifacts_locally([a])
-                self.app.status(
-                    msg='The %(kind)s is cached at %(cache)s',
-                    kind=a.source.morphology['kind'],
-                    cache=os.path.basename(self.lac.artifact_filename(a))[:7])
+            if not self.lac.has(a):
+                if self.rac and self.rac.has(a):
+                    try:
+                        self.cache_artifacts_locally([a])
+                        self.app.status(
+                            msg='The %(kind)s is cached at %(cache)s',
+                            kind=a.source.morphology['kind'],
+                            cache=os.path.basename(self.lac.artifact_filename(a))[:7])
+                    except 99:
+                        self.app.status(msg='Could not cache remote artifact %(name)s',
+                                        name=a.name)
+
+            if self.lac.has(a):
+                self.app.status(msg='%(kind)s %(name)s is cached at %(cache)s',
+                            kind=a.source.morphology['kind'].title(),
+                            name=a.name,
+                            cache=os.path.basename(self.lac.artifact_filename(a))[:7])
             else:
                 self.app.status(msg='Building %(kind)s %(name)s',
                                 name=a.name, kind=a.source.morphology['kind'])
                 self.build_artifact(a, build_env)
 
-            self.app.status(msg='%(kind)s %(name)s is cached at %(cachepath)s',
-                            kind=a.source.morphology['kind'], name=a.name,
-                            cachepath=self.lac.artifact_filename(a),
-                            chatty=(a.source.morphology['kind'] != "system"))
         self.app.status_prefix = old_prefix
 
     def is_built(self, artifact):
@@ -309,7 +318,10 @@ class BuildCommand(object):
         '''
         self.get_sources(artifact)
         deps = self.get_recursive_deps(artifact)
-        self.cache_artifacts_locally(deps)
+        try:
+            self.cache_artifacts_locally(deps)
+        except 99:
+            self.app.status(msg='can not get artifacts locally')
 
         use_chroot = False
         setup_mounts = False
@@ -386,8 +398,40 @@ class BuildCommand(object):
             self.lrc, artifact.source.repo.url,
             artifact.source.sha1, done)
 
+    def create_metadata(self, artifact, contents=[]):
+        '''Write metadata for stratum.'''
+
+        meta = {
+            'artifact-name': artifact.name,
+            'source-name': artifact.source.morphology['name'],
+            'kind': artifact.source.morphology['kind'],
+            'description': artifact.source.morphology['description'],
+#            'repo': artifact.source.repo.url,
+            'repo-alias': artifact.source.repo_name,
+            'original_ref': artifact.source.original_ref,
+            'sha1': artifact.source.sha1,
+            'morphology': artifact.source.filename,
+            'cache-key': artifact.cache_key,
+            'cache-id': artifact.cache_id,
+            'morph-version': {
+                'ref': morphlib.gitversion.ref,
+                'tree': morphlib.gitversion.tree,
+                'commit': morphlib.gitversion.commit,
+                'version': morphlib.gitversion.version,
+            },
+            'contents': contents,
+        }
+
+        return meta
+
+
     def cache_artifacts_locally(self, artifacts):
         '''Get artifacts missing from local cache from remote cache.'''
+
+        def is_constituent(artifact):
+            '''True if artifact should be included in the stratum artifact'''
+            return (artifact.source.morphology['kind'] == 'chunk' and \
+                    artifact.source.build_mode != 'bootstrap')
 
         def copy(remote, local):
             shutil.copyfileobj(remote, local)
@@ -408,8 +452,26 @@ class BuildCommand(object):
                     self.app.status(msg='Fetching to local cache: '
                                         'artifact metadata %(name)s',
                                     name=artifact.name)
-                    copy(self.rac.get_artifact_metadata(artifact, 'meta'),
-                         self.lac.put_artifact_metadata(artifact, 'meta'))
+
+                    if self.rac.has_artifact_metadata(artifact, 'meta'):
+                        copy(self.rac.get_artifact_metadata(artifact, 'meta'),
+                             self.lac.put_artifact_metadata(artifact, 'meta'))
+                    else:
+                        self.app.status(msg='Could not get artifact '
+                                        'metadata %(name)s',
+                                        name=artifact.name)
+
+                        constituents = [d for d in artifact.dependencies
+                                        if is_constituent(d)]
+
+                        lac = self.lac
+                        meta = self.create_metadata(artifact,
+                                             [x.name for x in constituents])
+                        with lac.put_artifact_metadata(artifact, 'meta')  as f:
+                            json.dump(meta, f, indent=4, sort_keys=True)
+                        with self.lac.put(artifact) as f:
+                            json.dump([c.basename() for c in constituents], f)
+
 
     def create_staging_area(self, build_env, use_chroot=True, extra_env={},
                             extra_path=[]):

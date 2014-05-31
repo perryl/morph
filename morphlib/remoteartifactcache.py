@@ -20,7 +20,6 @@ import urllib
 import urllib2
 import urlparse
 
-
 class HeadRequest(urllib2.Request):  # pragma: no cover
 
     def get_method(self):
@@ -80,7 +79,7 @@ class RemoteArtifactCache(object):
             return self._get_file(artifact.metadata_basename(name))
         except urllib2.URLError, e:
             log(str(e))
-            raise GetArtifactMetadataError(self, artifact, name)
+#            raise GetArtifactMetadataError(self, artifact, name)
 
     def get_source_metadata(self, source, cachekey, name):
         filename = '%s.%s' % (cachekey, name)
