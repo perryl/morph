@@ -39,8 +39,9 @@ class _Built(object): pass
 
 class _AnnotationFailed(object):
 
-    def __init__(self, http_status_code):
+    def __init__(self, http_status_code, error_msg):
         self.http_status_code = http_status_code
+        self.error_msg = error_msg
 
 class _GotGraph(object):
 
@@ -359,12 +360,13 @@ class BuildController(distbuild.StateMachine):
         logging.debug('Got cache response: %s' % repr(event.msg))
 
         http_status_code = event.msg['status']
+        error_msg = event.msg['body']
 
         if http_status_code != httplib.OK:
             logging.debug('Cache request failed with status: %s'
                 % event.msg['status'])
             self.mainloop.queue_event(self,
-                _AnnotationFailed(http_status_code))
+                _AnnotationFailed(http_status_code, error_msg))
             return
 
         cache_state = json.loads(event.msg['body'])
@@ -577,8 +579,8 @@ class BuildController(distbuild.StateMachine):
         self._queue_worker_builds(None, event)
 
     def _notify_annotation_failed(self, event_source, event):
-        errmsg = ('Failed to annotate build graph: http request got %d'
-            % event.http_status_code)
+        errmsg = ('Failed to annotate build graph: http request got %d: %s'
+                  % (event.http_status_code, event.error_msg))
 
         logging.error(errmsg)
         failed = BuildFailed(self._request['id'], errmsg)
