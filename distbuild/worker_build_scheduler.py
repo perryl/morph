@@ -120,18 +120,18 @@ class Jobs(object):
         return job
 
     def remove(self, job):
-        del self._jobs[job.artifact.basename()]
+        if job.artifact.basename() in self._jobs:
+            del self._jobs[job.artifact.basename()]
+        else:
+            logging.warning("Tried to remove a job that doesn't exist "
+                            "(%s)", job.artifact.basename())
 
     def get_jobs(self):
         return self._jobs
 
     def remove_jobs(self, jobs):
         for job in jobs:
-            if job.artifact.basename() in self._jobs:
-                self.remove(job)
-            else:
-                logging.warning("Tried to remove a job that doesn't exist "
-                                "(%s)", job.artifact.basename())
+            self.remove(job)
 
     def exists(self, artifact_basename):
         return artifact_basename in self._jobs
