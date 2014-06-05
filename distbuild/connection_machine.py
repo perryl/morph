@@ -142,5 +142,7 @@ class ConnectionMachine(distbuild.StateMachine):
             self._socket = None
 
     def _start_timer(self, event_source, event):
+        self._sock_proxy.event_source.stop_reading()
+        self._sock_proxy.event_source.stop_writing()
         self._timer.start()
 
