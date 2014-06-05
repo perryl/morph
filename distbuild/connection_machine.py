@@ -142,5 +142,10 @@ class ConnectionMachine(distbuild.StateMachine):
             self._socket = None
 
     def _start_timer(self, event_source, event):
+        # We want the mainloop's select call to wait for the timeout
+        # not for this socket's descriptors (which are always ready)
+        self._sock_proxy.event_source.stop_reading()
+        self._sock_proxy.event_source.stop_writing()
+
         self._timer.start()
 
