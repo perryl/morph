@@ -31,5 +31,6 @@ morphlib/plugins/print_architecture_plugin.py
 morphlib/plugins/add_binary_plugin.py
 morphlib/plugins/push_pull_plugin.py
 morphlib/plugins/distbuild_plugin.py
+morphlib/plugins/list_system_contents_plugin.py
 # Not unit tested, since it needs a full system branch
 morphlib/buildbranch.py
