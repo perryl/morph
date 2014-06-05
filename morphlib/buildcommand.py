@@ -501,7 +501,11 @@ class InitiatorBuildCommand(BuildCommand):
 
         self.app.status(msg='Starting distributed build')
         loop = distbuild.MainLoop()
-        cm = distbuild.ConnectionMachine(
-            self.addr, self.port, distbuild.Initiator, [self.app] + args)
+        cm = distbuild.InitiatorConnectionMachine(self.app, self.addr,
+                                                  self.port,
+                                                  distbuild.Initiator,
+                                                  [self.app] + args,
+                                                  reconnect_interval=30,
+                                                  max_retries=1)
         loop.add_state_machine(cm)
         loop.run()
