@@ -63,26 +63,29 @@ class ProxyEventSource(object):
 
 class ConnectionMachine(distbuild.StateMachine):
 
-    def __init__(self, addr, port, machine, extra_args):
+    def __init__(self, addr, port, machine, extra_args,
+                 reconnect_interval=1, max_retries=None):
         distbuild.StateMachine.__init__(self, 'connecting')
         self._addr = addr
         self._port = port
         self._machine = machine
         self._extra_args = extra_args
         self._socket = None
-        self.reconnect_interval = 1
+        self._reconnect_interval = reconnect_interval
+        self._numof_retries = 0
+        self._max_retries = max_retries
 
     def setup(self):
         self._sock_proxy = ProxyEventSource()
         self.mainloop.add_event_source(self._sock_proxy)
         self._start_connect()
         
-        self._timer = distbuild.TimerEventSource(self.reconnect_interval)
+        self._timer = distbuild.TimerEventSource(self._reconnect_interval)
         self.mainloop.add_event_source(self._timer)
 
         spec = [
             # state, source, event_class, new_state, callback
-            ('connecting', self._sock_proxy, distbuild.SocketWriteable, 
+            ('connecting', self._sock_proxy, distbuild.SocketWriteable,
                 'connected', self._connect),
             ('connecting', self, StopConnecting, None, self._stop),
             ('connected', self, Reconnect, 'connecting', self._reconnect),
@@ -118,7 +121,13 @@ class ConnectionMachine(distbuild.StateMachine):
             logging.error(
                 'Failed to connect to %s:%s: %s' % 
                     (self._addr, self._port, str(e)))
-            self.mainloop.queue_event(self, ConnectError())
+
+            if (self._max_retries == None or
+                    self._numof_retries < self._max_retries):
+                self.mainloop.queue_event(self, ConnectError())
+            else:
+                self.mainloop.queue_event(self, StopConnecting())
+
             return
         self._sock_proxy.event_source = None
         logging.info('Connected to %s:%s' % (self._addr, self._port))
@@ -128,6 +137,8 @@ class ConnectionMachine(distbuild.StateMachine):
 
     def _reconnect(self, event_source, event):
         logging.info('Reconnecting to %s:%s' % (self._addr, self._port))
+        self._numof_retries += 1
+
         if self._socket is not None:
             self._socket.close()
         self._timer.stop()
