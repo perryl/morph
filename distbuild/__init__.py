@@ -37,7 +37,8 @@ from json_router import JsonRouter
 from helper_router import (HelperRouter, HelperRequest, HelperOutput, 
                            HelperResult)
 from initiator_connection import (InitiatorConnection, InitiatorDisconnect)
-from connection_machine import ConnectionMachine, Reconnect, StopConnecting
+from connection_machine import (ConnectionMachine, InitiatorConnectionMachine,
+                                Reconnect, StopConnecting)
 from worker_build_scheduler import (WorkerBuildQueuer, 
                                     WorkerConnection, 
                                     WorkerBuildRequest,
