@@ -66,7 +66,7 @@ class ConnectionMachine(distbuild.StateMachine):
 
     def __init__(self, addr, port, machine, extra_args,
                  reconnect_interval=1, max_retries=None):
-        distbuild.StateMachine.__init__(self, 'connecting')
+        super(ConnectionMachine, self).__init__('connecting')
         self._addr = addr
         self._port = port
         self._machine = machine
