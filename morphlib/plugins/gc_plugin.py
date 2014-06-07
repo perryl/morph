@@ -59,7 +59,7 @@ class GCPlugin(cliapp.Plugin):
            space.
 
            It also removes any left over temporary chunks and staging areas
-           from failed builds.
+           from failed builds, and any failed deployments.
 
         '''
 
@@ -76,7 +76,7 @@ class GCPlugin(cliapp.Plugin):
     def cleanup_tempdir(self, temp_path, min_space):
         self.app.status(msg='Cleaning up temp dir %(temp_path)s',
                         temp_path=temp_path, chatty=True)
-        for subdir in ('failed', 'chunks'):
+        for subdir in ('deployments', 'failed', 'chunks'):
             if morphlib.util.get_bytes_free_in_path(temp_path) >= min_space:
                 self.app.status(msg='Not Removing subdirectory '
                                     '%(subdir)s, enough space already cleared',
