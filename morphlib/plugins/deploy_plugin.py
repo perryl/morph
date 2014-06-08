@@ -274,6 +274,7 @@ class DeployPlugin(cliapp.Plugin):
             self.app.settings['tempdir-min-space'],
             '/', 0)
 
+        self.app.settings['no-git-update'] = True
         cluster_name = morphlib.util.strip_morph_extension(args[0])
         env_vars = args[1:]
 
