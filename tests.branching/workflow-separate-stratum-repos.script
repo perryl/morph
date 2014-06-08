@@ -34,14 +34,14 @@ cd "$DATADIR/workspace"
 
 # Edit one chunk
 cd "me/readme-fixes"
-"$SRCDIR/scripts/test-morph" edit hello-system stratum2 hello
+"$SRCDIR/scripts/test-morph" edit hello
 cd "$DATADIR/workspace/me/readme-fixes/test/stratum2-hello"
 echo > README yoyoyo
 git add README
 git commit -m "Fix README in hello" --quiet
 
 # Edit the other chunk too
-"$SRCDIR/scripts/test-morph" edit hello-system stratum3 hello
+"$SRCDIR/scripts/test-morph" edit hello
 cd "$DATADIR/workspace/me/readme-fixes/test/stratum3-hello"
 echo > README yoyoyo
 git add README

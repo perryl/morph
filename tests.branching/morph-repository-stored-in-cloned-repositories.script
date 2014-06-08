@@ -42,7 +42,7 @@ git config morph.repository
 echo
 
 cd "$DATADIR/workspace/master"
-"$SRCDIR/scripts/test-morph" edit hello-system hello-stratum hello
+"$SRCDIR/scripts/test-morph" edit hello
 
 echo "morph.repository of an edited repository:"
 cd "$DATADIR/workspace/master/test/hello"

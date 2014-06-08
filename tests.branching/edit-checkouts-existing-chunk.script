@@ -27,7 +27,7 @@ cd "$DATADIR/workspace"
 
 # Edit the hello chunk in alfred.
 cd "alfred"
-"$SRCDIR/scripts/test-morph" edit hello-system hello-stratum hello
+"$SRCDIR/scripts/test-morph" edit hello
 
 echo "Current branches:"
 "$SRCDIR/scripts/test-morph" foreach git branch

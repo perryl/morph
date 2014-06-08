@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2012  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -25,7 +25,6 @@ cd "$DATADIR/workspace"
 "$SRCDIR/scripts/test-morph" branch test:morphs test/unmergable
 
 cd "$DATADIR/workspace/test/unmergable/test:morphs"
-"$SRCDIR/scripts/test-morph" edit hello-system hello-stratum
 sed -ie 's/"kind": "stratum"/"kind": "chunk"/' hello-stratum.morph
 git commit --quiet --all -m "Unmergeable because kind has changed"
 

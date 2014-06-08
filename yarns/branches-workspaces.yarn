@@ -203,16 +203,6 @@ fields when referring to strata, when it didn't before.
     AND  in branch foo, system test-system refers to test-stratum without repo
     AND  in branch foo, system test-system refers to test-stratum without ref
 
-Morph edit should only work with a system argument. 
-
-    SCENARIO    morph edit errors when supplied only a stratum and chunk as arguments
-    GIVEN       a workspace
-    AND         a git server
-    WHEN        the user checks out the system branch called master
-    AND         the user edits the chunk test-chunk in the stratum test-stratum with no system specified in branch master
-    THEN        morph failed
-    AND         the edit error message includes the string "is not a system"
-
 Status of system branch checkout
 --------------------------------
 
@@ -226,8 +216,7 @@ repositories referenced in the system branch.
     WHEN        the user creates a system branch called foo
     THEN        morph reports no outstanding changes in foo
 
-    WHEN the user edits the stratum test-stratum in the system test-system in branch foo
-    AND the user edits the chunk test-chunk in the stratum test-stratum in the system test-system in branch foo
+    WHEN the user edits the chunk test-chunk in the stratum test-stratum in the system test-system in branch foo
     THEN morph reports changes in foo in test:morphs only
 
     WHEN        creating file foo in test/test-chunk in branch foo

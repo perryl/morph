@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,14 +26,8 @@ cd "$DATADIR/workspace"
 "$SRCDIR/scripts/test-morph" init
 "$SRCDIR/scripts/test-morph" branch test:morphs baserock/newbranch
 
-# The user may 'morph edit hello-system hello-stratum hello' and commit here:
-# we currently silently ignore her changes on merge, because we don't
-# associate hello-stratum and goodbye-stratum at all.
-
 # Rename the stratum
-"$SRCDIR/scripts/test-morph" edit hello-system hello-stratum
 cd baserock/newbranch/test:morphs
-
 sed -e 's/"morph": "hello-stratum"/"morph": "goodbye-stratum"/'\
     -i hello-system.morph
 sed -e 's/"name": "hello-stratum"/"name": "goodbye-stratum"/' \
@@ -41,9 +35,6 @@ sed -e 's/"name": "hello-stratum"/"name": "goodbye-stratum"/' \
 git rm -q hello-stratum.morph
 git add goodbye-stratum.morph
 git commit -q --all -m "Rename hello-stratum to goodbye-stratum"
-
-# The user may 'morph edit hello-system goodbye-stratum hello' and commit
-# here, too: same problem.
 
 # Merge changes back to master (this should fail, because we don't support
 # adding strata inside branches yet).

@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ cd "$DATADIR/workspace"
 "$SRCDIR/scripts/test-morph" init
 "$SRCDIR/scripts/test-morph" branch test:morphs baserock/newbranch
 
-"$SRCDIR/scripts/test-morph" edit hello-system hello-stratum hello
+"$SRCDIR/scripts/test-morph" edit hello
 
 # Chunk moves to a new location (we manually update the ref back to master
 # here, so 'morph edit' can create a system branch in the new repo from it).
@@ -38,7 +38,7 @@ sed -e 's/"repo": "test:hello"/"repo": "test:hello-lorried"/' \
 git commit -q --all -m "'hello' repository has moved"
 
 # Now we further edit the chunk, just for fun.
-"$SRCDIR/scripts/test-morph" edit hello-system hello-stratum hello
+"$SRCDIR/scripts/test-morph" edit hello
 cd "$DATADIR/workspace/baserock/newbranch/test:hello-lorried"
 touch newfile.txt
 git add newfile.txt

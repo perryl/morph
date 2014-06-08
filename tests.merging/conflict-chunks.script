@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -44,14 +44,12 @@ add_text_in_repo() {
 
 # Sow the seeds of conflict
 cd "$DATADIR/workspace/test/stable"
-"$SRCDIR/scripts/test-morph" edit hello-system stratum2 hello
-"$SRCDIR/scripts/test-morph" edit hello-system stratum3 hello
+"$SRCDIR/scripts/test-morph" edit hello
 add_text_in_repo "test:stratum2-hello" "xyzzy"
 add_text_in_repo "test:stratum3-hello" "xyzzy"
 
 cd "$DATADIR/workspace/test/feature"
-"$SRCDIR/scripts/test-morph" edit hello-system stratum2 hello
-"$SRCDIR/scripts/test-morph" edit hello-system stratum3 hello
+"$SRCDIR/scripts/test-morph" edit hello
 add_text_in_repo "test:stratum2-hello" "plugh"
 add_text_in_repo "test:stratum3-hello" "plover"
 

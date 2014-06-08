@@ -23,7 +23,7 @@ set -eu
 cd "$DATADIR/workspace"
 "$SRCDIR/scripts/test-morph" init
 "$SRCDIR/scripts/test-morph" branch test:morphs me/readme-fix
-"$SRCDIR/scripts/test-morph" edit hello-system hello-stratum hello
+"$SRCDIR/scripts/test-morph" edit hello
 cd me/readme-fix/test/hello
 echo > README yoyoyo
 git add README

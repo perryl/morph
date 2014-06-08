@@ -29,9 +29,6 @@ cd "me/add-then-edit"
 # add a chunk
 cd test/morphs
 
-## Sub-optimally, to alter the stratum, you have to `morph edit` it first
-"$SRCDIR/scripts/test-morph" edit hello-system hello-stratum
-
 python -c 'import yaml
 with open("hello-stratum.morph", "r") as f:
     stratum = yaml.load(f)
@@ -45,7 +42,7 @@ with open("hello-stratum.morph", "w") as f:
     yaml.dump(stratum, f)
 '
 
-"$SRCDIR/scripts/test-morph" edit hello-system hello-stratum goodbye
+"$SRCDIR/scripts/test-morph" edit goodbye
 
 # check whether the stratum still contains the goodbye chunk
 grep -qFe goodbye hello-stratum.morph

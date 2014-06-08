@@ -35,7 +35,7 @@ cd "$DATADIR/workspace"
 
 # Make the branch have some interesting changes and pitfalls
 cd branch1
-"$SRCDIR/scripts/test-morph" edit hello-system stratum2 hello
+"$SRCDIR/scripts/test-morph" edit hello
 
 cd test/stratum2-hello
 git checkout -q master

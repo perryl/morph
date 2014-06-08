@@ -34,7 +34,6 @@ cd "$DATADIR/workspace"
 # don't commit it, in one of the external strata, as a challenge for
 # 'morph build'.
 cd "branch1"
-"$SRCDIR/scripts/test-morph" edit hello-system stratum2
 cd "test/external-strata"
 
 awk '

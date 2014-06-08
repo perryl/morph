@@ -423,13 +423,9 @@ Editing morphologies with `morph edit`.
         "$field" name="$MATCH_4" "$MATCH_5"; } 2>&1 |
         grep -qFe "Object does not contain $MATCH_5"
 
-    IMPLEMENTS WHEN the user edits the stratum (\S+) in the system (\S+) in branch (\S+)
-    cd "$DATADIR/workspace/$MATCH_3/test/morphs"
-    run_morph edit "$MATCH_2" "$MATCH_1"
-
     IMPLEMENTS WHEN the user edits the chunk (\S+) in the stratum (\S+) in the system (\S+) in branch (\S+)
     cd "$DATADIR/workspace/$MATCH_4/test/morphs"
-    run_morph edit "$MATCH_3" "$MATCH_2" "$MATCH_1"
+    run_morph edit "$MATCH_1"
 
     IMPLEMENTS THEN the edited chunk (\S+) has git branch (\S+)
     ls -l "$DATADIR/workspace/$MATCH_2"
@@ -438,10 +434,6 @@ Editing morphologies with `morph edit`.
     git branch | awk '$1 == "*" { print $2 }' > "$DATADIR/git-branch.actual"
     echo "$MATCH_2" > "$DATADIR/git-branch.wanted"
     diff -u "$DATADIR/git-branch.wanted" "$DATADIR/git-branch.actual"
-
-    IMPLEMENTS WHEN the user edits the chunk (\S+) in the stratum (\S+) with no system specified in branch (\S+)
-    cd "$DATADIR/workspace/$MATCH_3"
-    attempt_morph edit "$MATCH_2" "$MATCH_1"
 
 To produce buildable morphologies, we need them to be of the same
 architecture as the machine doing the testing. This uses `morph
