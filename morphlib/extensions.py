@@ -92,7 +92,7 @@ def _list_extensions(build_ref_prefix, kind):
 
 def list_extensions(build_ref_prefix, kind=None):
     """
-    List all available extensions by 'kind'.
+    Returns a list of the names of all the available extensions by 'kind'.
 
     'kind' should be one of '.write' or '.configure'.
     If 'kind' is not provided available extensions of both

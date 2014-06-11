@@ -524,6 +524,10 @@ class DeployPlugin(cliapp.Plugin):
                  '%s[%s]' % (self.app.status_prefix, name + kind)],
                 cwd=gd.dirname, env=env, stdout=None, stderr=None)
 
+    def _run_configure_extensions(self, gd, kind, args, env):
+        exts = morphlib.extensions.list_extensions(build_ref_prefix,
+                                                   '.configure')
+
     def _is_executable(self, filename):
         st = os.stat(filename)
         mask = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
