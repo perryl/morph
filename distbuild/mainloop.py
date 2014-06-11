@@ -75,8 +75,14 @@ class MainLoop(object):
 
     def _run_once(self):
         r, w, x, timeout = self._setup_select()
+
+        logging.debug('after setup_select: %s %s %s', r, w, x)
+
         assert r or w or x or timeout is not None
         r, w, x = select.select(r, w, x, timeout)
+
+        logging.debug('after select: %s %s %s', r, w, x)
+
 
         for event_source in self._sources:
             if event_source.is_finished():
