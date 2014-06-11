@@ -118,7 +118,6 @@ class ConnectionMachine(distbuild.StateMachine):
             logging.error(
                 'Failed to connect to %s:%s: %s' % 
                     (self._addr, self._port, str(e)))
-
             self.mainloop.queue_event(self, ConnectError())
             return
         self._sock_proxy.event_source = None
@@ -145,5 +144,3 @@ class ConnectionMachine(distbuild.StateMachine):
     def _start_timer(self, event_source, event):
         self._timer.start()
 
-        self._sock_proxy.event_source.close()
-        self._sock_proxy.event_source = None
