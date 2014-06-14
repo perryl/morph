@@ -74,25 +74,30 @@ class MorphologyFactory(object):
         if self._app is not None:
             self._app.status(*args, **kwargs)
 
-    def get_morphology(self, reponame, sha1, filename):
-
+    def _read_local_repo(self, reponame, sha1, filename):
+        '''Fetch file list and maybe morphology text from local repo cache.'''
         text = None
-        if self._lrc.has_repo(reponame):
-            repo = self._lrc.get_repo(reponame)
-            file_list = repo.ls_tree(sha1)
-            if filename in file_list:
-                text = repo.cat(sha1, filename)
-        elif self._rrc is not None:
-            file_list = self._rrc.ls_tree(reponame, sha1)
-            if filename in file_list:
-                self.status(msg="Retrieving %(reponame)s %(sha1)s %(filename)s"
-                            " from the remote artifact cache.",
-                            reponame=reponame, sha1=sha1, filename=filename,
-                            chatty=True)
-                text = self._rrc.cat_file(reponame, sha1, filename)
-        else:
-            raise NotcachedError(reponame)
+        repo = self._lrc.get_repo(reponame)
+        file_list = repo.ls_tree(sha1)
+        if filename in file_list:
+            text = repo.cat(sha1, filename)
+        return file_list, text
 
+    def _read_remote_repo(self, reponame, sha1, filename):
+        '''Fetch file list and maybe morphology text from remote repo cache.'''
+        text = None
+        file_list = self._rrc.ls_tree(reponame, sha1)
+        if filename in file_list:
+            self.status(msg="Retrieving %(reponame)s %(sha1)s %(filename)s"
+                        " from the remote artifact cache.",
+                        reponame=reponame, sha1=sha1, filename=filename,
+                        chatty=True)
+            text = self._rrc.cat_file(reponame, sha1, filename)
+        return file_list, text
+
+    def _parse_or_generate_morphology(self, reponame, sha1, filename,
+                                      file_list, text):
+        '''Parse text or autodetect morphology contents based on file list.'''
         if text is None:
             bs = morphlib.buildsystem.detect_build_system(file_list)
             if bs is None:
@@ -121,6 +126,19 @@ class MorphologyFactory(object):
             method = getattr(self, method_name)
             method(morphology, reponame, sha1, filename)
 
+        return morphology
+
+    def get_morphology(self, reponame, sha1, filename):
+        if self._lrc.has_repo(reponame):
+            file_list, text = self._read_local_repo(reponame, sha1, filename)
+        elif self._rrc is not None:
+            file_list, text = self._read_remote_repo(reponame, sha1, filename)
+        else:
+            raise NotcachedError(reponame)
+
+        morphology = self._parse_or_generate_morphology(reponame, sha1,
+                                                        filename, file_list,
+                                                        text)
         return morphology
 
     def _check_and_tweak_system(self, morphology, reponame, sha1, filename):
