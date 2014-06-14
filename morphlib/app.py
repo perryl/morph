@@ -376,9 +376,12 @@ class Morph(cliapp.Application):
                 absref, tree = resolved_refs[reference]
 
                 updated_repos.add(reponame)
-                print 'resolved: %s %s %s' % ((reponame, ref, filename))
-                to_fetch.add((reponame, ref, filename))
-                print 'to_fetch: %s' % to_fetch
+
+                #print 'resolved: %s %s %s' % ((reponame, ref, filename))
+                triplet = (reponame, ref, filename)
+                if triplet not in resolved_morphologies:
+                    to_fetch.add(triplet)
+                #print 'to_fetch: %s' % to_fetch
 
             to_visit = to_fetch
             if len(to_fetch) > 0:
