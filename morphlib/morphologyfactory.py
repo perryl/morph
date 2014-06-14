@@ -14,6 +14,9 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
+import base64
+import logging
+
 import morphlib
 import cliapp
 
@@ -140,6 +143,73 @@ class MorphologyFactory(object):
                                                         filename, file_list,
                                                         text)
         return morphology
+
+    def get_morphologies(self, resolved_refs, resolved_morphologies, triplets):
+        '''Fetch morphologies that are not already resolved.
+
+        The resolved_morphologies dict is updated with the new morphologies.
+
+        All refs in the list of triplets are assumed to be stored in the
+        resolved_refs dict already.
+
+        '''
+        text_dict = {}
+        file_list_dict = {}
+        to_read = dict()
+        to_autodetect = set()
+        for triplet in triplets:
+            if triplet in resolved_morphologies:
+                continue
+
+            reponame, ref, filename = triplet
+            absref, tree = resolved_refs[(reponame, ref)]
+
+            if self._lrc.has_repo(reponame):
+                text = self._read_local_repo(
+                    reponame, absref, filename)
+                text_dict[(reponame, ref, filename)] = text
+            if self._rrc is None:
+                raise NotcachedError(reponame)
+            else:
+                repourl = self._rrc._resolver.pull_url(reponame)
+                remote_triplet = (repourl, absref, filename)
+                #print 'to_read[%s,%s,%s] set' % remote_triplet
+                to_read[remote_triplet] = triplet
+
+        if len(to_read) > 0:
+            self.status(msg='Fetching %i morphologies from remote repo cache' %
+                        len(to_read))
+            result = self._rrc.cat_file_multiple(to_read.keys())
+            for item in result:
+                remote_triplet = (item['repo'], item['ref'], item['filename'])
+                triplet = to_read[remote_triplet]
+                if 'data' in item:
+                    text = base64.decodestring(item['data'])
+                    text_dict[triplet] = text
+                else:
+                    logging.debug('Remote cache: %s', item)
+                    to_autodetect.add(triplet)
+
+        for triplet in to_autodetect:
+            reponame, ref, filename = triplet
+            self.status(msg='Fetching file list for %s from remote repo cache'
+                        % reponame, chatty=True)
+            absref, tree = resolved_refs[(reponame, ref)]
+            file_list = self._rrc.ls_tree(reponame, absref)
+            assert file_list is not None
+            file_list_dict[triplet] = file_list
+
+        for triplet in triplets:
+            if triplet in resolved_morphologies:
+                continue
+            reponame, ref, filename = triplet
+            absref, tree = resolved_refs[(reponame, ref)]
+            file_list = file_list_dict.get(triplet, [])
+            text = text_dict.get(triplet, None)
+            assert text or file_list
+            morphology = self._parse_or_generate_morphology(
+                reponame, absref, filename, file_list, text)
+            resolved_morphologies[triplet] = morphology
 
     def _check_and_tweak_system(self, morphology, reponame, sha1, filename):
         '''Check and tweak a system morphology.'''

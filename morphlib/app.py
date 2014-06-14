@@ -359,43 +359,52 @@ class Morph(cliapp.Application):
         resolved_refs = {}
         resolved_morphologies = {}
 
+        def fetch_morphologies(triplets):
+            morph_factory.get_morphologies(resolved_refs, resolved_morphologies, triplets)
+
         while queue:
-            reponame, ref, filename = queue.popleft()
-            update_repo = update and reponame not in updated_repos
+            to_fetch = set()
+            while queue:
+                reponame, ref, filename = queue.popleft()
+                update_repo = update and reponame not in updated_repos
 
-            # Resolve the (repo, ref) reference, cache result.
-            reference = (reponame, ref)
-            if not reference in resolved_refs:
-                resolved_refs[reference] = self.resolve_ref(
-                        lrc, rrc, reponame, ref, update_repo)
-            absref, tree = resolved_refs[reference]
+                # Resolve the (repo, ref) reference, cache result.
+                reference = (reponame, ref)
+                if not reference in resolved_refs:
+                    resolved_refs[reference] = self.resolve_ref(
+                            lrc, rrc, reponame, ref, update_repo)
+                absref, tree = resolved_refs[reference]
 
-            updated_repos.add(reponame)
+                updated_repos.add(reponame)
+                print 'resolved: %s %s %s' % ((reponame, ref, filename))
+                to_fetch.add((reponame, ref, filename))
+                print 'to_fetch: %s' % to_fetch
 
-            # Fetch the (repo, ref, filename) morphology, cache result.
-            reference = (reponame, absref, filename)
-            if not reference in resolved_morphologies:
-                resolved_morphologies[reference] = \
-                    morph_factory.get_morphology(reponame, absref, filename)
-            morphology = resolved_morphologies[reference]
+            to_visit = to_fetch
+            if len(to_fetch) > 0:
+                fetch_morphologies(to_fetch)
 
-            visit(reponame, ref, filename, absref, tree, morphology)
-            if morphology['kind'] == 'cluster':
-                raise cliapp.AppException(
-                    "Cannot build a morphology of type 'cluster'.")
-            elif morphology['kind'] == 'system':
-                queue.extend((s.get('repo') or reponame,
-                              s.get('ref') or ref,
-                              '%s.morph' % s['morph'])
-                             for s in morphology['strata'])
-            elif morphology['kind'] == 'stratum':
-                if morphology['build-depends']:
+            while to_visit:
+                reponame, ref, filename = to_visit.pop()
+                absref, tree = resolved_refs[(reponame, ref)]
+                morphology = resolved_morphologies[(reponame, ref, filename)]
+                visit(reponame, ref, filename, absref, tree, morphology)
+                if morphology['kind'] == 'cluster':
+                    raise cliapp.AppException(
+                        "Cannot build a morphology of type 'cluster'.")
+                elif morphology['kind'] == 'system':
                     queue.extend((s.get('repo') or reponame,
-                                  s.get('ref') or ref,
-                                  '%s.morph' % s['morph'])
-                                 for s in morphology['build-depends'])
-                queue.extend((c['repo'], c['ref'], '%s.morph' % c['morph'])
-                             for c in morphology['chunks'])
+                                 s.get('ref') or ref,
+                                 '%s.morph' % s['morph'])
+                                 for s in morphology['strata'])
+                elif morphology['kind'] == 'stratum':
+                    if morphology['build-depends']:
+                        queue.extend((s.get('repo') or reponame,
+                                     s.get('ref') or ref,
+                                     '%s.morph' % s['morph'])
+                                     for s in morphology['build-depends'])
+                    queue.extend((c['repo'], c['ref'], '%s.morph' % c['morph'])
+                                 for c in morphology['chunks'])
 
     def cache_repo_and_submodules(self, cache, url, ref, done):
         subs_to_process = set()

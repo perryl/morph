@@ -55,7 +55,7 @@ class RemoteRepoCache(object):
         repo_url = self._resolver.pull_url(repo_name)
         try:
             return self._resolve_ref_for_repo_url(repo_url, ref)
-        except BaseException, e:
+        except urllib2.URLError, e:
             logging.error('Caught exception: %s' % str(e))
             raise ResolveRefError(repo_name, ref)
 
@@ -76,6 +76,18 @@ class RemoteRepoCache(object):
             logging.error('Caught exception: %s' % str(e))
             raise LsTreeError(repo_name, ref)
 
+    def cat_file_multiple(self, triplets):
+        if len(triplets) == 0:
+            return
+        request = []
+        for repo_name, ref, filename in triplets:
+            repo_url = self._resolver.pull_url(repo_name)
+            request.append(
+                dict(repo=repo_url, ref=ref, filename=filename))
+        result = self._make_request(
+            'files', json_post_data=json.dumps(request))
+        return json.loads(result)
+
     def _resolve_ref_for_repo_url(self, repo_url, ref):  # pragma: no cover
         data = self._make_request(
             'sha1s?repo=%s&ref=%s' % self._quote_strings(repo_url, ref))
@@ -95,10 +107,15 @@ class RemoteRepoCache(object):
     def _quote_strings(self, *args):  # pragma: no cover
         return tuple(urllib.quote(string) for string in args)
 
-    def _make_request(self, path):  # pragma: no cover
+    def _make_request(self, path, json_post_data=None):  # pragma: no cover
         server_url = self.server_url
         if not server_url.endswith('/'):
             server_url += '/'
         url = urlparse.urljoin(server_url, '/1.0/%s' % path)
-        handle = urllib2.urlopen(url)
+        if json_post_data is None:
+            headers = {}
+        else:
+            headers = {'Content-type': 'application/json'}
+        request = urllib2.Request(url, data=json_post_data, headers=headers)
+        handle = urllib2.urlopen(request)
         return handle.read()
