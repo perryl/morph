@@ -18,6 +18,7 @@ import cliapp
 import collections
 import logging
 import os
+import re
 import sys
 import time
 import urlparse
@@ -305,12 +306,30 @@ class Morph(cliapp.Application):
         or cloning the repository into the local repo cache.
         '''
         absref = None
+
+        def is_fixed_ref(ref):
+            # This code actually detects if the ref is a valid SHA1. Is there a
+            # better way to discover if a ref is a named ref or not?
+            sha1_match = re.match('[A-Fa-f0-9]{40}', ref)
+            return True if sha1_match is None else False
+
         if lrc.has_repo(reponame):
             repo = lrc.get_repo(reponame)
+            if is_fixed_ref(ref) and repo.ref_exists(ref):
+                # We already have the SHA1 in our local copy.
+                return ref
+
             if update:
-                self.status(msg='Updating cached git repository %(reponame)s',
-                            reponame=reponame)
+                self.status(msg='Updating cached git repository %(reponame)s for ref %(ref)s',
+                            reponame=reponame, ref=ref)
                 repo.update()
+            else:
+                # If the ref is a SHA1 that is not available locally, the user
+                # will receive an error. If it's a named ref that is available
+                # locally that is updated in the remote repo, they will not get
+                # the update.
+                pass
+
             absref, tree = repo.resolve_ref(ref)
         elif rrc is not None:
             try:
