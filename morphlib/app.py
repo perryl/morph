@@ -21,6 +21,7 @@ import os
 import re
 import sys
 import time
+import urllib2
 import urlparse
 import warnings
 import extensions
@@ -331,13 +332,12 @@ class Morph(cliapp.Application):
         elif rrc is not None:
             try:
                 absref, tree = rrc.resolve_ref(reponame, ref)
-                if absref is not None:
-                    self.status(msg='Resolved %(reponame)s %(ref)s via remote '
-                                'repo cache',
-                                reponame=reponame,
-                                ref=ref,
-                                chatty=True)
-            except BaseException, e:
+                self.status(msg='Resolved %(reponame)s %(ref)s via remote '
+                            'repo cache',
+                            reponame=reponame,
+                            ref=ref,
+                            chatty=True)
+            except urllib2.URLError as e:
                 logging.warning('Caught (and ignored) exception: %s' % str(e))
         if absref is None:
             if update:
