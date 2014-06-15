@@ -300,55 +300,66 @@ class Morph(cliapp.Application):
                              visit=add_to_pool)
         return pool
 
-    def resolve_ref(self, lrc, rrc, reponame, ref, update=True):
-        '''Resolves commit and tree sha1s of the ref in a repo and returns it.
+    def resolve_refs(self, lrc, rrc, update, updated_repos, resolved_refs,
+                     references):
+        '''Find commit and tree SHA1s for a given set of refs.
 
-        If update is True then this has the side-effect of updating
-        or cloning the repository into the local repo cache.
+        This may clone or update the repo in the local repository cache, if
+        'update' is True and there is no remote repo cache configured.
+
         '''
-        absref = None
-
         def is_floating_ref(ref):
             # This code actually detects if the ref is a valid SHA1. Is there a
             # better way to discover if a ref is a named ref or not?
             sha1_match = re.match('[A-Fa-f0-9]{40}', ref)
             return True if sha1_match is None else False
 
-        if lrc.has_repo(reponame):
-            repo = lrc.get_repo(reponame)
-            if is_floating_ref(ref) or not repo.ref_exists(ref):
-                if update:
-                    self.status(
-                        msg='Updating cached git repository %(reponame)s for '
-                        'ref %(ref)s', reponame=reponame, ref=ref)
-                    repo.update()
-                else:
-                    # If the ref is a SHA1 that is not available locally, the
-                    # user will receive an error from repo.resolve_ref(). If
-                    # it's a named ref that is # available locally that is
-                    # updated in the remote repo, they will not get the update.
-                    pass
-            absref, tree = repo.resolve_ref(ref)
-        elif rrc is not None:
-            try:
-                absref, tree = rrc.resolve_ref(reponame, ref)
-                self.status(msg='Resolved %(reponame)s %(ref)s via remote '
-                            'repo cache',
-                            reponame=reponame,
-                            ref=ref,
-                            chatty=True)
-            except urllib2.URLError as e:
-                logging.warning('Caught (and ignored) exception: %s' % str(e))
-        if absref is None:
+        to_read = {}
+
+        for reponame, ref in references:
+            if lrc.has_repo(reponame):
+                repo = lrc.get_repo(reponame)
+                if is_floating_ref(ref) or not repo.ref_exists(ref):
+                    if update and reponame not in updated_repos:
+                        self.status(
+                            msg='Updating cached git repository %(reponame)s '
+                            'for ref %(ref)s', reponame=reponame, ref=ref)
+                        repo.update()
+                        updated_repos.add(reponame)
+                    else:
+                        # If the ref is a SHA1 that is not available locally,
+                        # the user will receive an error from
+                        # repo.resolve_ref(). If it's a named ref that is
+                        # available locally that is updated in the remote repo,
+                        # they will not get the update.
+                        pass
+                absref, tree = repo.resolve_ref(ref)
+                resolved_refs[(reponame, ref)] = (absref, tree)
+            elif rrc is not None:
+                repourl = rrc._resolver.pull_url(reponame)
+                to_read[(repourl, ref)] = (reponame, ref)
+
+        if rrc is not None and len(to_read) > 0:
+            self.status(msg='Resolving %i refs from remote repo cache' %
+                        len(to_read))
+            result = rrc.resolve_ref_batch(to_read.keys())
+            for item in result:
+                reponame, ref = to_read[(item['repo'], item['ref'])]
+                if 'error' in item:
+                    logging.debug('Remote cache: %s', item)
+                    raise morphlib.remoterepocache.ResolveRefError(
+                        reponame, ref)
+                resolved_refs[(reponame, ref)] = (item['sha1'], item['tree'])
+        elif rrc is None:
             if update:
-                self.status(msg='Caching git repository %(reponame)s',
-                            reponame=reponame)
+                self.status(msg='Caching git repository %(reponame)s for ref '
+                            '%(ref)s', reponame=reponame, ref=ref)
                 repo = lrc.cache_repo(reponame)
                 repo.update()
             else:
-                repo = lrc.get_repo(reponame)
+                raise morphlib.localrepocache.NotCached(reponame)
             absref, tree = repo.resolve_ref(ref)
-        return absref, tree
+            resolved_refs[(reponame, ref)] = (absref, tree)
 
     def traverse_morphs(self, triplets, lrc, rrc, update=True,
                         visit=lambda rn, rf, fn, arf, m: None):
@@ -360,28 +371,28 @@ class Morph(cliapp.Application):
         resolved_morphologies = {}
 
         def fetch_morphologies(triplets):
-            morph_factory.get_morphologies(resolved_refs, resolved_morphologies, triplets)
+            morph_factory.get_morphologies(resolved_refs,
+                                           resolved_morphologies, triplets)
 
         while queue:
+            to_resolve = set()
             to_fetch = set()
             while queue:
                 reponame, ref, filename = queue.popleft()
-                update_repo = update and reponame not in updated_repos
 
-                # Resolve the (repo, ref) reference, cache result.
                 reference = (reponame, ref)
-                if not reference in resolved_refs:
-                    resolved_refs[reference] = self.resolve_ref(
-                            lrc, rrc, reponame, ref, update_repo)
-                absref, tree = resolved_refs[reference]
-
-                updated_repos.add(reponame)
+                if reference not in resolved_refs:
+                    to_resolve.add(reference)
 
                 #print 'resolved: %s %s %s' % ((reponame, ref, filename))
                 triplet = (reponame, ref, filename)
                 if triplet not in resolved_morphologies:
                     to_fetch.add(triplet)
                 #print 'to_fetch: %s' % to_fetch
+
+            if len(to_resolve) > 0:
+                self.resolve_refs(lrc, rrc, update, updated_repos,
+                                  resolved_refs, to_resolve)
 
             to_visit = to_fetch
             if len(to_fetch) > 0:

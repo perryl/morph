@@ -59,6 +59,18 @@ class RemoteRepoCache(object):
             logging.error('Caught exception: %s' % str(e))
             raise ResolveRefError(repo_name, ref)
 
+    def resolve_ref_batch(self, references):
+        if len(references) == 0:
+            return
+        request = []
+        for repo_name, ref in references:
+            repo_url = self._resolver.pull_url(repo_name)
+            request.append(
+                dict(repo=repo_url, ref=ref))
+        result = self._make_request(
+            'sha1s', json_post_data=json.dumps(request))
+        return json.loads(result)
+
     def cat_file(self, repo_name, ref, filename):
         repo_url = self._resolver.pull_url(repo_name)
         try:
