@@ -476,7 +476,7 @@ class Morph(cliapp.Application):
 
         ok = verbose or error or (not quiet and not chatty)
         if ok:
-            timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
+            timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
             self.output.write('%s %s\n' % (timestamp, text))
             self.output.flush()
 
