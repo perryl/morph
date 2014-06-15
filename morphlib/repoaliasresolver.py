@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -89,9 +89,6 @@ class RepoAliasResolver(object):
         else:
             pat = getattr(self.aliases[prefix], patname)
             result = self._apply_url_pattern(pat, suffix)
-
-        logging.debug("Expansion of %s for %s yielded: %s" %
-                      (reponame, patname, result))
 
         return result
 
