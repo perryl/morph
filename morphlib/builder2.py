@@ -742,8 +742,13 @@ class SystemBuilder(BuilderBase):  # pragma: no cover
                                        mount_type)
                 mounted.append(path)
 
+            # The single - is just a shell convention to fill $0 when using -c,
+            # since ordinarily $0 contains the program name.
+            # -- is used to indicate the end of options for run-parts,
+            # we don't want SYSTEM_INTEGRATION_PATH to be interpreted
+            # as an option if it happens to begin with a -
             self.app.runcmd(['chroot', rootdir, 'sh', '-c',
-                'cd / && run-parts "$1"', '-', SYSTEM_INTEGRATION_PATH],
+                'cd / && run-parts -- "$1"', '-', SYSTEM_INTEGRATION_PATH],
                 env=env)
         except BaseException, e:
             self.app.status(
