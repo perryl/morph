@@ -743,7 +743,7 @@ class SystemBuilder(BuilderBase):  # pragma: no cover
                 mounted.append(path)
 
             self.app.runcmd(['chroot', rootdir, 'sh', '-c',
-                'cd / && run-parts "$1"', '-', SYSTEM_INTEGRATION_PATH],
+                'cd / && run-parts -- "$1"', '-', SYSTEM_INTEGRATION_PATH],
                 env=env)
         except BaseException, e:
             self.app.status(
