@@ -99,7 +99,7 @@ class DeployPlugin(cliapp.Plugin):
             name: cluster-foo
             kind: cluster
             systems:
-                - morph: devel-system-x86_64-generic
+                - morph: devel-system-x86_64-generic.morph
                   deploy:
                       cluster-foo-x86_64-1:
                           type: kvm
@@ -278,7 +278,7 @@ class DeployPlugin(cliapp.Plugin):
             '/', 0)
 
         self.app.settings['no-git-update'] = True
-        cluster_name = morphlib.util.strip_morph_extension(args[0])
+        cluster_filename = morphlib.util.sanitise_morphology_path(args[0])
 
         ws = morphlib.workspace.open('.')
         sb = morphlib.sysbranchdir.open_from_within('.')
@@ -294,7 +294,6 @@ class DeployPlugin(cliapp.Plugin):
         build_ref_prefix = self.app.settings['build-ref-prefix']
         root_repo_dir = morphlib.gitdir.GitDirectory(
             sb.get_git_directory_name(sb.root_repository_url))
-        cluster_filename = cluster_name + '.morph'
         cluster_text = root_repo_dir.read_file(cluster_filename)
         cluster_morphology = loader.load_from_string(cluster_text,
                                                      filename=cluster_filename)
@@ -387,9 +386,8 @@ class DeployPlugin(cliapp.Plugin):
         self.app.status_prefix = system_status_prefix
         try:
             # Find the artifact to build
-            morph = system['morph']
-            srcpool = build_command.create_source_pool(build_repo, ref,
-                                                       morph + '.morph')
+            morph = morphlib.util.sanitise_morphology_path(system['morph'])
+            srcpool = build_command.create_source_pool(build_repo, ref, morph)
 
             artifact = build_command.resolve_artifacts(srcpool)
 

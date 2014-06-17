@@ -55,21 +55,22 @@ class ListArtifactsPlugin(cliapp.Plugin):
                 '(see help)')
 
         repo, ref = args[0], args[1]
-        system_names = map(morphlib.util.strip_morph_extension, args[2:])
+        system_filenames = map(morphlib.util.sanitise_morphology_path,
+                               args[2:])
 
         self.lrc, self.rrc = morphlib.util.new_repo_caches(self.app)
         self.resolver = morphlib.artifactresolver.ArtifactResolver()
 
         artifact_files = set()
-        for system_name in system_names:
+        for system_filename in system_filenames:
             system_artifact_files = self.list_artifacts_for_system(
-                repo, ref, system_name)
+                repo, ref, system_filename)
             artifact_files.update(system_artifact_files)
 
         for artifact_file in sorted(artifact_files):
             print artifact_file
 
-    def list_artifacts_for_system(self, repo, ref, system_name):
+    def list_artifacts_for_system(self, repo, ref, system_filename):
         '''List all artifact files in the build graph of a single system.'''
 
         # Sadly, we must use a fresh source pool and a fresh list of artifacts
@@ -82,24 +83,24 @@ class ListArtifactsPlugin(cliapp.Plugin):
         # different architectures right now.
 
         self.app.status(
-            msg='Creating source pool for %s' % system_name, chatty=True)
+            msg='Creating source pool for %s' % system_filename, chatty=True)
         source_pool = self.app.create_source_pool(
-            self.lrc, self.rrc, (repo, ref, system_name + '.morph'))
+            self.lrc, self.rrc, (repo, ref, system_filename))
 
         self.app.status(
-            msg='Resolving artifacts for %s' % system_name, chatty=True)
+            msg='Resolving artifacts for %s' % system_filename, chatty=True)
         artifacts = self.resolver.resolve_artifacts(source_pool)
 
-        def find_artifact_by_name(artifacts_list, name):
+        def find_artifact_by_name(artifacts_list, filename):
             for a in artifacts_list:
-                if a.source.filename == name + '.morph':
+                if a.source.filename == name:
                     return a
             raise ValueError
 
-        system_artifact = find_artifact_by_name(artifacts, system_name)
+        system_artifact = find_artifact_by_name(artifacts, system_filename)
 
         self.app.status(
-            msg='Computing cache keys for %s' % system_name, chatty=True)
+            msg='Computing cache keys for %s' % system_filename, chatty=True)
         build_env = morphlib.buildenvironment.BuildEnvironment(
             self.app.settings, system_artifact.source.morphology['arch'])
         ckc = morphlib.cachekeycomputer.CacheKeyComputer(build_env)

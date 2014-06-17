@@ -61,13 +61,19 @@ def indent(string, spaces=4):
     return '\n'.join(lines)
 
 
-def strip_morph_extension(morph_name):
-    if morph_name.startswith('.'):
-        raise morphlib.Error(
-            'Invalid morphology name: %s' % morph_name)
-    elif morph_name.endswith('.morph'):
-        return morph_name[:-len('.morph')]
-    return morph_name
+def sanitise_morphology_path(morph_name):
+    '''Turn morph_name into a file path to a morphology.
+
+    We support both a file path being provided, and just the morphology
+    name for backwards compatibility.
+
+    '''
+    # If it has a / or a . it must be a path, so return it unmolested
+    if '/' in morph_name or '.' in morph_name:
+        return morph_name
+    # must be a name, append .morph
+    else:
+        return morph_name + '.morph'
 
 
 def make_concurrency(cores=None):
