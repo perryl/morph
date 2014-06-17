@@ -40,25 +40,33 @@ class MorphologyObsoleteFieldWarning(UserWarning):
 
 
 class MorphologySyntaxError(morphlib.Error):
+    pass
+
+
+class MorphologyNotYamlError(MorphologySyntaxError):
 
     def __init__(self, morphology, errmsg):
         self.msg = 'Syntax error in morphology %s:\n%s' % (morphology, errmsg)
 
 
-class NotADictionaryError(morphlib.Error):
+class NotADictionaryError(MorphologySyntaxError):
 
     def __init__(self, morphology):
         self.msg = 'Not a dictionary: morphology %s' % morphology
 
 
-class UnknownKindError(morphlib.Error):
+class MorphologyValidationError(morphlib.Error):
+    pass
+
+
+class UnknownKindError(MorphologyValidationError):
 
     def __init__(self, kind, morphology):
         self.msg = (
             'Unknown kind %s in morphology %s' % (kind, morphology))
 
 
-class MissingFieldError(morphlib.Error):
+class MissingFieldError(MorphologyValidationError):
 
     def __init__(self, field, morphology_name):
         self.field = field
@@ -67,7 +75,7 @@ class MissingFieldError(morphlib.Error):
             'Missing field %s from morphology %s' % (field, morphology_name))
 
 
-class InvalidFieldError(morphlib.Error):
+class InvalidFieldError(MorphologyValidationError):
 
     def __init__(self, field, morphology_name):
         self.field = field
@@ -76,7 +84,7 @@ class InvalidFieldError(morphlib.Error):
             'Field %s not allowed in morphology %s' % (field, morphology_name))
 
 
-class InvalidTypeError(morphlib.Error):
+class InvalidTypeError(MorphologyValidationError):
 
     def __init__(self, field, expected, actual, morphology_name):
         self.field = field
@@ -88,21 +96,21 @@ class InvalidTypeError(morphlib.Error):
             (field, expected, actual, morphology_name))
 
 
-class ObsoleteFieldsError(morphlib.Error):
+class ObsoleteFieldsError(MorphologyValidationError):
 
     def __init__(self, fields, morphology):
         self.msg = (
            'Morphology %s uses obsolete fields: %s' % 
            (morphology, ' '.join(fields)))
 
-class UnknownArchitectureError(morphlib.Error):
+class UnknownArchitectureError(MorphologyValidationError):
 
     def __init__(self, arch, morphology):
         self.msg = (
             'Unknown architecture %s in morphology %s' % (arch, morphology))
 
 
-class NoBuildDependenciesError(morphlib.Error):
+class NoBuildDependenciesError(MorphologyValidationError):
 
     def __init__(self, stratum_name, chunk_name, morphology):
         self.msg = (
@@ -110,7 +118,7 @@ class NoBuildDependenciesError(morphlib.Error):
                 (stratum_name, chunk_name, morphology))
 
 
-class NoStratumBuildDependenciesError(morphlib.Error):
+class NoStratumBuildDependenciesError(MorphologyValidationError):
 
     def __init__(self, stratum_name, morphology):
         self.msg = (
@@ -118,7 +126,7 @@ class NoStratumBuildDependenciesError(morphlib.Error):
                 (stratum_name, morphology))
 
 
-class EmptyStratumError(morphlib.Error):
+class EmptyStratumError(MorphologyValidationError):
 
     def __init__(self, stratum_name, morphology):
         self.msg = (
@@ -126,83 +134,83 @@ class EmptyStratumError(morphlib.Error):
                 (stratum_name, morphology))
 
 
-class DuplicateChunkError(morphlib.Error):
+class DuplicateChunkError(MorphologyValidationError):
 
     def __init__(self, stratum_name, chunk_name):
         self.stratum_name = stratum_name
         self.chunk_name = chunk_name
-        morphlib.Error.__init__(
+        MorphologyValidationError.__init__(
             self, 'Duplicate chunk %(chunk_name)s '\
                   'in stratum %(stratum_name)s' % locals())
 
 
-class EmptyRefError(morphlib.Error):
+class EmptyRefError(MorphologyValidationError):
 
     def __init__(self, ref_location, morphology):
         self.ref_location = ref_location
         self.morphology = morphology
-        morphlib.Error.__init__(
+        MorphologyValidationError.__init__(
             self, 'Empty ref found for %(ref_location)s '\
                   'in %(morphology)s' % locals())
 
 
-class ChunkSpecRefNotStringError(morphlib.Error):
+class ChunkSpecRefNotStringError(MorphologyValidationError):
 
     def __init__(self, ref_value, chunk_name, stratum_name):
         self.ref_value = ref_value
         self.chunk_name = chunk_name
         self.stratum_name = stratum_name
-        morphlib.Error.__init__(
+        MorphologyValidationError.__init__(
             self, 'Ref %(ref_value)s for %(chunk_name)s '\
                   'in stratum %(stratum_name)s is not a string' % locals())
 
 
-class SystemStrataNotListError(morphlib.Error):
+class SystemStrataNotListError(MorphologyValidationError):
 
     def __init__(self, system_name, strata_type):
         self.system_name = system_name
         self.strata_type = strata_type
         typename = strata_type.__name__
-        morphlib.Error.__init__(
+        MorphologyValidationError.__init__(
             self, 'System %(system_name)s has the wrong type for its strata: '\
                   '%(typename)s, expected list' % locals())
 
 
-class DuplicateStratumError(morphlib.Error):
+class DuplicateStratumError(MorphologyValidationError):
 
     def __init__(self, system_name, stratum_name):
         self.system_name = system_name
         self.stratum_name = stratum_name
-        morphlib.Error.__init__(
+        MorphologyValidationError.__init__(
             self, 'Duplicate stratum %(stratum_name)s '\
                   'in system %(system_name)s' % locals())
 
 
-class SystemStratumSpecsNotMappingError(morphlib.Error):
+class SystemStratumSpecsNotMappingError(MorphologyValidationError):
 
     def __init__(self, system_name, strata):
         self.system_name = system_name
         self.strata = strata
-        morphlib.Error.__init__(
+        MorphologyValidationError.__init__(
             self, 'System %(system_name)s has stratum specs '\
                   'that are not mappings.' % locals())
 
 
-class EmptySystemError(morphlib.Error):
+class EmptySystemError(MorphologyValidationError):
 
     def __init__(self, system_name):
-        morphlib.Error.__init__(
+        MorphologyValidationError.__init__(
             self, 'System %(system_name)s has no strata.' % locals())
 
 
-class MultipleValidationErrors(morphlib.Error):
+class MultipleValidationErrors(MorphologyValidationError):
 
     def __init__(self, name, errors):
         self.name = name
         self.errors = errors
         self.msg = 'Multiple errors when validating %(name)s:'
         for error in errors:
-            self.msg += ('\t' + str(error))
+            self.msg += ('\n' + str(error))
 
 
 class DuplicateDeploymentNameError(morphlib.Error):
@@ -353,7 +361,7 @@ class MorphologyLoader(object):
         try:
             obj = yaml.safe_load(text)
         except yaml.error.YAMLError as e:
-            raise MorphologySyntaxError(whence, e)
+            raise MorphologyNotYamlError(whence, e)
 
         if not isinstance(obj, dict):
             raise NotADictionaryError(whence)
