@@ -282,7 +282,8 @@ class Morph(cliapp.Application):
 
         while args:
             assert len(args) >= 2, args
-            yield args[0], args[1], args[2] + ".morph"
+            yield (args[0], args[1],
+                   morphlib.util.sanitise_morphology_path(args[2]))
             args = args[3:]
 
     def create_source_pool(self, lrc, rrc, triplet):
@@ -376,18 +377,23 @@ class Morph(cliapp.Application):
                 raise cliapp.AppException(
                     "Cannot build a morphology of type 'cluster'.")
             elif morphology['kind'] == 'system':
-                queue.extend((s.get('repo') or reponame,
-                              s.get('ref') or ref,
-                              '%s.morph' % s['morph'])
-                             for s in morphology['strata'])
+                queue.extend(
+                    (s.get('repo') or reponame,
+                     s.get('ref') or ref,
+                     morphlib.util.sanitise_morphology_path(s['morph']))
+                    for s in morphology['strata'])
             elif morphology['kind'] == 'stratum':
                 if morphology['build-depends']:
-                    queue.extend((s.get('repo') or reponame,
-                                  s.get('ref') or ref,
-                                  '%s.morph' % s['morph'])
-                                 for s in morphology['build-depends'])
-                queue.extend((c['repo'], c['ref'], '%s.morph' % c['morph'])
-                             for c in morphology['chunks'])
+                    queue.extend(
+                        (s.get('repo') or reponame,
+                         s.get('ref') or ref,
+                         morphlib.util.sanitise_morphology_path(s['morph']))
+                        for s in morphology['build-depends'])
+                queue.extend(
+                    (c['repo'],
+                     c['ref'],
+                     morphlib.util.sanitise_morphology_path(c['morph']))
+                    for c in morphology['chunks'])
 
     def cache_repo_and_submodules(self, cache, url, ref, done):
         subs_to_process = set()

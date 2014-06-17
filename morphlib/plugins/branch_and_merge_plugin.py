@@ -325,12 +325,13 @@ class BranchAndMergePlugin(cliapp.Plugin):
             # Change the refs to the chunk.
             if chunk_ref != sb.system_branch_name:
                 morphs.change_ref(
-                    chunk_url, chunk_ref, chunk_morph + '.morph',
+                    chunk_url, chunk_ref,
+                    chunk_morph,
                     sb.system_branch_name)
 
             return chunk_dirname
 
-        chunk_name = morphlib.util.strip_morph_extension(args[0])
+        chunk_name = args[0]
         dirs = set()
         found = 0
 
