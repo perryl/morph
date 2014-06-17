@@ -55,7 +55,7 @@ class ListArtifactsPlugin(cliapp.Plugin):
                 '(see help)')
 
         repo, ref = args[0], args[1]
-        system_names = map(morphlib.util.strip_morph_extension, args[2:])
+        system_names = map(morphlib.util.sanitise_morphology_path, args[2:])
 
         self.lrc, self.rrc = morphlib.util.new_repo_caches(self.app)
         self.resolver = morphlib.artifactresolver.ArtifactResolver()
