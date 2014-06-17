@@ -98,7 +98,7 @@ class MorphologySetTests(unittest.TestCase):
         self.morphs.change_ref(
             self.stratum.repo_url,
             self.stratum.ref,
-            self.stratum.filename,
+            self.stratum['name'],
             'new-ref')
         self.assertEqual(self.stratum.ref, 'new-ref')
         self.assertEqual(
@@ -134,7 +134,7 @@ class MorphologySetTests(unittest.TestCase):
         self.morphs.change_ref(
             self.stratum.repo_url,
             self.stratum.ref,
-            self.stratum.filename,
+            self.stratum['name'],
             'new-ref')
         self.assertEqual(
             other_stratum['build-depends'][0],
@@ -151,7 +151,7 @@ class MorphologySetTests(unittest.TestCase):
         self.morphs.change_ref(
             'test:foo-chunk',
             'master',
-            'foo-chunk.morph',
+            'foo-chunk',
             'new-ref')
         self.assertEqual(
             self.stratum['chunks'],

@@ -260,7 +260,7 @@ class CrossBootstrapPlugin(cliapp.Plugin):
             self.app.settings, arch)
         build_command = morphlib.buildcommand.BuildCommand(self.app, build_env)
 
-        morph_name = system_name + '.morph'
+        morph_name = morphlib.util.sanitise_morphology_path(system_name)
         builds_artifacts = [system_name + '-bootstrap-rootfs']
         srcpool = build_command.create_source_pool(root_repo, ref, morph_name)
 
