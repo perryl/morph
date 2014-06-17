@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2013  Codethink Limited
+# Copyright (C) 2011-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -38,26 +38,19 @@ class IndentTests(unittest.TestCase):
                          '    foo\n    bar')
 
 
-class StripMorphExtensionTests(unittest.TestCase):
+class SanitiseMorphologyPathTests(unittest.TestCase):
 
-    def test_raises_error_when_string_starts_with_period(self):
-        with self.assertRaises(morphlib.Error):
-            morphlib.util.strip_morph_extension('.morph')
-
-    def test_strips_morph_extension_from_string(self):
-        self.assertEqual(morphlib.util.strip_morph_extension('a.morph'), 'a')
-
-    def test_returns_morph_when_not_given_as_extension(self):
-        self.assertEqual(morphlib.util.strip_morph_extension('morph'), 'morph')
-
-    def test_strips_extension_only_once_from_string(self):
-        self.assertEqual(morphlib.util.strip_morph_extension('a.morph.morph'),
+    def test_appends_morph_to_string(self):
+        self.assertEqual(morphlib.util.sanitise_morphology_path('a'),
                          'a.morph')
 
-    def test_returns_input_without_modification_if_no_extension(self):
-        self.assertEqual(
-            morphlib.util.strip_morph_extension('completely not a path'),
-            'completely not a path')
+    def test_returns_morph_when_given_a_filename(self):
+        self.assertEqual(morphlib.util.sanitise_morphology_path('a.morph'),
+                            'a.morph')
+
+    def test_returns_morph_when_given_a_path(self):
+        self.assertEqual('stratum/a.morph',
+            morphlib.util.sanitise_morphology_path('stratum/a.morph'))
 
 
 class MakeConcurrencyTests(unittest.TestCase):
