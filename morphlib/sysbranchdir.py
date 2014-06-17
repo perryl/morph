@@ -175,13 +175,17 @@ class SystemBranchDirectory(object):
     def load_all_morphologies(self, loader): # pragma: no cover
         gd_name = self.get_git_directory_name(self.root_repository_url)
         gd = morphlib.gitdir.GitDirectory(gd_name)
-        mf = morphlib.morphologyfinder.MorphologyFinder(gd)
-        for morph in mf.list_morphologies():
-            text, filename = mf.read_morphology(morph)
-            m = loader.load_from_string(text, filename=filename)
-            m.repo_url = self.root_repository_url
-            m.ref = self.system_branch_name
-            yield m
+        for filename in gd.list_files():
+            text = gd.read_file(filename)
+            try:
+                m = loader.load_from_string(text, filename=filename)
+            except (morphlib.morphloader.MorphologySyntaxError,
+                    morphlib.morphloader.MorphologyValidationError) as e:
+                continue
+            else:
+                m.repo_url = self.root_repository_url
+                m.ref = self.system_branch_name
+                yield m
 
 
 def create(root_directory, root_repository_url, system_branch_name):

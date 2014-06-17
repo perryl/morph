@@ -292,11 +292,10 @@ class DeployPlugin(cliapp.Plugin):
         name = morphlib.git.get_user_name(self.app.runcmd)
         email = morphlib.git.get_user_email(self.app.runcmd)
         build_ref_prefix = self.app.settings['build-ref-prefix']
-
         root_repo_dir = morphlib.gitdir.GitDirectory(
             sb.get_git_directory_name(sb.root_repository_url))
-        mf = morphlib.morphologyfinder.MorphologyFinder(root_repo_dir)
-        cluster_text, cluster_filename = mf.read_morphology(cluster_name)
+        cluster_filename = cluster_name + '.morph'
+        cluster_text = root_repo_dir.read_file(cluster_filename)
         cluster_morphology = loader.load_from_string(cluster_text,
                                                      filename=cluster_filename)
 
