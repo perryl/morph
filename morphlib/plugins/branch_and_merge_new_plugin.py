@@ -24,13 +24,6 @@ import shutil
 import morphlib
 
 
-class BranchRootHasNoSystemsError(cliapp.AppException):
-    def __init__(self, repo, ref):
-        cliapp.AppException.__init__(
-            self, 'System branch root repository %s '
-                  'has no system morphologies at ref %s' % (repo, ref))
-
-
 class SimpleBranchAndMergePlugin(cliapp.Plugin):
 
     '''Add subcommands for handling workspaces and system branches.'''
@@ -194,9 +187,6 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
                 gd.fat_init()
                 gd.fat_pull()
 
-            if not self._checkout_has_systems(gd):
-                raise BranchRootHasNoSystemsError(root_url, base_ref)
-
 
     def branch(self, args):
         '''Create a new system branch.
@@ -257,9 +247,6 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
             if gd.has_fat():
                 gd.fat_init()
                 gd.fat_pull()
-
-            if not self._checkout_has_systems(gd):
-                raise BranchRootHasNoSystemsError(root_url, base_ref)
 
     def _save_dirty_morphologies(self, loader, sb, morphs):
         logging.debug('Saving dirty morphologies: start')
@@ -432,15 +419,6 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
             self.app.status(
                 msg="WARNING: %(message)s",
                 message=str(e), error=True)
-
-    @staticmethod
-    def _checkout_has_systems(gd):
-        loader = morphlib.morphloader.MorphologyLoader()
-        for filename in glob.iglob(os.path.join(gd.dirname, '*.morph')):
-            m = loader.load_from_file(filename)
-            if m['kind'] == 'system':
-                return True
-        return False
 
     def foreach(self, args):
         '''Run a command in each repository checked out in a system branch.
