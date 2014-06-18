@@ -58,15 +58,6 @@ Checking out a system branch should fail, if the branch doesn't exist.
     WHEN        the user attempts to check out the system branch called foo
     THEN        morph failed
 
-Checking out a system branch should also fail if the repository does
-not contain any system morphologies.
-
-    SCENARIO    checking out a system branch with no systems
-    GIVEN       a workspace
-    AND         a git server
-    WHEN        the user attempts to check out from a repository with no systems
-    THEN        morph failed
-
 We can, instead, create a new system branch, off master.
 
     SCENARIO    branch off master
