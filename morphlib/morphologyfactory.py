@@ -14,6 +14,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
+import os
+
 import morphlib
 import cliapp
 
@@ -76,20 +78,24 @@ class MorphologyFactory(object):
 
     def get_morphology(self, reponame, sha1, filename):
 
-        text = None
+        morph_name = os.path.splitext(os.path.basename(filename))[0]
         if self._lrc.has_repo(reponame):
             repo = self._lrc.get_repo(reponame)
-            file_list = repo.ls_tree(sha1)
-            if filename in file_list:
+            try:
                 text = repo.cat(sha1, filename)
+            except IOError:
+                text = None
+                file_list = repo.ls_tree(sha1)
         elif self._rrc is not None:
-            file_list = self._rrc.ls_tree(reponame, sha1)
-            if filename in file_list:
-                self.status(msg="Retrieving %(reponame)s %(sha1)s %(filename)s"
-                            " from the remote artifact cache.",
-                            reponame=reponame, sha1=sha1, filename=filename,
-                            chatty=True)
+            self.status(msg="Retrieving %(reponame)s %(sha1)s %(filename)s"
+                        " from the remote artifact cache.",
+                        reponame=reponame, sha1=sha1, filename=filename,
+                        chatty=True)
+            try:
                 text = self._rrc.cat_file(reponame, sha1, filename)
+            except morphlib.remoterepocache.CatFileError:
+                text = None
+                file_list = self._rrc.ls_tree(reponame, sha1)
         else:
             raise NotcachedError(reponame)
 
@@ -97,12 +103,6 @@ class MorphologyFactory(object):
             bs = morphlib.buildsystem.detect_build_system(file_list)
             if bs is None:
                 raise AutodetectError(reponame, sha1, filename)
-            # TODO consider changing how morphs are located to be by morph
-            #      name rather than filename, it would save creating a
-            #      filename only to strip it back to its morph name again
-            #      and would allow future changes like morphologies being
-            #      stored as git metadata instead of as a file in the repo
-            morph_name = filename[:-len('.morph')]
             text = bs.get_morphology_text(morph_name)
 
         try:
@@ -111,7 +111,7 @@ class MorphologyFactory(object):
             raise morphlib.Error("Error parsing %s: %s" %
                                  (filename, str(e)))
 
-        if filename != morphology['name'] + '.morph':
+        if morph_name != morphology['name']:
             raise morphlib.Error(
                 "Name %s does not match basename of morphology file %s" %
                 (morphology['name'], filename))
