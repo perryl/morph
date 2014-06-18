@@ -553,38 +553,6 @@ Petrification and unpetrification:
     cd "$DATADIR/workspace/$MATCH_1/test/morphs"
     assert_morphologies_are_petrified "$MATCH_1" *.morph
 
-    IMPLEMENTS THEN (\S+) is not petrified
-    cd "$DATADIR/workspace/$MATCH_1/test/morphs"
-    ! assert_morphologies_are_petrified "$MATCH_1" *.morph
-
-Tagging.
-
-    IMPLEMENTS WHEN the user tags the system branch called (\S+) as (\S+)
-    cd "$DATADIR/workspace/$MATCH_1/test/morphs"
-    set tag "$MATCH_2" -- -m "testing morph tagging"
-    run_morph tag "$MATCH_2" -- -m "testing morph tagging"
-
-    IMPLEMENTS WHEN the user attempts to tag the system branch called (\S+) as (\S+)
-    cd "$DATADIR/workspace/$MATCH_1/test/morphs"
-    attempt_morph tag "$MATCH_2" -- -m "testing morph tagging"
-
-    IMPLEMENTS THEN morph tag (\S+) in (\S+) is an annotated git tag
-    cd "$DATADIR/workspace/$MATCH_2/test/morphs"
-    if git show "$MATCH_1" | head -n1 | grep -v '^tag '
-    then
-        die "git tag $MATCH_1 is not an annotated tag"
-    fi
-
-    IMPLEMENTS THEN morph tag (\S+) in (\S+) refers to a petrified commit
-    cd "$DATADIR/workspace/$MATCH_2/test/morphs"
-    git ls-tree "$MATCH_1" |
-    awk '$NF ~ /\.morph$/ { print $NF }' |
-    while read x
-    do
-        git cat-file blob "$MATCH_1:$x" > temptemptemp
-        assert_morphologies_are_petrified "$MATCH_1" temptemptemp
-    done
-
 Generating a manifest.
 
     IMPLEMENTS GIVEN a system artifact

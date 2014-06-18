@@ -272,27 +272,6 @@ ref fields when referring to strata, when it didn't before.
     AND  in branch foo, system test-system refers to test-stratum without repo
     AND  in branch foo, system test-system refers to test-stratum without ref
 
-Tagging system branches
------------------------
-
-`morph tag` creates a git tag in the system branch's root repository,
-and a petrified commit the tag refers to. It does not petrify the
-system branch itself, only the tag.
-
-    SCENARIO    morph tags a system branch
-    GIVEN       a workspace
-    AND         a git server
-    WHEN        the user creates a system branch called foo
-    AND         the user tags the system branch called foo as test123
-    THEN        morph tag test123 in foo is an annotated git tag
-    AND         morph tag test123 in foo refers to a petrified commit
-    AND         foo is not petrified
-
-Creating a tag twice should fail.
-
-    WHEN        the user attempts to tag the system branch called foo as test123
-    THEN        morph failed
-
 Generating a manifest works
 
     SCENARIO    morph generates a manifest
