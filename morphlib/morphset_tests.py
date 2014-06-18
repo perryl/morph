@@ -1,4 +1,4 @@
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013, 2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -79,27 +79,6 @@ class MorphologySetTests(unittest.TestCase):
         self.morphs.add_morphology(self.system)
         self.morphs.add_morphology(self.system)
         self.assertEqual(self.morphs.morphologies, [self.system])
-
-    def test_get_stratum_in_system(self):
-        self.morphs.add_morphology(self.system)
-        self.morphs.add_morphology(self.stratum)
-        self.assertEqual(
-            self.morphs.get_stratum_in_system(
-                self.system, self.stratum['name']),
-            self.stratum)
-
-    def test_raises_stratum_not_in_system_error(self):
-        self.morphs.add_morphology(self.system)
-        self.morphs.add_morphology(self.stratum)
-        self.assertRaises(
-            morphlib.morphset.StratumNotInSystemError,
-            self.morphs.get_stratum_in_system, self.system, 'unknown-stratum')
-
-    def test_raises_stratum_not_in_set_error(self):
-        self.morphs.add_morphology(self.system)
-        self.assertRaises(
-            morphlib.morphset.StratumNotInSetError,
-            self.morphs.get_stratum_in_system, self.system, 'foo-stratum')
 
     def test_get_chunk_triplet(self):
         self.morphs.add_morphology(self.system)
