@@ -28,7 +28,6 @@ morphlib/writeexts.py
 morphlib/plugins/list_artifacts_plugin.py
 morphlib/plugins/trovectl_plugin.py
 morphlib/plugins/gc_plugin.py
-morphlib/plugins/branch_and_merge_new_plugin.py
 morphlib/plugins/print_architecture_plugin.py
 morphlib/plugins/add_binary_plugin.py
 morphlib/plugins/push_pull_plugin.py
