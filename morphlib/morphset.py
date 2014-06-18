@@ -19,19 +19,6 @@
 import morphlib
 
 
-class StratumNotInSystemError(morphlib.Error):
-
-    def __init__(self, system_name, stratum_name):
-        self.msg = (
-            'System %s does not contain %s' % (system_name, stratum_name))
-
-
-class StratumNotInSetError(morphlib.Error):
-
-    def __init__(self, stratum_name):
-        self.msg = 'Stratum %s is not in MorphologySet' % stratum_name
-
-
 class ChunkNotInStratumError(morphlib.Error):
 
     def __init__(self, stratum_name, chunk_name):
@@ -83,26 +70,6 @@ class MorphologySet(object):
             if name == wanted_name:
                 return spec.get('repo'), spec.get('ref'), name
         return None, None, None
-
-    def get_stratum_in_system(self, system_morph, stratum_name):
-        '''Return morphology for a stratum that is in a system.
-
-        If the stratum is not in the system, raise StratumNotInSystemError.
-        If the stratum morphology has not been added to the set,
-        raise StratumNotInSetError.
-
-        '''
-
-        repo_url, ref, morph = self._find_spec(
-            system_morph['strata'], stratum_name)
-        if (repo_url, ref, morph) == (None, None, None):
-            raise StratumNotInSystemError(system_morph['name'], stratum_name)
-        m = self._get_morphology(repo_url or system_morph.repo_url,
-                                 ref or system_morph.ref,
-                                 '%s.morph' % morph)
-        if m is None:
-            raise StratumNotInSetError(stratum_name)
-        return m
 
     def get_chunk_triplet(self, stratum_morph, chunk_name):
         '''Return the repo url, ref, morph name triplet for a chunk.

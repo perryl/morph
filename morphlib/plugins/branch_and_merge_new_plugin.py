@@ -274,29 +274,6 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
                 morph.dirty = False
         logging.debug('Saving dirty morphologies: done')
 
-    def _get_stratum_triplets(self, morph):
-        # Gather all references to other strata from a morphology. The
-        # morphology must be either a system or a stratum one. In a
-        # stratum one, the refs are all for build dependencies of the
-        # stratum. In a system one, they're the list of strata in the
-        # system.
-
-        assert morph['kind'] in ('system', 'stratum')
-        if morph['kind'] == 'system':
-            specs = morph.get('strata', [])
-        elif morph['kind'] == 'stratum':
-            specs = morph.get('build-depends', [])
-
-        # Given a list of dicts that reference strata, return a list
-        # of triplets (repo url, ref, filename).
-
-        return [
-            (spec.get('repo') or morph.repo_url,
-             spec.get('ref') or morph.ref,
-             '%s.morph' % spec['morph'])
-            for spec in specs
-        ]
-
     def _checkout(self, lrc, sb, repo_url, ref):
         logging.debug(
             'Checking out %s (%s) into %s' %
@@ -316,47 +293,6 @@ class SimpleBranchAndMergePlugin(cliapp.Plugin):
         except cliapp.AppException:
             text = gd.get_file_from_ref('origin/%s' % ref, filename)
         return loader.load_from_string(text, filename)
-
-    def _load_stratum_morphologies(self, loader, sb, system_morph):
-        logging.debug('Starting to load strata for %s' % system_morph.filename)
-        lrc, rrc = morphlib.util.new_repo_caches(self.app)
-        morphset = morphlib.morphset.MorphologySet()
-        queue = self._get_stratum_triplets(system_morph)
-        while queue:
-            repo_url, ref, filename = queue.pop()
-            if not morphset.has(repo_url, ref, filename):
-                logging.debug('Loading: %s %s %s' % (repo_url, ref, filename))
-                dirname = sb.get_git_directory_name(repo_url)
-
-                # Get the right morphology. The right ref might not be
-                # checked out, in which case we get the file from git.
-                # However, if it is checked out, we get it from the
-                # filesystem directly, in case the user has made any
-                # changes to it. If the entire repo hasn't been checked
-                # out yet, do that first.
-
-                if not os.path.exists(dirname):
-                    self._checkout(lrc, sb, repo_url, ref)
-                    m = self._load_morphology_from_file(
-                        loader, dirname, filename)
-                else:
-                    gd = morphlib.gitdir.GitDirectory(dirname)
-                    if gd.is_currently_checked_out(ref):
-                        m = self._load_morphology_from_file(
-                            loader, dirname, filename)
-                    else:
-                        m = self._load_morphology_from_git(
-                            loader, gd, ref, filename)
-
-                m.repo_url = repo_url
-                m.ref = ref
-                m.filename = filename
-
-                morphset.add_morphology(m)
-                queue.extend(self._get_stratum_triplets(m))
-
-        logging.debug('All strata loaded')
-        return morphset
 
     def edit(self, args):
         '''Edit or checkout a component in a system branch.
