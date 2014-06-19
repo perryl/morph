@@ -72,23 +72,23 @@ another to hold a chunk.
     mkdir "$DATADIR/gits/morphs"
 
     arch=$(run_morph print-architecture)
-    cat << EOF > "$DATADIR/gits/morphs/test-system.morph"
+    install -m644 -D /dev/stdin << EOF "$DATADIR/gits/morphs/systems/test-system.morph"
     name: test-system
     kind: system
     arch: $arch
     strata:
-    -   name: test-stratum
-        morph: test-stratum
+    - name: test-stratum
+      morph: strata/test-stratum.morph
     EOF
 
-    cat << EOF > "$DATADIR/gits/morphs/test-stratum.morph"
+    install -m644 -D /dev/stdin << EOF "$DATADIR/gits/morphs/strata/test-stratum.morph"
     name: test-stratum
     kind: stratum
     chunks:
     -   name: test-chunk
         repo: test:test-chunk
         ref: master
-        morph: test-chunk
+        morph: morph/test-chunk.morph
         build-mode: test
         build-depends: []
     EOF
@@ -106,7 +106,7 @@ another to hold a chunk.
     # dummy files in all the places that different kinds of files are
     # usually installed. e.g. executables in `/bin` and `/usr/bin`
 
-    cat << 'EOF' > "$DATADIR/gits/test-chunk/test-chunk.morph"
+    install -m644 -D /dev/stdin << 'EOF' "$DATADIR/gits/test-chunk/morph/test-chunk.morph"
     name: test-chunk
     kind: chunk
     build-system: manual
@@ -274,7 +274,7 @@ have a morphology using the test architecture.
     run_in "$DATADIR/gits/test-chunk" git commit -m Initial.
 
 
-    cat << EOF > "$DATADIR/gits/morphs/build-essential.morph"
+    install -m644 -D /dev/stdin << EOF "$DATADIR/gits/morphs/strata/build-essential.morph"
     name: build-essential
     kind: stratum
     chunks:
@@ -286,36 +286,37 @@ have a morphology using the test architecture.
         build-depends: []
     EOF
 
-    cat << EOF > "$DATADIR/gits/morphs/core.morph"
+    install -m644 -D /dev/stdin << EOF "$DATADIR/gits/morphs/strata/core.morph"
     name: core
     kind: stratum
     build-depends:
-    - morph: build-essential
+    - morph: strata/build-essential.morph
     chunks:
     -   name: test-chunk
         repo: test:test-chunk
         ref: master
-        morph: test-chunk
+        morph: morph/test-chunk.morph
         build-mode: test
         build-depends: []
     EOF
 
-    cat << EOF > "$DATADIR/gits/morphs/$MATCH_1.morph"
+    name="$(basename "${MATCH_1%.*}")"
+    cat << EOF > "$DATADIR/gits/morphs/$MATCH_1"
     arch: testarch
     configuration-extensions: []
-    description: A system called $MATCH_1 for test architecture
+    description: A system called $name for test architecture
     kind: system
-    name: $MATCH_1
+    name: $name
     strata:
     -   name: build-essential
-        morph: build-essential
+        morph: strata/build-essential.morph
     -   name: core
-        morph: core
+        morph: strata/core.morph
     EOF
 
-    run_in "$DATADIR/gits/morphs" git add "build-essential.morph"
-    run_in "$DATADIR/gits/morphs" git add "core.morph"
-    run_in "$DATADIR/gits/morphs" git add "$MATCH_1.morph"
+    run_in "$DATADIR/gits/morphs" git add "strata/build-essential.morph"
+    run_in "$DATADIR/gits/morphs" git add "strata/core.morph"
+    run_in "$DATADIR/gits/morphs" git add "$MATCH_1"
     run_in "$DATADIR/gits/morphs" git commit -m "Added $MATCH_1 and strata morphologies."
 
 
@@ -341,8 +342,8 @@ We also need to verify that a system branch has been checked out.
 
     IMPLEMENTS THEN the system branch (\S+) is checked out
     is_dir "$DATADIR/workspace/$MATCH_1/test/morphs"
-    is_file "$DATADIR/workspace/$MATCH_1/test/morphs/test-system.morph"
-    is_file "$DATADIR/workspace/$MATCH_1/test/morphs/test-stratum.morph"
+    is_file "$DATADIR/workspace/$MATCH_1/test/morphs/systems/test-system.morph"
+    is_file "$DATADIR/workspace/$MATCH_1/test/morphs/strata/test-stratum.morph"
 
 We can create a new branch, off master.
 
@@ -411,20 +412,20 @@ Editing morphologies with `morph edit`.
 
     IMPLEMENTS THEN in branch (\S+), stratum (\S+) refs (\S+) in (\S+)
     "$SRCDIR/scripts/yaml-extract" \
-        "$DATADIR/workspace/$MATCH_1/test/morphs/$MATCH_2.morph" \
+        "$DATADIR/workspace/$MATCH_1/test/morphs/$MATCH_2" \
         chunks name="$MATCH_3" ref > "$DATADIR/ref.actual"
     echo "$MATCH_4" > "$DATADIR/ref.wanted"
     diff -u "$DATADIR/ref.wanted" "$DATADIR/ref.actual"
 
     IMPLEMENTS THEN in branch (\S+), (system|stratum) (\S+) refers to (\S+) without (\S+)
     if [ $MATCH_2 == system ]; then field=strata; else field=build-depends; fi
-    { ! "$SRCDIR/scripts/yaml-extract" \
-        "$DATADIR/workspace/$MATCH_1/test/morphs/$MATCH_3.morph" \
-        "$field" name="$MATCH_4" "$MATCH_5"; } 2>&1 |
-        grep -qFe "Object does not contain $MATCH_5"
+    "$SRCDIR/scripts/yaml-extract" \
+      "$DATADIR/workspace/$MATCH_1/test/morphs/$MATCH_3" \
+      "$field" name="$MATCH_4" "$MATCH_5" 2>&1 |
+      grep -qFe "Object does not contain $MATCH_5"
 
-    IMPLEMENTS WHEN the user edits the chunk (\S+) in the stratum (\S+) in the system (\S+) in branch (\S+)
-    cd "$DATADIR/workspace/$MATCH_4/test/morphs"
+    IMPLEMENTS WHEN the user edits the chunk (\S+) in branch (\S+)
+    cd "$DATADIR/workspace/$MATCH_2/test/morphs"
     run_morph edit "$MATCH_1"
 
     IMPLEMENTS THEN the edited chunk (\S+) has git branch (\S+)
@@ -441,15 +442,16 @@ print-architecture` to get a value appropriate for morph.
 
     IMPLEMENTS WHEN the user creates an uncommitted system morphology called (\S+) for our architecture in system branch (\S+)
     arch=$(morph print-architecture)
-    cat << EOF > "$DATADIR/workspace/$MATCH_2/test/morphs/$MATCH_1.morph"
+    name="$(basename "${MATCH_1%.*}")"
+    install -m644 -D /dev/stdin << EOF "$DATADIR/workspace/$MATCH_2/test/morphs/$MATCH_1"
     arch: $arch
     configuration-extensions: []
-    description: A system called $MATCH_1 for architectures $arch
+    description: A system called $name for architectures $arch
     kind: system
-    name: $MATCH_1
+    name: $name
     strata:
     -   name: test-stratum
-        morph: test-stratum
+        morph: strata/test-stratum.morph
     EOF
 
 Reporting status of checked out repositories:
@@ -509,7 +511,7 @@ Petrification and unpetrification:
 
     IMPLEMENTS WHEN remembering all refs in (\S+)
     cd "$DATADIR/workspace/$MATCH_1/test/morphs"
-    list_refs *.morph > "$DATADIR/refs.remembered"
+    list_refs $(find . -type f) > "$DATADIR/refs.remembered"
 
     IMPLEMENTS THEN (\S+) refs are as remembered
     cd "$DATADIR/workspace/$MATCH_1/test/morphs"
@@ -524,13 +526,13 @@ Petrification and unpetrification:
     #
     # We would like to verify the result like this:
     #
-    #   list_refs *.morph > "$DATADIR/refs.now"
+    #   list_refs $(find . -type f) > "$DATADIR/refs.now"
     #   diff -u "$DATADIR/refs.remembered" "$DATADIR/refs.now"
     #
     # However, due to the bug, we have to do it in a more complicated
     # manner.
 
-    list_refs *.morph |
+    list_refs $(find . -type f) |
     while read filename ref
     do
         orig=$(awk -v "f=$filename" '$1 == f { print $2 }' \
@@ -551,7 +553,7 @@ Petrification and unpetrification:
 
     IMPLEMENTS THEN (\S+) is petrified
     cd "$DATADIR/workspace/$MATCH_1/test/morphs"
-    assert_morphologies_are_petrified "$MATCH_1" *.morph
+    assert_morphologies_are_petrified "$MATCH_1" $(find . -type f)
 
 Generating a manifest.
 
@@ -804,15 +806,15 @@ Altering morphologies in their source repositories
 
     IMPLEMENTS GIVEN system (\S+) uses (.+) from (\S+)
     "$SRCDIR/scripts/edit-morph" set-system-artifact-depends \
-      "$DATADIR/gits/morphs/$MATCH_1.morph" "$MATCH_3" "$MATCH_2"
-    run_in "$DATADIR/gits/morphs" git add "$MATCH_1.morph"
+      "$DATADIR/gits/morphs/$MATCH_1" "$MATCH_3" "$MATCH_2"
+    run_in "$DATADIR/gits/morphs" git add "$MATCH_1"
     run_in "$DATADIR/gits/morphs" git commit -m "Make $MATCH_1 only use $MATCH_2"
 
     IMPLEMENTS GIVEN stratum (\S+) has match rules: (.*)
     cd "$DATADIR/gits/morphs"
     "$SRCDIR/scripts/edit-morph" set-stratum-match-rules \
-      "$MATCH_1.morph" "$MATCH_2"
-    git add "$MATCH_1.morph"
+      "$MATCH_1" "$MATCH_2"
+    git add "$MATCH_1"
     git commit -m "Make $MATCH_1 match $MATCH_2"
 
 Altering morphologies in the workspace
@@ -823,7 +825,7 @@ Altering morphologies in the workspace
     IMPLEMENTS GIVEN stratum (\S+) in system branch (\S+) has match rules: (.*)
     cd "$DATADIR/workspace/$MATCH_2/test/morphs"
     "$SRCDIR/scripts/edit-morph" set-stratum-match-rules \
-      "$MATCH_1.morph" "$MATCH_3"
+      "$MATCH_1" "$MATCH_3"
 
 ### Altering clusters ###
 
@@ -831,14 +833,14 @@ Altering morphologies in the workspace
     name="$MATCH_1"
     branch="$MATCH_2"
     "$SRCDIR/scripts/edit-morph" cluster-init \
-        "$DATADIR/workspace/$branch/test/morphs/$name.morph"
+        "$DATADIR/workspace/$branch/test/morphs/$name"
 
     IMPLEMENTS GIVEN a (sub)?system in cluster (\S+) in branch (\S+) called (\S+)
     cluster="$MATCH_2"
     branch="$MATCH_3"
     name="$MATCH_4"
     "$SRCDIR/scripts/edit-morph" cluster-system-init \
-        "$DATADIR/workspace/$branch/test/morphs/$cluster.morph" "$name"
+        "$DATADIR/workspace/$branch/test/morphs/$cluster" "$name"
 
     IMPLEMENTS GIVEN (sub)?system (\S+) in cluster (\S+) in branch (\S+) builds (\S+)
     name="$MATCH_2"
@@ -846,7 +848,7 @@ Altering morphologies in the workspace
     branch="$MATCH_4"
     morphology="$MATCH_5"
     "$SRCDIR/scripts/edit-morph" cluster-system-set-morphology \
-        "$DATADIR/workspace/$branch/test/morphs/$cluster.morph" "$name" \
+        "$DATADIR/workspace/$branch/test/morphs/$cluster" "$name" \
         "$morphology"
 
     IMPLEMENTS GIVEN (sub)?system (\S+) in cluster (\S+) in branch (\S+) has deployment type: (\S+)
@@ -855,7 +857,7 @@ Altering morphologies in the workspace
     branch="$MATCH_4"
     type="$MATCH_5"
     "$SRCDIR/scripts/edit-morph" cluster-system-set-deploy-type \
-        "$DATADIR/workspace/$branch/test/morphs/$cluster.morph" "$name" \
+        "$DATADIR/workspace/$branch/test/morphs/$cluster" "$name" \
         "$type"
 
     IMPLEMENTS GIVEN (sub)?system (\S+) in cluster (\S+) in branch (\S+) has deployment location: (\S+)
@@ -864,7 +866,7 @@ Altering morphologies in the workspace
     branch="$MATCH_4"
     location="$MATCH_5"
     "$SRCDIR/scripts/edit-morph" cluster-system-set-deploy-location \
-        "$DATADIR/workspace/$branch/test/morphs/$cluster.morph" "$name" \
+        "$DATADIR/workspace/$branch/test/morphs/$cluster" "$name" \
         "$location"
 
     IMPLEMENTS GIVEN (sub)?system (\S+) in cluster (\S+) in branch (\S+) has deployment variable: ([^=]+)=(.*)
@@ -874,5 +876,5 @@ Altering morphologies in the workspace
     key="$MATCH_5"
     val="$MATCH_6"
     "$SRCDIR/scripts/edit-morph" cluster-system-set-deploy-variable \
-        "$DATADIR/workspace/$branch/test/morphs/$cluster.morph" "$name" \
+        "$DATADIR/workspace/$branch/test/morphs/$cluster" "$name" \
         "$key" "$val"
