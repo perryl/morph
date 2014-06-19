@@ -4,9 +4,9 @@ Morph Cross-Building Tests
     SCENARIO building a system for a different architecture
     GIVEN a workspace
     AND a git server
-    AND a system called base-system-testarch for the test architecture in the git server
+    AND a system called base-system-testarch.morph for the test architecture in the git server
     WHEN the user checks out the system branch called master
-    AND the user attempts to build the system base-system-testarch in branch master
+    AND the user attempts to build the system base-system-testarch.morph in branch master
     THEN morph failed
     AND the build error message includes the string "Are you trying to cross-build?"
 
@@ -17,6 +17,6 @@ Morph Cross-Bootstrap Tests
     SCENARIO cross-bootstraping a system for a different architecture
     GIVEN a workspace
     AND a git server
-    AND a system called base-system-testarch for the test architecture in the git server
+    AND a system called base-system-testarch.morph for the test architecture in the git server
     WHEN the user checks out the system branch called master
-    THEN the user cross-bootstraps the system base-system-testarch in branch master of repo test:morphs to the arch testarch
+    THEN the user cross-bootstraps the system base-system-testarch.morph in branch master of repo test:morphs to the arch testarch

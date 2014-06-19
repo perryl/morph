@@ -10,7 +10,7 @@ Testing if we can build after checking out from a tag.
     GIVEN       a workspace
     AND         a git server
     WHEN        the user checks out the system tag called test-tag
-    THEN        morph build the system test-system of the tag test-tag
+    THEN        morph build the system systems/test-system.morph of the tag test-tag
 
 
 Running `morph branch` when the branch directory exists doesn't
@@ -41,9 +41,9 @@ area, hence their results cannot be trusted.
     SCENARIO    building a system with only bootstrap chunks fails
     GIVEN       a workspace
     AND         a git server
-    AND         a system containing only bootstrap chunks called bootstrap-system
+    AND         a system containing only bootstrap chunks called bootstrap-system.morph
     WHEN        the user checks out the system branch called master
-    AND         the user attempts to build the system bootstrap-system in branch master
+    AND         the user attempts to build the system bootstrap-system.morph in branch master
     THEN        the build error message includes the string "No non-bootstrap chunks found"
 
 When we started allowing multiple artifacts, a long-standing bug in
@@ -55,17 +55,17 @@ source it depended on.
     SCENARIO changing the artifacts a system uses
     GIVEN    a workspace
     AND      a git server
-    AND      system test-system uses test-stratum-runtime from test-stratum
-    AND      stratum test-stratum has match rules: [{artifact: test-stratum-runtime, include: [.*-(bins|libs|locale)]}, {artifact: test-stratum-devel, include: [.*-(devel|doc|misc)]}]
+    AND      system systems/test-system.morph uses test-stratum-runtime from test-stratum
+    AND      stratum strata/test-stratum.morph has match rules: [{artifact: test-stratum-runtime, include: [.*-(bins|libs|locale)]}, {artifact: test-stratum-devel, include: [.*-(devel|doc|misc)]}]
     WHEN     the user checks out the system branch called master
-    GIVEN    a cluster called test-cluster in system branch master
-    AND      a system in cluster test-cluster in branch master called test-system
-    AND      system test-system in cluster test-cluster in branch master builds test-system
-    AND      system test-system in cluster test-cluster in branch master has deployment type: tar
-    WHEN     the user builds the system test-system in branch master
-    GIVEN    stratum test-stratum in system branch master has match rules: [{artifact: test-stratum-runtime, include: [.*-(bins|libs|misc)]}, {artifact: test-stratum-devel, include: [.*-(devel|doc|locale)]}]
-    WHEN     the user builds the system test-system in branch master
-    AND      the user deploys the cluster test-cluster in branch master with options test-system.location="$DATADIR/test.tar"
+    GIVEN    a cluster called test-cluster.morph in system branch master
+    AND      a system in cluster test-cluster.morph in branch master called test-system
+    AND      system test-system in cluster test-cluster.morph in branch master builds systems/test-system.morph
+    AND      system test-system in cluster test-cluster.morph in branch master has deployment type: tar
+    WHEN     the user builds the system systems/test-system.morph in branch master
+    GIVEN    stratum strata/test-stratum.morph in system branch master has match rules: [{artifact: test-stratum-runtime, include: [.*-(bins|libs|misc)]}, {artifact: test-stratum-devel, include: [.*-(devel|doc|locale)]}]
+    WHEN     the user builds the system systems/test-system.morph in branch master
+    AND      the user deploys the cluster test-cluster.morph in branch master with options test-system.location="$DATADIR/test.tar"
     THEN     tarball test.tar contains baserock/test-chunk-misc.meta
 
 
@@ -74,15 +74,16 @@ Implementations
 
     IMPLEMENTS GIVEN a system containing only bootstrap chunks called (\S+)
     arch=$(run_morph print-architecture)
-    cat <<EOF >"$DATADIR/gits/morphs/$MATCH_1.morph"
-    name: $MATCH_1
+    name="$(basename "${MATCH_1%.*}")"
+    install -m644 -D /dev/stdin <<EOF "$DATADIR/gits/morphs/$MATCH_1"
+    name: $name
     kind: system
     arch: $arch
     strata:
-    - morph: bootstrap-stratum
+    - morph: strata/bootstrap-stratum.morph
     EOF
 
-    cat << EOF > "$DATADIR/gits/morphs/bootstrap-stratum.morph"
+    install -m644 -D /dev/stdin << EOF "$DATADIR/gits/morphs/strata/bootstrap-stratum.morph"
     name: bootstrap-stratum
     kind: stratum
     chunks:
