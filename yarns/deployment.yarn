@@ -5,7 +5,7 @@ Morph Deployment Tests
     GIVEN a workspace
     AND a git server
     WHEN the user checks out the system branch called master
-    AND the user attempts to deploy the system test-system in branch master
+    AND the user attempts to deploy the system systems/test-system.morph in branch master
     THEN morph failed
     AND the deploy error message includes the string "morph deploy is only supported for cluster morphologies"
 
@@ -13,13 +13,13 @@ Morph Deployment Tests
     GIVEN a workspace
     AND a git server
     WHEN the user checks out the system branch called master
-    GIVEN a cluster called test-cluster in system branch master
-    AND a system in cluster test-cluster in branch master called test-system
-    AND system test-system in cluster test-cluster in branch master builds test-system
-    AND system test-system in cluster test-cluster in branch master has deployment type: tar
-    AND system test-system in cluster test-cluster in branch master has deployment location: test.tar
-    WHEN the user builds the system test-system in branch master
-    AND the user attempts to deploy the cluster test-cluster in branch master
+    GIVEN a cluster called test-cluster.morph in system branch master
+    AND a system in cluster test-cluster.morph in branch master called test-system
+    AND system test-system in cluster test-cluster.morph in branch master builds systems/test-system.morph
+    AND system test-system in cluster test-cluster.morph in branch master has deployment type: tar
+    AND system test-system in cluster test-cluster.morph in branch master has deployment location: test.tar
+    WHEN the user builds the system systems/test-system.morph in branch master
+    AND the user attempts to deploy the cluster test-cluster.morph in branch master
     THEN morph succeeded
 
 Some deployment types support upgrades, but some do not and Morph needs to make
@@ -29,13 +29,13 @@ this clear.
     GIVEN a workspace
     AND a git server
     WHEN the user checks out the system branch called master
-    GIVEN a cluster called test-cluster in system branch master
-    AND a system in cluster test-cluster in branch master called test-system
-    AND system test-system in cluster test-cluster in branch master builds test-system
-    AND system test-system in cluster test-cluster in branch master has deployment type: tar
-    AND system test-system in cluster test-cluster in branch master has deployment location: test.tar
-    WHEN the user builds the system test-system in branch master
-    AND the user attempts to upgrade the cluster test-cluster in branch master
+    GIVEN a cluster called test-cluster.morph in system branch master
+    AND a system in cluster test-cluster.morph in branch master called test-system
+    AND system test-system in cluster test-cluster.morph in branch master builds systems/test-system.morph
+    AND system test-system in cluster test-cluster.morph in branch master has deployment type: tar
+    AND system test-system in cluster test-cluster.morph in branch master has deployment location: test.tar
+    WHEN the user builds the system systems/test-system.morph in branch master
+    AND the user attempts to upgrade the cluster test-cluster.morph in branch master
     THEN morph failed
 
 The rawdisk write extension supports both initial deployment and subsequent
@@ -48,15 +48,15 @@ the same code paths as a real upgrade.
     GIVEN a workspace
     AND a git server
     WHEN the user checks out the system branch called master
-    GIVEN a cluster called test-cluster in system branch master
-    AND a system in cluster test-cluster in branch master called test-system
-    AND system test-system in cluster test-cluster in branch master builds test-system
-    AND system test-system in cluster test-cluster in branch master has deployment type: rawdisk
-    AND system test-system in cluster test-cluster in branch master has deployment location: test.tar
-    WHEN the user builds the system test-system in branch master
-    AND the user attempts to deploy the cluster test-cluster in branch master with options test-system.DISK_SIZE=20M test-system.VERSION_LABEL=test1
+    GIVEN a cluster called test-cluster.morph in system branch master
+    AND a system in cluster test-cluster.morph in branch master called test-system
+    AND system test-system in cluster test-cluster.morph in branch master builds systems/test-system.morph
+    AND system test-system in cluster test-cluster.morph in branch master has deployment type: rawdisk
+    AND system test-system in cluster test-cluster.morph in branch master has deployment location: test.tar
+    WHEN the user builds the system systems/test-system.morph in branch master
+    AND the user attempts to deploy the cluster test-cluster.morph in branch master with options test-system.DISK_SIZE=20M test-system.VERSION_LABEL=test1
     THEN morph succeeded
-    WHEN the user attempts to upgrade the cluster test-cluster in branch master with options test-system.VERSION_LABEL=test2
+    WHEN the user attempts to upgrade the cluster test-cluster.morph in branch master with options test-system.VERSION_LABEL=test2
     THEN morph succeeded
 
 Nested deployments
@@ -76,23 +76,23 @@ It is convenient to be able to deploy one system inside another.
     GIVEN a workspace
     AND a git server
     WHEN the user checks out the system branch called master
-    GIVEN a cluster called test-cluster in system branch master
-    AND a system in cluster test-cluster in branch master called test-system
-    AND system test-system in cluster test-cluster in branch master builds test-system
-    AND system test-system in cluster test-cluster in branch master has deployment type: tar
+    GIVEN a cluster called test-cluster.morph in system branch master
+    AND a system in cluster test-cluster.morph in branch master called test-system
+    AND system test-system in cluster test-cluster.morph in branch master builds systems/test-system.morph
+    AND system test-system in cluster test-cluster.morph in branch master has deployment type: tar
 
 After the usual setup, we also add a subsystem to the cluster.
 
-    GIVEN a subsystem in cluster test-cluster in branch master called test-system.sysroot
-    AND subsystem test-system.sysroot in cluster test-cluster in branch master builds test-system
-    AND subsystem test-system.sysroot in cluster test-cluster in branch master has deployment type: sysroot
+    GIVEN a subsystem in cluster test-cluster.morph in branch master called test-system.sysroot
+    AND subsystem test-system.sysroot in cluster test-cluster.morph in branch master builds systems/test-system.morph
+    AND subsystem test-system.sysroot in cluster test-cluster.morph in branch master has deployment type: sysroot
 
 We specify the location as a file path, this is relative to the parent
 system's extracted rootfs, before it is configured.
 
-    AND subsystem test-system.sysroot in cluster test-cluster in branch master has deployment location: var/lib/sysroots/test-system
-    WHEN the user builds the system test-system in branch master
-    AND the user attempts to deploy the cluster test-cluster in branch master with options test-system.location="$DATADIR/test.tar"
+    AND subsystem test-system.sysroot in cluster test-cluster.morph in branch master has deployment location: var/lib/sysroots/test-system
+    WHEN the user builds the system systems/test-system.morph in branch master
+    AND the user attempts to deploy the cluster test-cluster.morph in branch master with options test-system.location="$DATADIR/test.tar"
     THEN morph succeeded
 
 Morph succeeding alone is not sufficient to check whether it actually
@@ -122,28 +122,28 @@ There's a few ways of creating an initramfs. We could:
     GIVEN a workspace
     AND a git server
     WHEN the user checks out the system branch called master
-    GIVEN a cluster called C in system branch master
-    AND a system in cluster C in branch master called S
+    GIVEN a cluster called C.morph in system branch master
+    AND a system in cluster C.morph in branch master called S
 
 2.2 needs a nested system that is deployed with the initramfs write
 extension.
 
-    GIVEN a subsystem in cluster C in branch master called S.I
-    AND subsystem S.I in cluster C in branch master builds test-system
-    AND subsystem S.I in cluster C in branch master has deployment type: initramfs
+    GIVEN a subsystem in cluster C.morph in branch master called S.I
+    AND subsystem S.I in cluster C.morph in branch master builds systems/test-system.morph
+    AND subsystem S.I in cluster C.morph in branch master has deployment type: initramfs
 
 The nested system needs to be placed somewhere in the parent. The
 traditional place for an initramfs is `/boot`.
 
-    AND subsystem S.I in cluster C in branch master has deployment location: boot/initramfs.gz
+    AND subsystem S.I in cluster C.morph in branch master has deployment location: boot/initramfs.gz
 
 1.1 and 2.2 need the write extension to configure the boot-loader to
 use the produced initramfs. Only write extensions that involve creating a disk image care, so we'll use `rawdisk.write`.
 
-    GIVEN system S in cluster C in branch master builds test-system
-    AND system S in cluster C in branch master has deployment type: rawdisk
-    AND system S in cluster C in branch master has deployment location: test.img
-    AND system S in cluster C in branch master has deployment variable: DISK_SIZE=512M
+    GIVEN system S in cluster C.morph in branch master builds systems/test-system.morph
+    AND system S in cluster C.morph in branch master has deployment type: rawdisk
+    AND system S in cluster C.morph in branch master has deployment location: test.img
+    AND system S in cluster C.morph in branch master has deployment variable: DISK_SIZE=512M
 
 Initramfs support is triggered by the `INITRAMFS_PATH` variable. It could have been made automatic, triggering the behaviour if `/boot/initramfs.gz` exists, but:
 
@@ -162,14 +162,14 @@ For all these reasons, despite there being redundancy in some cases,
 we're going to set `INITRAMFS_PATH` to the same as the nested deployment's
 location.
 
-    GIVEN system S in cluster C in branch master has deployment variable: INITRAMFS_PATH=boot/initramfs.gz
+    GIVEN system S in cluster C.morph in branch master has deployment variable: INITRAMFS_PATH=boot/initramfs.gz
 
 Fully testing that the system is bootable requires a lot more time,
 infrastructure and dependencies, so we're just going to build it and
 inspect the result of the deployment.
 
-    WHEN the user builds the system test-system in branch master
-    AND the user attempts to deploy the cluster C in branch master
+    WHEN the user builds the system systems/test-system.morph in branch master
+    AND the user attempts to deploy the cluster C.morph in branch master
     THEN morph succeeded
     AND file workspace/master/test/morphs/test.img exists
 
@@ -199,27 +199,27 @@ with only one definition.
     GIVEN a workspace
     AND a git server
     WHEN the user checks out the system branch called master
-    AND the user builds the system test-system in branch master
-    GIVEN a cluster called test-cluster in system branch master
-    AND a system in cluster test-cluster in branch master called test-system
-    AND system test-system in cluster test-cluster in branch master builds test-system
-    AND system test-system in cluster test-cluster in branch master has deployment type: tar
-    AND system test-system in cluster test-cluster in branch master has deployment location: test-system.tar
+    AND the user builds the system systems/test-system.morph in branch master
+    GIVEN a cluster called test-cluster.morph in system branch master
+    AND a system in cluster test-cluster.morph in branch master called test-system
+    AND system test-system in cluster test-cluster.morph in branch master builds systems/test-system.morph
+    AND system test-system in cluster test-cluster.morph in branch master has deployment type: tar
+    AND system test-system in cluster test-cluster.morph in branch master has deployment location: test-system.tar
 
 It is useful to group related deployments together, so we support adding
 another deployment to the same cluster morphology.
 
-    GIVEN a system in cluster test-cluster in branch master called second-system
-    AND system second-system in cluster test-cluster in branch master builds test-system
-    AND system second-system in cluster test-cluster in branch master has deployment type: tar
-    AND system second-system in cluster test-cluster in branch master has deployment location: second-system.tar
+    GIVEN a system in cluster test-cluster.morph in branch master called second-system
+    AND system second-system in cluster test-cluster.morph in branch master builds systems/test-system.morph
+    AND system second-system in cluster test-cluster.morph in branch master has deployment type: tar
+    AND system second-system in cluster test-cluster.morph in branch master has deployment location: second-system.tar
 
 When we don't tell `morph deploy` which system we want to deploy, all
 of the systems in the cluster are deployed. Here a successful deployment
 will have morph exit sucessfully and in the case of tarball deployments,
 the tarballs for both the systems will be created.
 
-    WHEN the user attempts to deploy the cluster test-cluster in branch master
+    WHEN the user attempts to deploy the cluster test-cluster.morph in branch master
     THEN morph succeeded
     AND file workspace/master/test/morphs/test-system.tar exists
     AND file workspace/master/test/morphs/second-system.tar exists
@@ -230,7 +230,7 @@ deploying a whole distbuild network, and re-deploying only nodes that
 have failed.
 
     GIVEN the files workspace/master/test/morphs/test-system.tar and workspace/master/test/morphs/second-system.tar are removed
-    WHEN the user attempts to deploy test-system from cluster test-cluster in branch master
+    WHEN the user attempts to deploy test-system from cluster test-cluster.morph in branch master
 
 A successful deployment will have morph exit successfully, and in the
 case of tarball deployments, only the tarball for the system we asked
@@ -245,20 +245,20 @@ subsystems to deploy as part of them.
 
 We need to add a subsystem to the cluster to test this.
 
-    GIVEN a subsystem in cluster test-cluster in branch master called test-system.sysroot
-    AND subsystem test-system.sysroot in cluster test-cluster in branch master builds test-system
-    AND subsystem test-system.sysroot in cluster test-cluster in branch master has deployment type: sysroot
+    GIVEN a subsystem in cluster test-cluster.morph in branch master called test-system.sysroot
+    AND subsystem test-system.sysroot in cluster test-cluster.morph in branch master builds systems/test-system.morph
+    AND subsystem test-system.sysroot in cluster test-cluster.morph in branch master has deployment type: sysroot
 
 We specify the location as a file path, this is relative to the parent
 system's extracted rootfs, before it is configured.
 
-    AND subsystem test-system.sysroot in cluster test-cluster in branch master has deployment location: var/lib/sysroots/test-system
+    AND subsystem test-system.sysroot in cluster test-cluster.morph in branch master has deployment location: var/lib/sysroots/test-system
 
 The system which contains a nested system is deployed the same as
 before, we don't need to mention the nested deployment.
 
     AND the file workspace/master/test/morphs/test-system.tar is removed
-    WHEN the user attempts to deploy test-system from cluster test-cluster in branch master
+    WHEN the user attempts to deploy test-system from cluster test-cluster.morph in branch master
     THEN morph succeeded
     AND file workspace/master/test/morphs/test-system.tar exists
     AND tarball workspace/master/test/morphs/test-system.tar contains var/lib/sysroots/test-system/baserock
@@ -266,7 +266,7 @@ before, we don't need to mention the nested deployment.
 Morph will abort deployment if the system to deploy that is specified
 on the command line is not defined in the morphology.
 
-    WHEN the user attempts to deploy not-a-system from cluster test-cluster in branch master
+    WHEN the user attempts to deploy not-a-system from cluster test-cluster.morph in branch master
     THEN morph failed
 
 It is not valid to deploy a nested system on its own. If it becomes
@@ -274,5 +274,5 @@ desirable to deploy a system that is identical to a system that already
 exists but is nested in another, it should be redefined as a top-level
 deployment.
 
-    WHEN the user attempts to deploy test-system.sysroot from cluster test-cluster in branch master
+    WHEN the user attempts to deploy test-system.sysroot from cluster test-cluster.morph in branch master
     THEN morph failed

@@ -15,15 +15,15 @@ To test that all the fields are recognised, we set the new fields to
 their default values.
 
     AND chunk test-chunk includes the default splitting rules
-    AND stratum test-stratum includes the default splitting rules
-    AND system test-system includes the default splitting rules
+    AND stratum strata/test-stratum.morph includes the default splitting rules
+    AND system systems/test-system.morph includes the default splitting rules
 
 The default rules produce a system that is identical to not providing
 them, and since this test is about validation, we don't care about the
 result, so much as it succeeding to build something.
 
     WHEN the user checks out the system branch called master
-    THEN morph build the system test-system of the branch master
+    THEN morph build the system systems/test-system.morph of the branch master
 
 Smaller systems
 ---------------
@@ -40,23 +40,24 @@ libraries.
 The only change we need to make is to add a field to the system morphology
 to select which artifact to use in the system.
 
-    AND system test-system uses test-stratum-runtime from test-stratum
+    AND system systems/test-system.morph uses test-stratum-runtime from test-stratum
     WHEN the user checks out the system branch called master
 
 The best way to test that only using some stratum artifacts works is
 to check which files the output has, so we deploy a tarball and inspect
 its contents.
 
-    GIVEN a cluster called test-cluster in system branch master
-    AND a system in cluster test-cluster in branch master called test-system
-    AND system test-system in cluster test-cluster in branch master builds test-system
-    AND system test-system in cluster test-cluster in branch master has deployment type: tar
-    WHEN the user builds the system test-system in branch master
-    AND the user attempts to deploy the cluster test-cluster in branch master with options test-system.location="$DATADIR/test.tar"
+    GIVEN a cluster called test-cluster.morph in system branch master
+    AND a system in cluster test-cluster.morph in branch master called test-system
+    AND system test-system in cluster test-cluster.morph in branch master builds systems/test-system.morph
+    AND system test-system in cluster test-cluster.morph in branch master has deployment type: tar
+    WHEN the user builds the system systems/test-system.morph in branch master
+    AND the user attempts to deploy the cluster test-cluster.morph in branch master with options test-system.location="$DATADIR/test.tar"
 
 The -runtime artifacts include executables and shared libraries.
 
-    THEN tarball test.tar contains bin/test
+    THEN morph succeeded
+    AND tarball test.tar contains bin/test
     AND tarball test.tar contains lib/libtest.so
 
 The -devel artifacts include static libraries and documentation, so if
@@ -77,10 +78,10 @@ This GIVEN has a chunk in the stratum that never successfully builds,
 so we know that if the system successfully builds, then we only built
 chunks that were needed.
 
-    AND stratum test-stratum has chunks that aren't used in test-stratum-minimal
-    AND system test-system uses test-stratum-minimal from test-stratum
+    AND stratum strata/test-stratum.morph has chunks that aren't used in test-stratum-minimal
+    AND system systems/test-system.morph uses test-stratum-minimal from test-stratum
     WHEN the user checks out the system branch called master
-    THEN morph build the system test-system of the branch master
+    THEN morph build the system systems/test-system.morph of the branch master
 
 
 Implementations
@@ -88,48 +89,49 @@ Implementations
 
     IMPLEMENTS GIVEN chunk (\S+) includes the default splitting rules
     # Append default products rules
-    cat <<EOF >>"$DATADIR/gits/$MATCH_1/$MATCH_1.morph"
+    name="$(basename "${MATCH_1%.*}")"
+    cat <<EOF >>"$DATADIR/gits/$name/$MATCH_1"
     products:
-    - artifact: $MATCH_1-bins
+    - artifact: $name-bins
       include: [ "(usr/)?s?bin/.*" ]
-    - artifact: $MATCH_1-libs
+    - artifact: $name-libs
       include:
       - (usr/)?lib(32|64)?/lib[^/]*\.so(\.\d+)*
       - (usr/)?libexec/.*
-    - artifact: $MATCH_1-devel
+    - artifact: $name-devel
       include:
       - (usr/)?include/.*
       - (usr/)?lib(32|64)?/lib.*\.a
       - (usr/)?lib(32|64)?/lib.*\.la
       - (usr/)?(lib(32|64)?|share)/pkgconfig/.*\.pc
-    - artifact: $MATCH_1-doc
+    - artifact: $name-doc
       include:
       - (usr/)?share/doc/.*
       - (usr/)?share/man/.*
       - (usr/)?share/info/.*
-    - artifact: $MATCH_1-locale
+    - artifact: $name-locale
       include:
       - (usr/)?share/locale/.*
       - (usr/)?share/i18n/.*
       - (usr/)?share/zoneinfo/.*
-    - artifact: $MATCH_1-misc
+    - artifact: $name-misc
       include: [ .* ]
     EOF
-    run_in "$DATADIR/gits/$MATCH_1" git add "$MATCH_1.morph"
-    run_in "$DATADIR/gits/$MATCH_1" git commit -m 'Add default splitting rules'
+    run_in "$DATADIR/gits/$name" git add "$MATCH_1"
+    run_in "$DATADIR/gits/$name" git commit -m 'Add default splitting rules'
 
     IMPLEMENTS GIVEN stratum (\S+) includes the default splitting rules
-    # Append default products rules
-    cat <<EOF >"$DATADIR/gits/morphs/$MATCH_1.morph"
-    name: $MATCH_1
+    name=$(basename "${MATCH_1%.*}")
+    cat <<EOF >"$DATADIR/gits/morphs/$MATCH_1"
+    name: $name
     kind: stratum
     products:
-    - artifact: $MATCH_1-devel
+    - artifact: $name-devel
       include:
       - .*-devel
       - .*-debug
       - .*-doc
-    - artifact: $MATCH_1-runtime
+    - artifact: $name-runtime
       include:
       - .*-bins
       - .*-libs
@@ -144,32 +146,29 @@ Implementations
         build-mode: test
         build-depends: []
         artifacts:
-            test-chunk-bins: $MATCH_1-runtime
-            test-chunk-libs: $MATCH_1-runtime
-            test-chunk-locale: $MATCH_1-runtime
-            test-chunk-misc: $MATCH_1-runtime
-            test-chunk-devel: $MATCH_1-devel
-            test-chunk-doc: $MATCH_1-devel
+            test-chunk-bins: $name-runtime
+            test-chunk-libs: $name-runtime
+            test-chunk-locale: $name-runtime
+            test-chunk-misc: $name-runtime
+            test-chunk-devel: $name-devel
+            test-chunk-doc: $name-devel
     EOF
-    run_in "$DATADIR/gits/morphs" git add "$MATCH_1.morph"
+    run_in "$DATADIR/gits/morphs" git add "$MATCH_1"
     run_in "$DATADIR/gits/morphs" git commit -m 'Add default splitting rules'
 
     IMPLEMENTS GIVEN system (\S+) includes the default splitting rules
-    cat << EOF > "$DATADIR/gits/morphs/$MATCH_1.morph"
-    name: $MATCH_1
-    kind: system
-    arch: $(run_morph print-architecture)
+    cat << EOF >> "$DATADIR/gits/morphs/$MATCH_1"
     strata:
     -   name: test-stratum
-        morph: test-stratum
+        morph: strata/test-stratum.morph
         artifacts:
         - test-stratum-runtime
         - test-stratum-devel
     EOF
-    run_in "$DATADIR/gits/morphs" git add "$MATCH_1.morph"
+    run_in "$DATADIR/gits/morphs" git add "$MATCH_1"
     run_in "$DATADIR/gits/morphs" git commit -m 'Add default splitting rules'
 
-    IMPLEMENTS GIVEN stratum (\S+) has chunks that aren't used in (\1-\S+)
+    IMPLEMENTS GIVEN stratum (\S+) has chunks that aren't used in (\S+)
     # Create an extra chunk that will never successfully build
     cat >"$DATADIR/gits/test-chunk/unbuildable-chunk.morph" <<EOF
     name: unbuildable-chunk
@@ -182,9 +181,7 @@ Implementations
 
     # Create a stratum that has an artifact that doesn't include any
     # artifacts from unbuildable-chunk
-    cat >"$DATADIR/gits/morphs/$MATCH_1.morph" <<EOF
-    name: $MATCH_1
-    kind: stratum
+    cat >>"$DATADIR/gits/morphs/$MATCH_1" <<EOF
     products:
     - artifact: $MATCH_2
       include:
@@ -204,5 +201,5 @@ Implementations
       build-depends:
       - test-chunk
     EOF
-    run_in "$DATADIR/gits/morphs" git add "$MATCH_1.morph"
-    run_in "$DATADIR/gits/morphs" git commit -m "add -$MATCH_2 to stratum"
+    run_in "$DATADIR/gits/morphs" git add "$MATCH_1"
+    run_in "$DATADIR/gits/morphs" git commit -m "add $MATCH_2 to stratum"
