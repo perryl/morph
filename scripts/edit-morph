@@ -283,13 +283,9 @@ class EditMorph(cliapp.Application):
         return system
 
     def cmd_cluster_init(self, (cluster_file,)):
-        suffix = '.morph'
-        if not cluster_file.endswith(suffix):
-            raise cliapp.AppException(
-                "Morphology file path must end with .morph")
         with open(cluster_file, 'w') as f:
             d = {
-                'name': os.path.basename(cluster_file)[:-len(suffix)],
+                'name': os.path.splitext(os.path.basename(cluster_file))[0],
                 'kind': 'cluster',
             }
             yaml.dump(d, f)

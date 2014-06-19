@@ -178,21 +178,21 @@ all the refs are unchanged.
     GIVEN       a workspace
     AND         a git server
     WHEN        the user creates a system branch called foo
-    THEN        in branch foo, stratum test-stratum refs test-chunk in master
+    THEN        in branch foo, stratum strata/test-stratum.morph refs test-chunk in master
 
 Edit the chunk. We make use of special knowledge here: `test:test-chunk`
 is a chunk repository created in the mocked git server, for testing
 purposes.
 
-    WHEN the user edits the chunk test-chunk in the stratum test-stratum in the system test-system in branch foo
-    THEN in branch foo, stratum test-stratum refs test-chunk in foo
+    WHEN the user edits the chunk test-chunk in branch foo
+    THEN in branch foo, stratum strata/test-stratum.morph refs test-chunk in foo
     AND  the edited chunk test:test-chunk has git branch foo
 
 Editing a morphology should not cause it to start having repo or ref
 fields when referring to strata, when it didn't before.
 
-    AND  in branch foo, system test-system refers to test-stratum without repo
-    AND  in branch foo, system test-system refers to test-stratum without ref
+    AND  in branch foo, system systems/test-system.morph refers to test-stratum without repo
+    AND  in branch foo, system systems/test-system.morph refers to test-stratum without ref
 
 Status of system branch checkout
 --------------------------------
@@ -207,7 +207,7 @@ repositories referenced in the system branch.
     WHEN        the user creates a system branch called foo
     THEN        morph reports no outstanding changes in foo
 
-    WHEN the user edits the chunk test-chunk in the stratum test-stratum in the system test-system in branch foo
+    WHEN the user edits the chunk test-chunk in branch foo
     THEN morph reports changes in foo in test:morphs only
 
     WHEN        creating file foo in test/test-chunk in branch foo
@@ -232,7 +232,7 @@ branch checkout.
     GIVEN a workspace
     AND   a git server
     WHEN  the user creates a system branch called foo
-    AND   the user edits the chunk test-chunk in the stratum test-stratum in the system test-system in branch foo
+    AND   the user edits the chunk test-chunk in branch foo
     AND   running shell command in each repo in foo
     THEN  morph ran command in test/morphs in foo
     AND   morph ran command in test/test-chunk in foo
@@ -257,8 +257,8 @@ unpetrify and verify that we have all the same refs as before.
 Petrifying a morphology should not cause it to start having repo or ref
 fields when referring to strata, when it didn't before.
 
-    AND  in branch foo, system test-system refers to test-stratum without repo
-    AND  in branch foo, system test-system refers to test-stratum without ref
+    AND  in branch foo, system systems/test-system.morph refers to test-stratum without repo
+    AND  in branch foo, system systems/test-system.morph refers to test-stratum without ref
 
 Unpetrify must put the morphologies back in the same logical state they
 were in before.
@@ -269,8 +269,8 @@ were in before.
 Unpetrifying a morphology should not cause it to start having repo or
 ref fields when referring to strata, when it didn't before.
 
-    AND  in branch foo, system test-system refers to test-stratum without repo
-    AND  in branch foo, system test-system refers to test-stratum without ref
+    AND  in branch foo, system systems/test-system.morph refers to test-stratum without repo
+    AND  in branch foo, system systems/test-system.morph refers to test-stratum without ref
 
 Generating a manifest works
 
