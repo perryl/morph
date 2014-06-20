@@ -1,9 +1,14 @@
-# Stratum from Ruby Gems, Python edition.
+# Still to do:
 
-# The Ruby version may not be necessary -- since rubygems.org provides an API,
-# we can get platform-neutral data instead of Ruby-specific YAML. The only
-# non-trivial thing seems to be comparing versions of Gems, but we could
-# perhaps shell out to Ruby to do this anyway.
+#   - not all Gems are resolved to the right source repos so far: that needs to
+#   change (just hardcode the unknown ones, for now).
+
+#   - needs to output the 'ruby-core' stratum (stuff that other stuff in Ruby
+#   build-depends on, that should probably all be installed using 'Gem' to
+#   avoid circular dependencies). 'chef', 'gitlab', 'heroku', etc. strata,
+#   which contain just the necessary stuff for those, built from source or
+#   Gems, and 'ruby-foundation', which contains the common chunks from those
+#   strata (build from source or Gems, again).
 
 
 import requests
@@ -19,7 +24,7 @@ from itertools import chain
 
 
 # Some random popular Gems
-gems = [
+goals = [
     #'capistrano',
     'chef',
     #'gitlab',
@@ -35,7 +40,7 @@ gems = [
 ]
 
 # Shorter!
-#gems = ['thor']
+gems = ['vagrant']
 
 # Ruby bundles some Gems! This list was generated with 'gem list' after a Ruby
 # 2.0.0p477 install.
@@ -52,6 +57,10 @@ built_in_gems = {
 
 # Gems that can't be built from source due to circular dependencies. The set
 # of runtime dependencies of these Gems is removed from the stratum.
+# FIXME: this list shouldn't be necessary. The script should find the smallest
+# set of Gems to be installed by 'gem' rather than built by source to allow the
+# rest of the Ruby universe to be built from source. It might require some
+# hints, but nothing more.
 never_build_these_gems = {
     # Dep loop 1
     'hoe-highline': '0',
@@ -82,6 +91,7 @@ known_source_uris = {
     'activesupport': 'https://github.com/rails/rails',
     'rails': 'https://github.com/rails/rails',
 }
+
 
 # Save hammering the rubygems.org API: 'requests' API calls are
 # transparently cached in an SQLite database, instead.
@@ -286,6 +296,8 @@ class RubyGemsResolver(object):
 
         # Now convert all build dependency lists to point at the chunk,
         # rather than name of the Gem.
+        # FIXME: you'll need to wait until you've solved all the dependency
+        # loops and are actually creating the graph, really.
         for chunk in resolved_chunks.itervalues():
             deps_as_gems = chunk.build_deps
             deps_as_chunks = set(resolved_gems[name] for name in deps_as_gems)
@@ -307,58 +319,66 @@ class RubyGemsResolver(object):
 
 
 class CreateStratum(object):
-    def _sort_chunks(self, chunks):
+    def solve_build_graph(self, chunks):
+        # Construct graph from dependency info. Note that only the 'goal'
+        # chunks are the ones we care about running in the build system.
+        # Thus, all dependencies become build dependencies except those of the
+        # goal chunks, because every other chunk is there because we want it to
+        # run as part of the build process.
+
+        def chunk_is_build_tool_only(chunk):
+            return (len(chunk.artifacts.intersection(goals)) == 0)
+
+        for chunk in chunks.itervalues():
+            if chunk_is_build_tool_only(chunk):
+                chunk.build_deps.update(chunk.runtime_deps)
+                chunk.runtime_deps = []
+
         graph = {chunk:chunk.build_deps for chunk in chunks.itervalues()}
+
+        def get_dependency_loops(graph):
+            '''Return all dependency loops, shortest first.'''
+            transitive_closure = tarjan.tc.tc(graph)
+            loops_set = set()
+            for key,value in transitive_closure.iteritems():
+                if key in value:
+                    loops_set.add(value)
+            return sorted(loops_set, key=lambda x: len(x))
+
+        loops = get_dependency_loops(graph)
+        if len(loops) > 0:
+            for loop in loops:
+                print 'Dependency loop: ', ', '.join(chunk.name for chunk in loop)
+                most_deps = sorted(loop, key=lambda chunk: len(chunk.build_deps))
+                print 'Of these, %s has the most build dependencies' % (most_deps[0])
+                print '(chunk %s has artifacts: %s)' % (most_deps[0], most_deps[0].artifacts)
+                print 'Of these, %s has the least build dependencies' % (most_deps[-1])
+                print '(chunk %s has artifacts: %s)' % (most_deps[-1], most_deps[-1].artifacts)
+
+                graph_for_loop = {chunk:chunk.build_deps for chunk in loop}
+                loop_tc = tarjan.tc.tc(graph_for_loop)
+                print 'TC for loop:'
+                for k, v in loop_tc.iteritems():
+                    print '\t%s: %s' % (k.name, ', '.join(c.name for c in v))
+                print '\n\n'
+
+        return graph
+
+    def _sort_graph(self, graph):
         return toposort.toposort_flatten(graph)
 
-    def _sort_chunks_2(self, chunk_dict):
-        sort_order = list(chunk_dict.keys())
-        sort_order.sort(key=lambda x: x.lower())
-
-        sorted_chunks = []
-        satisfied_list = []
-
-        # Simple try-try-again algorithm to satisfy dependency ordering too
-        repeat_count = 0
-        while len(sort_order) > 0:
-            postponed_list = []
-
-            for chunk_name in sort_order:
-                deps_satisfied = True
-
-                chunk = chunk_dict[chunk_name]
-                for dep in chunk.build_deps:
-                    assert dep != chunk
-                    if dep not in satisfied_list:
-                        deps_satisfied = False
-                        break
-
-                if deps_satisfied:
-                    sorted_chunks.append(chunk)
-                    satisfied_list.append(chunk_name)
-                else:
-                    postponed_list.append(chunk_name)
-
-            if len(postponed_list) == len(sort_order):
-                # We're probably stuck
-                repeat_count += 1
-                if repeat_count > 100:
-                    raise Exception(
-                        'Cannot order these chunks: %s. Probably circular '
-                        'dependencies.' % ', '.join(postponed_list))
-
-            sort_order = sorted(postponed_list, reverse=True)
-        return sorted_chunks
-
     def _process_chunks(self, chunks):
-        sorted_chunk_list = self._sort_chunks(chunks)
+        graph = self.solve_build_graph(chunks)
+        sorted_chunk_list = self._sort_graph(graph)
         chunk_info_list = []
         for chunk in sorted_chunk_list:
             info = {
                 'name': chunk.name,
                 'repo': chunk.repo,
                 'ref': chunk.ref,
-                'build-depends': [dep.name for dep in chunk.build_deps]
+                'build-depends': [dep.name for dep in chunk.build_deps],
+                # Not used in Baserock, but useful info for debugging.
+                'runtime-depends': [dep.name for dep in chunk.runtime_deps],
             }
             chunk_info_list.append(info)
         return chunk_info_list
@@ -374,43 +394,7 @@ class CreateStratum(object):
 
 resolver = RubyGemsResolver()
 
-chunks = resolver.resolve_chunks_for_gems(gems)
-
-def get_reverse_dependencies(chunks):
-    for chunk_info in chunks.itervalues():
-        for dep_chunk in chunk_info.build_deps:
-            chunk_rdeps = getattr(dep_chunk, 'n_reverse_dependencies', 0) + 1
-            dep_chunk.n_reverse_dependencies = chunk_rdeps
-
-    rdeps = {}
-    for chunk_name, chunk_info in chunks.iteritems():
-        rdeps[chunk_name] = getattr(chunk_info, 'n_reverse_dependencies', 0)
-    n_reverse_dependencies = lambda x: x[1]
-    return sorted(rdeps.iteritems(), key=n_reverse_dependencies)
-
-
-def get_dependency_loops(chunks):
-    '''Return all dependency loops, shorted first.'''
-    graph = {chunk:chunk.build_deps for chunk in chunks.itervalues()}
-    transitive_closure = tarjan.tc.tc(graph)
-    loops_set = set()
-    for key,value in transitive_closure.iteritems():
-        if key in value:
-            loops_set.add(value)
-    return sorted(loops_set, key=lambda x: len(x))
-
-
-print get_reverse_dependencies(chunks)
-loops = get_dependency_loops(chunks)
-
-if len(loops) > 0:
-    for loop in loops:
-        print 'Dependency loop: ', ', '.join(chunk.name for chunk in loop)
-        most_deps = sorted(loop, key=lambda chunk: len(chunk.build_deps))
-        print 'Of these, %s has the most build dependencies' % (most_deps[0])
-        print '(chunk %s has artifacts: %s)' % (most_deps[0], most_deps[0].artifacts)
-        print 'Of these, %s has the least build dependencies' % (most_deps[-1])
-        print '(chunk %s has artifacts: %s)' % (most_deps[-1], most_deps[-1].artifacts)
+chunks = resolver.resolve_chunks_for_gems(goals)
 
 stratum = CreateStratum().create_stratum('rubytest', chunks)
 
