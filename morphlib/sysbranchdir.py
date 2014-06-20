@@ -176,7 +176,8 @@ class SystemBranchDirectory(object):
         gd_name = self.get_git_directory_name(self.root_repository_url)
         gd = morphlib.gitdir.GitDirectory(gd_name)
         mf = morphlib.morphologyfinder.MorphologyFinder(gd)
-        for filename in mf.list_morphologies():
+        for filename in (f for f in mf.list_morphologies()
+                         if not gd.is_symlink(f)):
             text = mf.read_morphology(filename)
             m = loader.load_from_string(text, filename=filename)
             m.repo_url = self.root_repository_url

@@ -515,6 +515,16 @@ class GitDirectory(object):
         tree = self.resolve_ref_to_tree(ref)
         return self.get_file_from_ref(tree, filename)
 
+    def is_symlink(self, filename, ref=None):
+        if ref is None and self.is_bare():
+            raise NoWorkingTreeError(self)
+        if ref is None:
+            filepath = os.path.join(self.dirname, filename.lstrip('/'))
+            return os.path.islink(filepath)
+        tree_entry = self._runcmd(['git', 'ls-tree', ref, filename])
+        file_mode = tree_entry.split(' ', 1)[0]
+        return file_mode == '120000'
+
     @property
     def HEAD(self):
         output = self._runcmd(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])

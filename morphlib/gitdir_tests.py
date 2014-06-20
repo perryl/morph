@@ -216,6 +216,43 @@ class GitDirectoryContentsTests(unittest.TestCase):
         self.assertEqual(gd.describe(), 'example')
 
 
+class GitDirectoryFileTypeTests(unittest.TestCase):
+
+    def setUp(self):
+        self.tempdir = tempfile.mkdtemp()
+        self.dirname = os.path.join(self.tempdir, 'foo')
+        os.mkdir(self.dirname)
+        gd = morphlib.gitdir.init(self.dirname)
+        with open(os.path.join(self.dirname, 'file'), "w") as f:
+            f.write('dummy morphology text')
+        os.symlink('file', os.path.join(self.dirname, 'link'))
+        os.symlink('no file', os.path.join(self.dirname, 'broken'))
+        gd._runcmd(['git', 'add', '.'])
+        gd._runcmd(['git', 'commit', '-m', 'Initial commit'])
+        self.mirror = os.path.join(self.tempdir, 'mirror')
+        gd._runcmd(['git', 'clone', '--mirror', self.dirname, self.mirror])
+
+    def tearDown(self):
+        shutil.rmtree(self.tempdir)
+
+    def test_working_tree_symlinks(self):
+        gd = morphlib.gitdir.GitDirectory(self.dirname)
+        self.assertTrue(gd.is_symlink('link'))
+        self.assertTrue(gd.is_symlink('broken'))
+        self.assertFalse(gd.is_symlink('file'))
+
+    def test_bare_symlinks(self):
+        gd = morphlib.gitdir.GitDirectory(self.mirror)
+        self.assertTrue(gd.is_symlink('link', 'HEAD'))
+        self.assertTrue(gd.is_symlink('broken', 'HEAD'))
+        self.assertFalse(gd.is_symlink('file', 'HEAD'))
+
+    def test_is_symlink_raises_no_ref_no_work_tree(self):
+        gd = morphlib.gitdir.GitDirectory(self.mirror)
+        self.assertRaises(morphlib.gitdir.NoWorkingTreeError,
+                          gd.is_symlink, 'file')
+
+
 class GitDirectoryRefTwiddlingTests(unittest.TestCase):
 
     def setUp(self):
