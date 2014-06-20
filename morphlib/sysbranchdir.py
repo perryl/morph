@@ -175,7 +175,7 @@ class SystemBranchDirectory(object):
     def load_all_morphologies(self, loader): # pragma: no cover
         gd_name = self.get_git_directory_name(self.root_repository_url)
         gd = morphlib.gitdir.GitDirectory(gd_name)
-        for filename in gd.list_files():
+        for filename in (f for f in gd.list_files() if not gd.is_symlink(f)):
             text = gd.read_file(filename)
             try:
                 m = loader.load_from_string(text, filename=filename)
