@@ -307,9 +307,10 @@ class BuildCommand(object):
         in either the local or remote cache already.
 
         '''
-        self.app.status(msg='Building %(kind)s %(name)s',
+        self.app.status(msg='Building %(kind)s %(name)s %(sha1)s',
                         name=artifact.name,
-                        kind=artifact.source.morphology['kind'])
+                        kind=artifact.source.morphology['kind'],
+                        sha1=artifact.source.sha1[:7])
 
         self.get_sources(artifact)
         deps = self.get_recursive_deps(artifact)
