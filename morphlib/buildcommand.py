@@ -209,7 +209,7 @@ class BuildCommand(object):
             # and Ref specified.
             if src.morphology['kind'] == 'stratum':
                 name = src.morphology['name']
-                ref = src.sha1[:7]
+                ref = src.sha1[:8]
                 self.app.status(msg='Stratum [%(name)s] version is %(ref)s', 
                                 name=name, ref=ref)
                 if name in stratum_names:
@@ -307,9 +307,10 @@ class BuildCommand(object):
         in either the local or remote cache already.
 
         '''
-        self.app.status(msg='Building %(kind)s %(name)s',
+        self.app.status(msg='Building %(kind)s %(name)s %(sha1)s',
                         name=artifact.name,
-                        kind=artifact.source.morphology['kind'])
+                        kind=artifact.source.morphology['kind'],
+                        sha1=artifact.source.sha1[:8])
 
         self.get_sources(artifact)
         deps = self.get_recursive_deps(artifact)
@@ -481,7 +482,7 @@ class BuildCommand(object):
             self.app.status(
                 msg='Installing chunk %(chunk_name)s from cache %(cache)s',
                 chunk_name=artifact.name,
-                cache=artifact.cache_key[:7],
+                cache=artifact.cache_key[:8],
                 chatty=True)
             handle = self.lac.get(artifact)
             staging_area.install_artifact(handle)
@@ -494,7 +495,7 @@ class BuildCommand(object):
 
         self.app.status(msg='Starting actual build: %(name)s '
                             '%(sha1)s',
-                        name=artifact.name, sha1=artifact.source.sha1[:7])
+                        name=artifact.name, sha1=artifact.source.sha1[:8])
         builder = morphlib.builder2.Builder(
             self.app, staging_area, self.lac, self.rac, self.lrc,
             self.app.settings['max-jobs'], setup_mounts)
