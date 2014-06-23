@@ -11,6 +11,7 @@
 #   strata (build from source or Gems, again).
 
 
+import networkx
 import requests
 import requests_cache
 import tarjan.tc
@@ -40,7 +41,7 @@ goals = [
 ]
 
 # Shorter!
-gems = ['vagrant']
+#gems = ['vagrant']
 
 # Ruby bundles some Gems! This list was generated with 'gem list' after a Ruby
 # 2.0.0p477 install.
@@ -55,32 +56,6 @@ built_in_gems = {
     'test-unit': '2.0.0.0',
 }
 
-# Gems that can't be built from source due to circular dependencies. The set
-# of runtime dependencies of these Gems is removed from the stratum.
-# FIXME: this list shouldn't be necessary. The script should find the smallest
-# set of Gems to be installed by 'gem' rather than built by source to allow the
-# rest of the Ruby universe to be built from source. It might require some
-# hints, but nothing more.
-never_build_these_gems = {
-    # Dep loop 1
-    'hoe-highline': '0',
-    'hoe-mercurial': '0',
-
-    # Dep loop 2 (with utils)
-    'gem_hadar': '0',
-
-    # Dep loop 3 (with tst-unit-rr)
-    'packnga': 'https://github.com/rails/rails',
-
-    # More things that cause dep loops
-    'qed': '0',
-    'shoulda': '0',
-    'cucumber': '0',
-    'rspec': '0',
-
-    'capybara': 'https://github.com/rails/rails',
-
-}
 
 known_source_uris = {
     'actionmailer': 'https://github.com/rails/rails',
@@ -98,7 +73,7 @@ known_source_uris = {
 requests_cache.install_cache('rubygems_api_cache')
 
 
-class Chunk(object):
+class Source(object):
     def __init__(self, name, repo, ref, build_deps=[], runtime_deps=[]):
         self.name = name
         self.repo = repo
@@ -120,7 +95,37 @@ class Chunk(object):
         self.runtime_deps.update(set(dependencies))
 
     def add_artifact(self, artifact):
+        assert isinstance(artifact, Artifact)
         self.artifacts.add(artifact)
+
+    def walk_deps(self):
+        '''Find all dependencies of this source.
+
+        If it is being built to run in the resulting system, we care only
+        about the build dependencies. If it's something that's a build
+        dependency of something else, then we care about the runtime
+        dependencies too because it's likely to be executed at built time.
+
+        '''
+        done = set()
+
+        def depth_first(source):
+            if source not in done:
+                done.add(source)
+
+                for dep in sorted(source.build_deps):
+                    for ret in depth_first(dep.source):
+                        yield ret
+
+                yield source
+
+        return depth_first(self)
+
+
+class Artifact(object):
+    def __init__(self, name, source):
+        self.name = name
+        self.source = source
 
 
 class RubyTreasureHunter(object):
@@ -220,8 +225,13 @@ class RubyGemsResolver(object):
             gem_runtime_deps = gem_info['dependencies']['runtime']
             gem_build_deps = gem_info['dependencies']['development']
 
-            chunk_build_deps = set()
-            chunk_runtime_deps = set()
+            # There are version constraints specified here that we
+            # currently ignore. Furthermore, the Gemfile.lock (Bundler)
+            # file may have an even more specific constraint! I think
+            # ideally we want to run 'master' of everything, or at least
+            # the last tagged commit of everything, so let's ignore this
+            # info for now and start some builds!
+
             for dep_info in gem_build_deps + gem_runtime_deps:
                 dep_name = dep_info['name']
                 ignore = chain(to_process, resolved_gems.iterkeys(),
@@ -229,12 +239,8 @@ class RubyGemsResolver(object):
                 if dep_name not in ignore:
                     to_process.append(dep_name)
 
-            # There are version constraints specified here that we
-            # currently ignore. Furthermore, the Gemfile.lock (Bundler)
-            # file may have an even more specific constraint! I think
-            # ideally we want to run 'master' of everything, or at least
-            # the last tagged commit of everything, so let's ignore this
-            # info for now and start some builds!
+            chunk_build_deps = set()
+            chunk_runtime_deps = set()
 
             for dep_info in gem_build_deps:
                 dep_name = dep_info['name']
@@ -248,74 +254,115 @@ class RubyGemsResolver(object):
 
             if chunk is None:
                 ref = 'master'
-                chunk = Chunk(chunk_name, repo, ref, chunk_build_deps,
-                              chunk_runtime_deps)
+                chunk = Source(chunk_name, repo, ref, chunk_build_deps,
+                               chunk_runtime_deps)
                 resolved_chunks[chunk_name] = chunk
             else:
                 chunk.add_build_deps(chunk_build_deps)
                 chunk.add_runtime_deps(chunk_runtime_deps)
 
-            resolved_gems[gem_name] = chunk
-            chunk.add_artifact(gem_name)
+            artifact = Artifact(gem_name, chunk)
+            resolved_gems[gem_name] = artifact
+            chunk.add_artifact(artifact)
 
-        # Remove the never_build_these_gems from the graph, and any runtime
-        # Gem dependencies they have. We'll install these from Gem files, to
-        # avoid cycling dependency issues that they might cause, and all of
-        # their runtime dependencies will be installed along with them.
-        def remove_chunk_and_its_runtime_deps_from_graph(chunk):
-            for dep in chunk.runtime_deps:
-                remove_chunk_and_its_runtime_deps_from_graph(dep)
-            if chunk_name in resolved_chunks:
-                del resolved_chunks[chunk_name]
-            for artifact in chunk.artifacts:
-                if artifact in resolved_gems:
-                    del resolved_gems[artifact]
-
-        gems_to_remove = set()
-        def remove_recursive(gem_name):
-            if gem_name in gems_to_remove:
-                return
-            gems_to_remove.add(gem_name)
-            chunk = resolved_gems[gem_name]
-            for dep in chunk.runtime_deps:
-                remove_recursive(dep)
-
-        for gem_name in never_build_these_gems:
-            remove_recursive(gem_name)
-
-        core_chunks = set()
-        for chunk in resolved_chunks.itervalues():
-            if gems_to_remove.issuperset(chunk.artifacts):
-                core_chunks.add(chunk)
-
-        for chunk in core_chunks:
-            del resolved_chunks[chunk.name]
-
-        print 'Core gems: %s' % gems_to_remove
-        print 'Core chunks: %s' % core_chunks
-
-        # Now convert all build dependency lists to point at the chunk,
-        # rather than name of the Gem.
-        # FIXME: you'll need to wait until you've solved all the dependency
-        # loops and are actually creating the graph, really.
-        for chunk in resolved_chunks.itervalues():
-            deps_as_gems = chunk.build_deps
-            deps_as_chunks = set(resolved_gems[name] for name in deps_as_gems)
-            # Delete any chunks that we decided not to build
-            deps_as_chunks.difference_update(core_chunks)
-            # Also stop a chunk depending on itself.
-            if chunk in deps_as_chunks:
-                deps_as_chunks.remove(chunk)
-            chunk.build_deps = deps_as_chunks
-
-            deps_as_gems = chunk.runtime_deps
-            deps_as_chunks = set(resolved_gems[name] for name in deps_as_gems)
-            deps_as_chunks.difference_update(core_chunks)
-            if chunk in deps_as_chunks:
-                deps_as_chunks.remove(chunk)
-            chunk.runtime_deps = deps_as_chunks
+        self.resolve_dependencies(resolved_chunks, resolved_gems)
 
         return resolved_chunks
+
+    def resolve_dependencies(self, sources, artifacts):
+        used_at_build_time = set()
+
+        # Convert the dependencies from being lists of names to being the
+        # actual artifact objects.
+        for chunk in sources.itervalues():
+            dep_names = chunk.build_deps
+            dep_artifacts = set(artifacts[name] for name in dep_names)
+            # Dependencies between artifacts from the same source cause the
+            # source to depend on itself. Remove those.
+            dep_artifacts.difference_update(chunk.artifacts)
+            chunk.build_deps = dep_artifacts
+
+            for artifact in dep_artifacts:
+                used_at_build_time.add(artifact.source)
+
+        for chunk in sources.itervalues():
+            dep_names = chunk.runtime_deps
+            dep_artifacts = set(artifacts[name] for name in dep_names)
+            dep_artifacts.difference_update(chunk.artifacts)
+
+            # If a chunk is needed at build time, all its dependencies are
+            # needed at build time too.
+            if chunk in used_at_build_time:
+                chunk.build_deps.update(dep_artifacts)
+                chunk.runtime_deps = set()
+            else:
+                chunk.runtime_deps = dep_artifacts
+
+
+class DependencyGraphSolver(object):
+    def solve(self, chunks, goal_chunks, built_in_artifacts):
+        bootstrap = set()
+
+        # Eventually this should produce:
+        #   - runtime dependency info? yeah, for a -runtime split stratum
+        #   - devel dependency info, for -devel split stratum
+        # Produce graph from the set of chunks
+        graph = networkx.DiGraph()
+        for chunk in chunks.itervalues():
+            graph.add_node(chunk)
+            graph.add_edges_from((chunk, dep.source) for dep in
+                                 chunk.build_deps)
+            #graph.add_edges_from((chunk, dep.source) for dep in chunk.build_deps)
+
+        def solve_loop(loop):
+            # FIXME: this algorithm isn't good enough, what we need to do is
+            # compute the shortest path within the cycle and remove that one...
+            n_build_deps = lambda chunk: len(list(chunk.walk_deps()))
+            to_remove = sorted(loop, key=n_build_deps, reverse=True)[0]
+            print 'Moving chunk %s to bootstrap as it has only %i deps' % \
+                (to_remove, n_build_deps(to_remove))
+            for c in chunks.itervalues():
+                c.build_deps.difference_update(to_remove.artifacts)
+            # It makes sense to remove the chunk which has the smallest set of
+            # dependencies, but because this is a loop, all chunks in the loop
+            # will be removed because they all depend on each other. This is
+            # dumb but it will have to do for now.
+            chunk_and_deps = list(to_remove.walk_deps())
+            bootstrap.update(chunk_and_deps)
+            graph.remove_nodes_from(chunk_and_deps)
+
+        for i in range(0,10):
+            # This outputs ALL cycles (the transitive closure). I don't really
+            # want all permutations, just one instance of each cycle. ...
+            # FIXME: also, this seems to become infinite quite easily ... maybe
+            # I should use tarjan.tc.tc() instead.
+            loops = networkx.simple_cycles(graph)
+            #for l in loops:
+             #   print l
+            #loops_by_length = sorted(loops, key=lambda x: len(x))
+            #if len(loops_by_length) == 0:
+            #    break
+            #print '%i dependency loops' % len(loops_by_length)
+            #print 'Removing loop %s' % loops_by_length[0]
+            #solve_loop(loops_by_length[0])
+            # solve the loop
+            try:
+                loop = next(loops)
+            except StopIteration:
+                break
+            print 'Removing loop %s' % loop
+            solve_loop(loop)
+
+        # This is the set we'll install as Gems, systemwide.
+        print 'Bootstrap set: %s' % bootstrap
+
+        build_order = networkx.topological_sort(graph)
+
+        print 'Build order: %s' % build_order
+        import pdb
+        pdb.set_trace()
+
+        return bootstrap, build_order
 
 
 class CreateStratum(object):
@@ -395,6 +442,11 @@ class CreateStratum(object):
 resolver = RubyGemsResolver()
 
 chunks = resolver.resolve_chunks_for_gems(goals)
+
+graph_solver = DependencyGraphSolver()
+graphs = graph_solver.solve(chunks, goals, built_in_gems)
+
+print graphs
 
 stratum = CreateStratum().create_stratum('rubytest', chunks)
 
