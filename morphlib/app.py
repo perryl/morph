@@ -381,11 +381,14 @@ class Morph(cliapp.Application):
                          s.get('ref') or ref,
                          morphlib.util.sanitise_morphology_path(s['morph']))
                         for s in morphology['build-depends'])
-                queue.extend(
-                    (c['repo'],
-                     c['ref'],
-                     morphlib.util.sanitise_morphology_path(c['morph']))
-                    for c in morphology['chunks'])
+                for c in morphology['chunks']:
+                    if 'morph' not in c:
+                        reponame = c['repo']
+                        ref = c['ref']
+                    queue.append(
+                        (reponame,
+                         ref,
+                         morphlib.util.sanitise_morphology_path(c['morph'])))
 
     def cache_repo_and_submodules(self, cache, url, ref, done):
         subs_to_process = set()
