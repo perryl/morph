@@ -115,11 +115,8 @@ class MorphologyFactory(object):
         text = self._get_morphology_text(reponame, sha1, filename)
         morph_name = os.path.splitext(os.path.basename(filename))[0]
 
-        try:
-            morphology = morphlib.morph2.Morphology(text)
-        except morphlib.YAMLError as e: # pragma: no cover
-            raise morphlib.Error("Error parsing %s: %s" %
-                                 (filename, str(e)))
+        loader = morphlib.morphloader.MorphologyLoader()
+        morphology = loader.load_from_string(text)
 
         if morph_name != morphology['name']:
             raise morphlib.Error(
