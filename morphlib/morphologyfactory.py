@@ -105,8 +105,11 @@ class MorphologyFactory(object):
                 raise AutodetectError(reponame, sha1, filename)
             text = bs.get_morphology_text(morph_name)
 
-        loader = morphlib.morphloader.MorphologyLoader()
-        morphology = loader.load_from_string(text)
+        try:
+            morphology = morphlib.morph2.Morphology(text)
+        except morphlib.YAMLError as e: # pragma: no cover
+            raise morphlib.Error("Error parsing %s: %s" %
+                                 (filename, str(e)))
 
         if morph_name != morphology['name']:
             raise morphlib.Error(
