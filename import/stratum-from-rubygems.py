@@ -16,12 +16,18 @@ import requests
 import requests_cache
 import tarjan.tc
 import toposort
+import yaml
 
 import collections
+import logging
 import json
 import os
 import urlparse
 from itertools import chain
+from logging import debug
+
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 # Some random popular Gems
@@ -82,8 +88,10 @@ class Source(object):
         self.runtime_deps = set(runtime_deps)
         self.artifacts = set()
 
+        self.used_at_build_time = False
+
     def __repr__(self):
-        return '<chunk %s>' % self.name
+        return '<source %s>' % self.name
 
     def __str__(self):
         return self.name
@@ -126,6 +134,12 @@ class Artifact(object):
     def __init__(self, name, source):
         self.name = name
         self.source = source
+
+    def __repr__(self):
+        return '<artifact %s>' % self.name
+
+    def __str__(self):
+        return self.name
 
 
 class RubyTreasureHunter(object):
@@ -270,8 +284,6 @@ class RubyGemsResolver(object):
         return resolved_chunks
 
     def resolve_dependencies(self, sources, artifacts):
-        used_at_build_time = set()
-
         # Convert the dependencies from being lists of names to being the
         # actual artifact objects.
         for chunk in sources.itervalues():
@@ -283,26 +295,34 @@ class RubyGemsResolver(object):
             chunk.build_deps = dep_artifacts
 
             for artifact in dep_artifacts:
-                used_at_build_time.add(artifact.source)
+                artifact.source.used_at_build_time = True
 
         for chunk in sources.itervalues():
             dep_names = chunk.runtime_deps
             dep_artifacts = set(artifacts[name] for name in dep_names)
             dep_artifacts.difference_update(chunk.artifacts)
 
-            # If a chunk is needed at build time, all its dependencies are
-            # needed at build time too.
-            if chunk in used_at_build_time:
-                chunk.build_deps.update(dep_artifacts)
-                chunk.runtime_deps = set()
-            else:
-                chunk.runtime_deps = dep_artifacts
+            chunk.runtime_deps = dep_artifacts
 
 
 class DependencyGraphSolver(object):
-    def solve(self, chunks, goal_chunks, built_in_artifacts):
-        bootstrap = set()
+    def get_dependency_loops(self, graph):
+        '''Return a subgraph for each cycle in the build graph.'''
 
+        subgraphs = networkx.strongly_connected_component_subgraphs(
+            graph, copy=False)
+
+        # Nodes with no edges at all are considered strongly connected, but
+        # these are not important to us.
+        loop_subgraphs = [g for g in subgraphs if g.number_of_nodes() > 1]
+
+        return loop_subgraphs
+
+    def save_as_dot(self, graph, path):
+        # requires pygraphviz
+        networkx.write_dot(graph, path)
+
+    def solve(self, chunks, goal_chunks):
         # Eventually this should produce:
         #   - runtime dependency info? yeah, for a -runtime split stratum
         #   - devel dependency info, for -devel split stratum
@@ -312,113 +332,52 @@ class DependencyGraphSolver(object):
             graph.add_node(chunk)
             graph.add_edges_from((chunk, dep.source) for dep in
                                  chunk.build_deps)
-            #graph.add_edges_from((chunk, dep.source) for dep in chunk.build_deps)
+            if chunk.used_at_build_time:
+                graph.add_edges_from((chunk, dep.source) for dep in
+                                    chunk.runtime_deps)
 
-        def solve_loop(loop):
-            # FIXME: this algorithm isn't good enough, what we need to do is
-            # compute the shortest path within the cycle and remove that one...
-            n_build_deps = lambda chunk: len(list(chunk.walk_deps()))
-            to_remove = sorted(loop, key=n_build_deps, reverse=True)[0]
-            print 'Moving chunk %s to bootstrap as it has only %i deps' % \
-                (to_remove, n_build_deps(to_remove))
-            for c in chunks.itervalues():
-                c.build_deps.difference_update(to_remove.artifacts)
-            # It makes sense to remove the chunk which has the smallest set of
-            # dependencies, but because this is a loop, all chunks in the loop
-            # will be removed because they all depend on each other. This is
-            # dumb but it will have to do for now.
-            chunk_and_deps = list(to_remove.walk_deps())
-            bootstrap.update(chunk_and_deps)
-            graph.remove_nodes_from(chunk_and_deps)
+        bootstrap_set = set()
 
-        for i in range(0,10):
-            # This outputs ALL cycles (the transitive closure). I don't really
-            # want all permutations, just one instance of each cycle. ...
-            # FIXME: also, this seems to become infinite quite easily ... maybe
-            # I should use tarjan.tc.tc() instead.
-            loops = networkx.simple_cycles(graph)
-            #for l in loops:
-             #   print l
-            #loops_by_length = sorted(loops, key=lambda x: len(x))
-            #if len(loops_by_length) == 0:
-            #    break
-            #print '%i dependency loops' % len(loops_by_length)
-            #print 'Removing loop %s' % loops_by_length[0]
-            #solve_loop(loops_by_length[0])
-            # solve the loop
-            try:
-                loop = next(loops)
-            except StopIteration:
-                break
-            print 'Removing loop %s' % loop
-            solve_loop(loop)
+        def solve_loop(loop, n):
+            debug('%i: Found dependency loop of %i chunks.', n,
+                  loop.number_of_nodes())
 
+            cut = networkx.minimum_node_cut(loop)
+            debug('%i: Removing %s', n, cut)
+            graph.remove_nodes_from(cut)
+            loop.remove_nodes_from(cut)
+            bootstrap_set.update(cut)
+
+            subloops = self.get_dependency_loops(loop)
+            if len(subloops) > 0:
+                solve_loops(subloops, n=n+1)
+
+        def solve_loops(loops, n=0):
+            all_loops = networkx.union_all(loops)
+            self.save_as_dot(all_loops, 'loops-%i.dot' % n)
+
+            for loop in loops:
+                solve_loop(loop, n)
+
+        loops = self.get_dependency_loops(graph)
+        if len(loops) > 0:
+            solve_loops(loops)
+
+        #bootstrap_set = self._remove_cycles_by_distance_from_goal(graph)
         # This is the set we'll install as Gems, systemwide.
-        print 'Bootstrap set: %s' % bootstrap
+        print 'Bootstrap set: %s' % bootstrap_set
 
-        build_order = networkx.topological_sort(graph)
+        build_order = networkx.topological_sort(graph, reverse=True)
 
         print 'Build order: %s' % build_order
-        import pdb
-        pdb.set_trace()
 
-        return bootstrap, build_order
+        return bootstrap_set, build_order
 
 
 class CreateStratum(object):
-    def solve_build_graph(self, chunks):
-        # Construct graph from dependency info. Note that only the 'goal'
-        # chunks are the ones we care about running in the build system.
-        # Thus, all dependencies become build dependencies except those of the
-        # goal chunks, because every other chunk is there because we want it to
-        # run as part of the build process.
-
-        def chunk_is_build_tool_only(chunk):
-            return (len(chunk.artifacts.intersection(goals)) == 0)
-
-        for chunk in chunks.itervalues():
-            if chunk_is_build_tool_only(chunk):
-                chunk.build_deps.update(chunk.runtime_deps)
-                chunk.runtime_deps = []
-
-        graph = {chunk:chunk.build_deps for chunk in chunks.itervalues()}
-
-        def get_dependency_loops(graph):
-            '''Return all dependency loops, shortest first.'''
-            transitive_closure = tarjan.tc.tc(graph)
-            loops_set = set()
-            for key,value in transitive_closure.iteritems():
-                if key in value:
-                    loops_set.add(value)
-            return sorted(loops_set, key=lambda x: len(x))
-
-        loops = get_dependency_loops(graph)
-        if len(loops) > 0:
-            for loop in loops:
-                print 'Dependency loop: ', ', '.join(chunk.name for chunk in loop)
-                most_deps = sorted(loop, key=lambda chunk: len(chunk.build_deps))
-                print 'Of these, %s has the most build dependencies' % (most_deps[0])
-                print '(chunk %s has artifacts: %s)' % (most_deps[0], most_deps[0].artifacts)
-                print 'Of these, %s has the least build dependencies' % (most_deps[-1])
-                print '(chunk %s has artifacts: %s)' % (most_deps[-1], most_deps[-1].artifacts)
-
-                graph_for_loop = {chunk:chunk.build_deps for chunk in loop}
-                loop_tc = tarjan.tc.tc(graph_for_loop)
-                print 'TC for loop:'
-                for k, v in loop_tc.iteritems():
-                    print '\t%s: %s' % (k.name, ', '.join(c.name for c in v))
-                print '\n\n'
-
-        return graph
-
-    def _sort_graph(self, graph):
-        return toposort.toposort_flatten(graph)
-
-    def _process_chunks(self, chunks):
-        graph = self.solve_build_graph(chunks)
-        sorted_chunk_list = self._sort_graph(graph)
+    def _process_chunks(self, sorted_chunks):
         chunk_info_list = []
-        for chunk in sorted_chunk_list:
+        for chunk in sorted_chunks:
             info = {
                 'name': chunk.name,
                 'repo': chunk.repo,
@@ -430,11 +389,11 @@ class CreateStratum(object):
             chunk_info_list.append(info)
         return chunk_info_list
 
-    def create_stratum(self, name, chunks):
+    def create_stratum(self, name, sorted_chunks):
         stratum = {
             'name': name,
             'kind': 'stratum',
-            'chunks': self._process_chunks(chunks),
+            'chunks': self._process_chunks(sorted_chunks),
         }
         return stratum
 
@@ -444,11 +403,13 @@ resolver = RubyGemsResolver()
 chunks = resolver.resolve_chunks_for_gems(goals)
 
 graph_solver = DependencyGraphSolver()
-graphs = graph_solver.solve(chunks, goals, built_in_gems)
+bootstrap_set, build_order = graph_solver.solve(chunks, goals)
 
-print graphs
+with open('bootstrap.sh', 'w') as f:
+    for gem_name in bootstrap_set:
+        f.write('gem install %s\n' % gem_name)
 
-stratum = CreateStratum().create_stratum('rubytest', chunks)
+stratum = CreateStratum().create_stratum('rubytest', build_order)
 
-print stratum
-print json.dumps(stratum, indent=4)
+with open('rubytest.morph', 'w') as f:
+    yaml.safe_dump(stratum, f, encoding='utf-8', allow_unicode=True)
