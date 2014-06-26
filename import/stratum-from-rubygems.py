@@ -10,6 +10,9 @@
 #   Gems, and 'ruby-foundation', which contains the common chunks from those
 #   strata (build from source or Gems, again).
 
+#   - needs to check out each goal chunk's source code, and look for a
+#   Gemfile.lock file.
+
 
 import networkx
 import requests
@@ -44,6 +47,16 @@ goals = [
     #'sass',
     #'travis',
     #'vagrant',
+]
+
+# This tool works to a rather pessimistic rule that any chunk that's used at
+# build time requires all of its runtime dependencies available at build time
+# too. This might not be the case, and in some cases it causes unsolvable
+# dependency loops. Solve them by adding them to this list.
+runtime_only_dependencies = [
+    # Chef clients require Ohai at runtime. Ohai requires Chef at build time,
+    # but this is just to to be present at that point.
+    ('chef', 'ohai')
 ]
 
 # Shorter!
@@ -106,8 +119,8 @@ class Source(object):
         assert isinstance(artifact, Artifact)
         self.artifacts.add(artifact)
 
-    def walk_deps(self):
-        '''Find all dependencies of this source.
+    def walk_build_deps(self):
+        '''Find all build-dependencies of this source.
 
         If it is being built to run in the resulting system, we care only
         about the build dependencies. If it's something that's a build
@@ -117,7 +130,7 @@ class Source(object):
         '''
         done = set()
 
-        def depth_first(source):
+        def depth_first(list, source):
             if source not in done:
                 done.add(source)
 
@@ -129,6 +142,21 @@ class Source(object):
 
         return depth_first(self)
 
+    def walk_runtime_deps(self):
+        '''Find all runtime dependencies of this source.'''
+        done = set()
+
+        def depth_first(source):
+            if source not in done:
+                done.add(source)
+
+                for dep in sorted(source.runtime_deps):
+                    for ret in depth_first(dep.source):
+                        yield ret
+
+                yield source
+
+        return depth_first(self)
 
 class Artifact(object):
     def __init__(self, name, source):
@@ -336,17 +364,40 @@ class DependencyGraphSolver(object):
                 graph.add_edges_from((chunk, dep.source) for dep in
                                     chunk.runtime_deps)
 
-        bootstrap_set = set()
+        bootstrap = networkx.DiGraph()
+
+        def chunk_is_goal(chunk):
+            return chunk.name in goals
+
+        def graph_to_string(graph):
+            return ', '.join(n.name for n in graph.nodes())
+
+        def move_chunk_to_bootstrap(chunk, loop_graph):
+            chunk_and_deps = set(chunk.walk_runtime_deps())
+
+            for chunk in chunk_and_deps:
+                if chunk_is_goal(chunk):
+                    raise Exception(
+                        'Unable to build chunk %s from source, due to '
+                        'the following loop: %s' % (chunk.name,
+                        graph_to_string(loop_graph)))
+
+            graph.remove_nodes_from(chunk_and_deps)
+            loop_graph.remove_nodes_from(chunk_and_deps)
+
+            bootstrap.add_node(chunk)
 
         def solve_loop(loop, n):
             debug('%i: Found dependency loop of %i chunks.', n,
                   loop.number_of_nodes())
 
             cut = networkx.minimum_node_cut(loop)
-            debug('%i: Removing %s', n, cut)
-            graph.remove_nodes_from(cut)
-            loop.remove_nodes_from(cut)
-            bootstrap_set.update(cut)
+            for chunk in cut:
+                # FIXME: this'll raise an exception if the minimum cut
+                # includes a goal chunk. Right now the user needs to
+                # solve the circular dep themselves, if that happens.
+                debug('%i: Removing %s and runtime deps', n, cut)
+                move_chunk_to_bootstrap(chunk, loop)
 
             subloops = self.get_dependency_loops(loop)
             if len(subloops) > 0:
@@ -363,37 +414,36 @@ class DependencyGraphSolver(object):
         if len(loops) > 0:
             solve_loops(loops)
 
-        #bootstrap_set = self._remove_cycles_by_distance_from_goal(graph)
-        # This is the set we'll install as Gems, systemwide.
-        print 'Bootstrap set: %s' % bootstrap_set
-
+        bootstrap_order = bootstrap.nodes()
         build_order = networkx.topological_sort(graph, reverse=True)
 
-        print 'Build order: %s' % build_order
+        print bootstrap_order
 
-        return bootstrap_set, build_order
+        return bootstrap_order, build_order
 
 
 class CreateStratum(object):
-    def _process_chunks(self, sorted_chunks):
+    def _process_chunks(self, sorted_chunks, bootstrap_set):
         chunk_info_list = []
         for chunk in sorted_chunks:
             info = {
                 'name': chunk.name,
                 'repo': chunk.repo,
                 'ref': chunk.ref,
-                'build-depends': [dep.name for dep in chunk.build_deps],
+                'build-depends': [dep.name for dep in chunk.build_deps if
+                                  dep.source not in bootstrap_set],
                 # Not used in Baserock, but useful info for debugging.
-                'runtime-depends': [dep.name for dep in chunk.runtime_deps],
+                'runtime-depends': [dep.name for dep in chunk.runtime_deps if
+                                    dep.source not in bootstrap_set],
             }
             chunk_info_list.append(info)
         return chunk_info_list
 
-    def create_stratum(self, name, sorted_chunks):
+    def create_stratum(self, name, sorted_chunks, bootstrap_set):
         stratum = {
             'name': name,
             'kind': 'stratum',
-            'chunks': self._process_chunks(sorted_chunks),
+            'chunks': self._process_chunks(sorted_chunks, bootstrap_set),
         }
         return stratum
 
@@ -405,11 +455,18 @@ chunks = resolver.resolve_chunks_for_gems(goals)
 graph_solver = DependencyGraphSolver()
 bootstrap_set, build_order = graph_solver.solve(chunks, goals)
 
+# Create a shell script that installs bootstrap Gems manually.
 with open('bootstrap.sh', 'w') as f:
-    for gem_name in bootstrap_set:
-        f.write('gem install %s\n' % gem_name)
+    f.write('# Minimal set of Gems required to build all other dependencies\n'
+            '# of: %s\n\n' % ', '.join(goals))
+    for source in sorted(bootstrap_set, key=lambda s: s.name):
+        runtime_deps = [a.name for a in source.runtime_deps]
+        artifacts_str = ' '.join([a.name for a in source.artifacts])
+        f.write('\n# Source: %s\n' % source.name)
+        f.write('# Depends on: %s\n' % ', '.join(runtime_deps))
+        f.write('gem install --ignore-dependencies %s\n' % artifacts_str)
 
-stratum = CreateStratum().create_stratum('rubytest', build_order)
+stratum = CreateStratum().create_stratum('rubytest', build_order, bootstrap_set)
 
 with open('rubytest.morph', 'w') as f:
     yaml.safe_dump(stratum, f, encoding='utf-8', allow_unicode=True)
