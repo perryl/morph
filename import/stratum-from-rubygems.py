@@ -73,6 +73,14 @@ built_in_gems = {
     'test-unit': '2.0.0.0',
 }
 
+# Gemspecs combine 'tools useful when developing or testing this Gem' with
+# 'tools needed to create a .gem file'. Beak will only consider the Gems
+# in this list when constructing the build-dependency graph; otherwise too many
+# things are included that aren't actually build dependencies and the graph
+# usually becomes unsolvable.
+build_tool_gems = {
+    'hoe': '$version',
+}
 
 known_source_uris = {
     'actionmailer': 'https://github.com/rails/rails',
@@ -88,8 +96,6 @@ known_source_uris = {
 # Save hammering the rubygems.org API: 'requests' API calls are
 # transparently cached in an SQLite database, instead.
 requests_cache.install_cache('rubygems_api_cache')
-
-
 
 
 class RubyTreasureHunter(object):
@@ -189,9 +195,12 @@ class RubyGemsResolver(object):
             gem_runtime_deps = gem_info['dependencies']['runtime']
 
             # These are dependencies you want to have installed when working on
-            # the code, not necessarily just for constructing a Gem file. So
-            # for now we ignore them.
-            gem_build_deps = gem_info['dependencies']['development']
+            # the code, not necessarily just for constructing a Gem file. We
+            # include them in the stratum but do not link them as build
+            # dependencies based on this information -- most of the time they
+            # won't actually be required just to get a .gem, they'll be for
+            # running tests and the like.
+            gem_development_deps = gem_info['dependencies']['development']
 
             # There are version constraints specified here that we
             # currently ignore. Furthermore, the Gemfile.lock (Bundler)
@@ -200,7 +209,7 @@ class RubyGemsResolver(object):
             # the last tagged commit of everything, so let's ignore this
             # info for now and start some builds!
 
-            for dep_info in gem_build_deps + gem_runtime_deps:
+            for dep_info in gem_development_deps + gem_runtime_deps:
                 dep_name = dep_info['name']
                 ignore = chain(to_process, resolved_gems.iterkeys(),
                                built_in_gems)
@@ -209,10 +218,15 @@ class RubyGemsResolver(object):
 
             chunk_build_deps = set()
             chunk_runtime_deps = set()
+            chunk_test_deps = set()
 
-            for dep_info in gem_build_deps:
+            for dep_info in gem_development_deps:
                 dep_name = dep_info['name']
-                if dep_name not in built_in_gems:
+                if dep_name in built_in_gems:
+                    pass
+                elif dep_name in test_tool_gems:
+                    chunk_test_deps.add(dep_name)
+                else:
                     chunk_build_deps.add(dep_name)
 
             for dep_info in gem_runtime_deps:
