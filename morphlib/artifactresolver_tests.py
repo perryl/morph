@@ -196,6 +196,40 @@ class ArtifactResolverTests(unittest.TestCase):
             self.assertTrue(any(dep in stratum_artifacts
                                 for dep in chunk_artifact.dependents))
 
+    def test_resolve_stratum_and_chunk_with_chunk_path(self):
+        pool = morphlib.sourcepool.SourcePool()
+
+        morph = FakeChunkMorphology('chunk')
+        chunk = morphlib.source.Source(
+            'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
+        pool.add(chunk)
+
+        morph = FakeStratumMorphology(
+            'stratum', chunks=[('chunk', 'chunk.morph', 'repo', 'ref')])
+        stratum = morphlib.source.Source(
+            'repo', 'ref', 'sha1', 'tree', morph, 'stratum.morph')
+        pool.add(stratum)
+
+        artifacts = self.resolver.resolve_artifacts(pool)
+
+        self.assertEqual(len(artifacts),
+                         sum(len(s.split_rules.artifacts) for s in pool))
+
+        stratum_artifacts = set(a for a in artifacts if a.source == stratum)
+        chunk_artifacts = set(a for a in artifacts if a.source == chunk)
+
+        for stratum_artifact in stratum_artifacts:
+            self.assertTrue(stratum_artifact.name.startswith('stratum'))
+            self.assertEqual(stratum_artifact.dependents, [])
+            self.assertTrue(any(dep in chunk_artifacts
+                                for dep in stratum_artifact.dependencies))
+
+        for chunk_artifact in chunk_artifacts:
+            self.assertTrue(chunk_artifact.name.startswith('chunk'))
+            self.assertEqual(chunk_artifact.dependencies, [])
+            self.assertTrue(any(dep in stratum_artifacts
+                                for dep in chunk_artifact.dependents))
+
     def test_resolve_stratum_and_chunk_with_two_new_artifacts(self):
         pool = morphlib.sourcepool.SourcePool()
 
