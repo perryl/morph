@@ -229,9 +229,13 @@ class BuildCommand(object):
 
     def _validate_cross_refs_for_xxx(self, src, srcpool, specs, wanted):
         for spec in specs:
-            repo_name = spec.get('repo') or src.repo_name
-            ref = spec.get('ref') or src.original_ref
             filename = morphlib.util.sanitise_morphology_path(spec['morph'])
+            if spec['morph'] == filename:
+                repo_name = src.repo_name
+                ref = src.original_ref
+            else:
+                repo_name = spec.get('repo') or src.repo_name
+                ref = spec.get('ref') or src.original_ref
             logging.debug(
                 'Validating cross ref to %s:%s:%s' %
                     (repo_name, ref, filename))
