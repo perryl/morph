@@ -14,7 +14,7 @@ scenario that uses all of them, not relying on the default rules.
 To test that all the fields are recognised, we set the new fields to
 their default values.
 
-    AND chunk morph/test-chunk.morph includes the default splitting rules
+    AND chunk test-chunk includes the default splitting rules
     AND stratum strata/test-stratum.morph includes the default splitting rules
     AND system systems/test-system.morph includes the default splitting rules
 
@@ -142,7 +142,7 @@ Implementations
     -   name: test-chunk
         repo: test:test-chunk
         ref: master
-        morph: morph/test-chunk.morph
+        morph: test-chunk
         build-mode: test
         build-depends: []
         artifacts:
@@ -190,13 +190,13 @@ Implementations
     - name: test-chunk
       repo: test:test-chunk
       ref: master
-      morph: morph/test-chunk.morph
+      morph: test-chunk
       build-mode: test
       build-depends: []
     - name: unbuildable-chunk
       repo: test:test-chunk
       ref: refs/heads/master
-      morph: unbuildable-chunk.morph
+      morph: unbuildable-chunk
       build-mode: test
       build-depends:
       - test-chunk

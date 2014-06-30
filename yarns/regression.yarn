@@ -90,7 +90,7 @@ Implementations
     - name: bootstrap-chunk
       repo: test:test-chunk
       ref: master
-      morph: morph/test-chunk.morph
+      morph: test-chunk
       build-mode: bootstrap
       build-depends: []
     EOF
