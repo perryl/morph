@@ -706,6 +706,12 @@ class MorphologyLoader(object):
                 spec['repo'] = spec['name']
             if 'morph' not in spec:
                 spec['morph'] = spec['name']
+            if 'build-depends' not in spec:
+                spec['build-depends'] = []
+            if 'build-mode' not in spec:
+                spec['build-mode'] = 'staging'
+            if 'prefix' not in spec:
+                spec['prefix'] = '/usr'
         self._set_stratum_specs_defaults(morph, 'build-depends')
 
     def _unset_stratum_defaults(self, morph):
