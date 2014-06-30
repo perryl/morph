@@ -616,7 +616,6 @@ build-system: dummy
                     'ref': 'bar',
                     'morph': 'bar',
                     'build-mode': 'bootstrap',
-                    'build-depends': [],
                 },
             ],
         })
@@ -637,6 +636,7 @@ build-system: dummy
                         "morph": "bar",
                         'build-mode': 'bootstrap',
                         'build-depends': [],
+                        'prefix': '/usr',
                     },
                 ],
                 'products': [],
