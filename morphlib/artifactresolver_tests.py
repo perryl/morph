@@ -110,7 +110,8 @@ class ArtifactResolverTests(unittest.TestCase):
 
         morph = FakeChunkMorphology('chunk')
         source = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
+            'repo', 'ref', 'sha1', 'tree', morph,
+            'chunk.morph', 'repo', 'ref')
         pool.add(source)
 
         artifacts = self.resolver.resolve_artifacts(pool)
@@ -129,7 +130,8 @@ class ArtifactResolverTests(unittest.TestCase):
 
         morph = FakeChunkMorphology('chunk', ['chunk-foobar'])
         source = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
+            'repo', 'ref', 'sha1', 'tree', morph,
+            'chunk.morph', 'repo', 'ref')
         pool.add(source)
 
         artifacts = self.resolver.resolve_artifacts(pool)
@@ -147,7 +149,8 @@ class ArtifactResolverTests(unittest.TestCase):
 
         morph = FakeChunkMorphology('chunk', ['chunk-baz', 'chunk-qux'])
         source = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
+            'repo', 'ref', 'sha1', 'tree', morph,
+            'chunk.morph', 'repo', 'ref')
         pool.add(source)
 
         artifacts = self.resolver.resolve_artifacts(pool)
@@ -167,13 +170,51 @@ class ArtifactResolverTests(unittest.TestCase):
 
         morph = FakeChunkMorphology('chunk')
         chunk = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
+            'repo', 'ref', 'sha1', 'tree', morph,
+            'chunk.morph', 'repo', 'ref')
         pool.add(chunk)
 
         morph = FakeStratumMorphology(
             'stratum', chunks=[('chunk', 'chunk', 'repo', 'ref')])
         stratum = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'stratum.morph')
+            'repo', 'ref', 'sha1', 'tree', morph,
+            'stratum.morph', 'repo', 'ref')
+        pool.add(stratum)
+
+        artifacts = self.resolver.resolve_artifacts(pool)
+
+        self.assertEqual(len(artifacts),
+                         sum(len(s.split_rules.artifacts) for s in pool))
+
+        stratum_artifacts = set(a for a in artifacts if a.source == stratum)
+        chunk_artifacts = set(a for a in artifacts if a.source == chunk)
+
+        for stratum_artifact in stratum_artifacts:
+            self.assertTrue(stratum_artifact.name.startswith('stratum'))
+            self.assertEqual(stratum_artifact.dependents, [])
+            self.assertTrue(any(dep in chunk_artifacts
+                                for dep in stratum_artifact.dependencies))
+
+        for chunk_artifact in chunk_artifacts:
+            self.assertTrue(chunk_artifact.name.startswith('chunk'))
+            self.assertEqual(chunk_artifact.dependencies, [])
+            self.assertTrue(any(dep in stratum_artifacts
+                                for dep in chunk_artifact.dependents))
+
+    def test_resolve_stratum_and_chunk_with_chunk_path(self):
+        pool = morphlib.sourcepool.SourcePool()
+
+        morph = FakeChunkMorphology('chunk')
+        chunk = morphlib.source.Source(
+            'repo', 'ref', 'sha1', 'tree', morph,
+            'chunk.morph', 'repo', 'ref')
+        pool.add(chunk)
+
+        morph = FakeStratumMorphology(
+            'stratum', chunks=[('chunk', 'chunk.morph', 'repo', 'ref')])
+        stratum = morphlib.source.Source(
+            'repo', 'ref', 'sha1', 'tree', morph,
+            'stratum.morph', 'repo', 'ref')
         pool.add(stratum)
 
         artifacts = self.resolver.resolve_artifacts(pool)
@@ -201,7 +242,8 @@ class ArtifactResolverTests(unittest.TestCase):
 
         morph = FakeChunkMorphology('chunk', ['chunk-foo', 'chunk-bar'])
         chunk = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
+            'repo', 'ref', 'sha1', 'tree', morph,
+            'chunk.morph', 'repo', 'ref')
         pool.add(chunk)
 
         morph = FakeStratumMorphology(
@@ -210,7 +252,8 @@ class ArtifactResolverTests(unittest.TestCase):
                 ('chunk', 'chunk', 'repo', 'ref'),
             ])
         stratum = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'stratum.morph')
+            'repo', 'ref', 'sha1', 'tree', morph,
+            'stratum.morph', 'repo', 'ref')
         pool.add(stratum)
 
         artifacts = self.resolver.resolve_artifacts(pool)
@@ -238,14 +281,16 @@ class ArtifactResolverTests(unittest.TestCase):
 
         morph = FakeChunkMorphology('chunk1')
         chunk1 = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk1.morph')
+            'repo', 'original/ref', 'sha1', 'tree', morph,
+            'chunk1.morph', 'repo', 'ref')
         pool.add(chunk1)
 
         morph = FakeStratumMorphology(
                 'stratum1',
                 chunks=[('chunk1', 'chunk1', 'repo', 'original/ref')])
         stratum1 = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'stratum1.morph')
+            'repo', 'ref', 'sha1', 'tree', morph,
+            'stratum1.morph', 'repo', 'ref')
         pool.add(stratum1)
 
         morph = morphlib.morph2.Morphology(
@@ -269,12 +314,14 @@ class ArtifactResolverTests(unittest.TestCase):
             ''')
         morph.builds_artifacts = ['system-rootfs']
         system = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'system.morph')
+            'repo', 'ref', 'sha1', 'tree', morph,
+            'system.morph', 'repo', 'ref')
         pool.add(system)
 
         morph = FakeChunkMorphology('chunk2')
         chunk2 = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk2.morph')
+            'repo', 'original/ref', 'sha1', 'tree', morph,
+            'chunk2.morph', 'repo', 'ref')
         pool.add(chunk2)
 
         morph = FakeStratumMorphology(
@@ -282,7 +329,8 @@ class ArtifactResolverTests(unittest.TestCase):
             chunks=[('chunk2', 'chunk2', 'repo', 'original/ref')],
             build_depends=[('stratum1', 'repo', 'ref')])
         stratum2 = morphlib.source.Source(
-            'repo', 'ref', 'sha1', 'tree', morph, 'stratum2.morph')
+            'repo', 'ref', 'sha1', 'tree', morph,
+            'stratum2.morph', 'repo', 'ref')
         pool.add(stratum2)
 
         artifacts = self.resolver.resolve_artifacts(pool)
@@ -369,22 +417,26 @@ class ArtifactResolverTests(unittest.TestCase):
             ''')
         morph.builds_artifacts = ['stratum']
         stratum = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'stratum.morph')
+            'repo', 'original/ref', 'sha1', 'tree', morph,
+            'stratum.morph', 'repo', 'ref')
         pool.add(stratum)
 
         morph = FakeChunkMorphology('chunk1')
         chunk1 = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk1.morph')
+            'repo', 'original/ref', 'sha1', 'tree', morph,
+            'chunk1.morph', 'repo', 'ref')
         pool.add(chunk1)
 
         morph = FakeChunkMorphology('chunk2')
         chunk2 = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk2.morph')
+            'repo', 'original/ref', 'sha1', 'tree', morph,
+            'chunk2.morph', 'repo', 'ref')
         pool.add(chunk2)
 
         morph = FakeChunkMorphology('chunk3')
         chunk3 = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk3.morph')
+            'repo', 'original/ref', 'sha1', 'tree', morph,
+            'chunk3.morph', 'repo', 'ref')
         pool.add(chunk3)
 
         artifacts = self.resolver.resolve_artifacts(pool)
@@ -425,7 +477,8 @@ class ArtifactResolverTests(unittest.TestCase):
             chunks=[],
             build_depends=[('stratum2', 'repo', 'original/ref')])
         stratum1 = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'stratum1.morph')
+            'repo', 'original/ref', 'sha1', 'tree', morph,
+            'stratum1.morph', 'repo', 'ref')
         pool.add(stratum1)
 
         morph = FakeStratumMorphology(
@@ -433,7 +486,8 @@ class ArtifactResolverTests(unittest.TestCase):
             chunks=[],
             build_depends=[('stratum1', 'repo', 'original/ref')])
         stratum2 = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'stratum2.morph')
+            'repo', 'original/ref', 'sha1', 'tree', morph,
+            'stratum2.morph', 'repo', 'ref')
         pool.add(stratum2)
 
         self.assertRaises(morphlib.artifactresolver.MutualDependencyError,
@@ -466,17 +520,20 @@ class ArtifactResolverTests(unittest.TestCase):
             ''')
         morph.builds_artifacts = ['stratum']
         stratum = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'stratum.morph')
+            'repo', 'original/ref', 'sha1', 'tree', morph,
+            'stratum.morph', 'repo', 'ref')
         pool.add(stratum)
 
         morph = FakeChunkMorphology('chunk1')
         chunk1 = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk1.morph')
+            'repo', 'original/ref', 'sha1', 'tree', morph,
+            'chunk1.morph', 'repo', 'ref')
         pool.add(chunk1)
 
         morph = FakeChunkMorphology('chunk2')
         chunk2 = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk2.morph')
+            'repo', 'original/ref', 'sha1', 'tree', morph,
+            'chunk2.morph', 'repo', 'ref')
         pool.add(chunk2)
 
         self.assertRaises(morphlib.artifactresolver.DependencyOrderError,
@@ -502,12 +559,14 @@ class ArtifactResolverTests(unittest.TestCase):
             ''')
         morph.builds_artifacts = ['stratum']
         stratum = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'stratum.morph')
+            'repo', 'original/ref', 'sha1', 'tree', morph,
+            'stratum.morph', 'repo', 'ref')
         pool.add(stratum)
 
         morph = FakeChunkMorphology('chunk')
         chunk = morphlib.source.Source(
-            'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk.morph')
+            'repo', 'original/ref', 'sha1', 'tree', morph,
+            'chunk.morph', 'repo', 'ref')
         pool.add(chunk)
 
         self.assertRaises(morphlib.artifactresolver.DependencyFormatError,

@@ -98,7 +98,8 @@ class CacheKeyComputerTests(unittest.TestCase):
         }.iteritems():
             source = morphlib.source.Source(
                 'repo', 'original/ref', 'sha', 'tree',
-                morphlib.morph2.Morphology(text), name)
+                morphlib.morph2.Morphology(text), name,
+                'repo', 'original/ref')
             self.source_pool.add(source)
             # FIXME: This should use MorphologyFactory
             m = source.morphology
@@ -183,7 +184,8 @@ class CacheKeyComputerTests(unittest.TestCase):
         morphology = old_artifact.source.morphology
         new_source = morphlib.source.Source('repo', 'original/ref', 'newsha',
                                             'tree', morphology,
-                                            old_artifact.source.filename)
+                                            old_artifact.source.filename,
+                                            'repo', 'original/ref')
         sp = morphlib.sourcepool.SourcePool()
         for source in self.source_pool:
             if source == old_artifact.source:
@@ -204,7 +206,7 @@ class CacheKeyComputerTests(unittest.TestCase):
     def test_same_morphology_added_to_source_pool_only_appears_once(self):
         m = morphlib.morph2.Morphology('{"name": "chunk", "kind": "chunk"}')
         src = morphlib.source.Source('repo', 'original/ref', 'sha', 'tree', m,
-                                     'chunk.morph')
+                                     'repo', 'original/ref', 'chunk.morph')
         sp = morphlib.sourcepool.SourcePool()
         sp.add(src)
         sp.add(src)
