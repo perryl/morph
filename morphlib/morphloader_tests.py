@@ -650,8 +650,9 @@ build-system: dummy
                 {
                     'name': 'bar',
                     "ref": "bar",
-                    'build-mode': 'bootstrap',
+                    'build-mode': 'staging',
                     'build-depends': [],
+                    'prefix': '/usr',
                 },
             ],
         }
