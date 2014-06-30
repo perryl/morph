@@ -382,12 +382,15 @@ class Morph(cliapp.Application):
                          morphlib.util.sanitise_morphology_path(s['morph']))
                         for s in morphology['build-depends'])
                 for c in morphology['chunks']:
-                    if 'morph' not in c:
-                        reponame = c['repo']
-                        ref = c['ref']
+                    if c['morph'] == c['name']:
+                        chunk_morph_location = c['repo']
+                        chunk_morph_ref = c['ref']
+                    else:
+                        chunk_morph_location = reponame
+                        chunk_morph_ref = ref
                     queue.append(
-                        (reponame,
-                         ref,
+                        (chunk_morph_location,
+                         chunk_morph_ref,
                          morphlib.util.sanitise_morphology_path(c['morph'])))
 
     def cache_repo_and_submodules(self, cache, url, ref, done):
