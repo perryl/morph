@@ -88,7 +88,7 @@ another to hold a chunk.
     -   name: test-chunk
         repo: test:test-chunk
         ref: master
-        morph: morph/test-chunk.morph
+        morph: test-chunk
         build-mode: test
         build-depends: []
     EOF
@@ -106,7 +106,7 @@ another to hold a chunk.
     # dummy files in all the places that different kinds of files are
     # usually installed. e.g. executables in `/bin` and `/usr/bin`
 
-    install -m644 -D /dev/stdin << 'EOF' "$DATADIR/gits/test-chunk/morph/test-chunk.morph"
+    install -m644 -D /dev/stdin << 'EOF' "$DATADIR/gits/test-chunk/test-chunk.morph"
     name: test-chunk
     kind: chunk
     build-system: manual
@@ -295,7 +295,7 @@ have a morphology using the test architecture.
     -   name: test-chunk
         repo: test:test-chunk
         ref: master
-        morph: morph/test-chunk.morph
+        morph: test-chunk
         build-mode: test
         build-depends: []
     EOF
