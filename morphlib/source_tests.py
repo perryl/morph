@@ -1,4 +1,4 @@
-# Copyright (C) 2012  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -37,10 +37,10 @@ class SourceTests(unittest.TestCase):
         self.filename = 'foo.morph'
         self.source = morphlib.source.Source(
             self.repo_name, self.original_ref, self.sha1, self.tree,
-            self.morphology, self.filename)
+            self.morphology, self.repo_name, self.original_ref, self.filename)
         self.other = morphlib.source.Source(
             self.repo_name, self.original_ref, self.sha1, self.tree,
-            self.morphology, self.filename)
+            self.morphology, self.repo_name, self.original_ref, self.filename)
 
     def test_sets_repo_name(self):
         self.assertEqual(self.source.repo_name, self.repo_name)
