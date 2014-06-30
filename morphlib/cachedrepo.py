@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -103,6 +103,7 @@ class CachedRepo(object):
         self.url = url
         self.path = path
         self.is_mirror = not url.startswith('file://')
+        self.already_updated = False
 
     def ref_exists(self, ref):
         '''Returns True if the given ref exists in the repo'''
@@ -221,6 +222,30 @@ class CachedRepo(object):
 
         return self._ls_tree(sha1)
 
+    def requires_update_for_ref(self, ref):
+        '''Returns False if there's no need to update this cached repo.
+
+        If the ref points to a specific commit that's already available
+        locally, there's never any need to update. If it's a named ref and this
+        repo wasn't already updated in the lifetime of the current process,
+        it's necessary to update.
+
+        '''
+        if not self.is_mirror:
+            # Repos with file:/// URLs don't ever need updating.
+            return False
+
+        if self.already_updated:
+            return False
+
+        # Named refs that are valid SHA1s will confuse this code.
+        ref_can_change = not morphlib.git.is_valid_sha1(ref)
+
+        if ref_can_change or not self.ref_exists(ref):
+            return True
+        else:
+            return False
+
     def update(self):
         '''Updates the cached repository using its origin remote.
 
@@ -234,6 +259,7 @@ class CachedRepo(object):
 
         try:
             self._update()
+            self.already_updated = True
         except cliapp.AppException, e:
             raise UpdateError(self)
 

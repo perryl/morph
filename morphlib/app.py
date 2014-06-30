@@ -306,14 +306,9 @@ class Morph(cliapp.Application):
         '''
         absref = None
 
-        def cached_repo_requires_update_for_ref(repo, ref):
-            # Named refs that are valid SHA1s will confuse this code.
-            ref_can_change = not morphlib.git.is_valid_sha1(ref)
-            return (ref_can_change or not repo.ref_exists(ref))
-
         if lrc.has_repo(reponame):
             repo = lrc.get_repo(reponame)
-            if update and cached_repo_requires_update_for_ref(repo, ref):
+            if update and repo.requires_update_for_ref(ref):
                 self.status(msg='Updating cached git repository %(reponame)s '
                             'for ref %(ref)s', reponame=reponame, ref=ref)
                 repo.update()
@@ -347,22 +342,18 @@ class Morph(cliapp.Application):
         morph_factory = morphlib.morphologyfactory.MorphologyFactory(lrc, rrc,
                                                                      self)
         queue = collections.deque(triplets)
-        updated_repos = set()
         resolved_refs = {}
         resolved_morphologies = {}
 
         while queue:
             reponame, ref, filename = queue.popleft()
-            update_repo = update and reponame not in updated_repos
 
             # Resolve the (repo, ref) reference, cache result.
             reference = (reponame, ref)
             if not reference in resolved_refs:
                 resolved_refs[reference] = self.resolve_ref(
-                        lrc, rrc, reponame, ref, update_repo)
+                    lrc, rrc, reponame, ref, update)
             absref, tree = resolved_refs[reference]
-
-            updated_repos.add(reponame)
 
             # Fetch the (repo, ref, filename) morphology, cache result.
             reference = (reponame, absref, filename)

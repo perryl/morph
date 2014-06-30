@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@ class CachedRepoTests(unittest.TestCase):
         "kind": "chunk"
     }'''
 
+    known_commit = 'a4da32f5a81c8bc6d660404724cedc3bc0914a75'
     bad_sha1_known_to_rev_parse = 'cafecafecafecafecafecafecafecafecafecafe'
 
     def rev_parse(self, ref):
@@ -247,9 +248,24 @@ class CachedRepoTests(unittest.TestCase):
         self.repo = morphlib.cachedrepo.CachedRepo(
             object(), 'local:repo', 'file:///local/repo/', '/local/repo/')
         self.repo._update = self.update_with_failure
+        assert not self.repo.requires_update_for_ref(self.known_commit)
         self.repo.update()
 
     def test_clone_checkout(self):
         self.repo.clone_checkout('master', '/.DOES_NOT_EXIST')
         self.assertEqual(self.clone_target, '/.DOES_NOT_EXIST')
         self.assertEqual(self.clone_ref, 'master')
+
+    def test_no_need_to_update_repo_for_existing_sha1(self):
+        # If the SHA1 is present locally already there's no need to update.
+        # If it's a named ref then it might have changed in the remote, so we
+        # must still update.
+        assert not self.repo.requires_update_for_ref(self.known_commit)
+        assert self.repo.requires_update_for_ref('named_ref')
+
+    def test_no_need_to_update_repo_if_already_updated(self):
+        self.repo._update = self.update_successfully
+
+        assert self.repo.requires_update_for_ref('named_ref')
+        self.repo.update()
+        assert not self.repo.requires_update_for_ref('named_ref')
