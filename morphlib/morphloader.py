@@ -721,6 +721,10 @@ class MorphologyLoader(object):
                 del spec['repo']
             if 'morph' in spec and spec['morph'] == spec['name']:
                 del spec['morph']
+            if 'build-mode' in spec and spec['build-mode'] == 'staging':
+                del spec['build-mode']
+            if 'prefix' in spec and spec['prefix'] == '/usr':
+                del spec['prefix']
         self._unset_stratum_specs_defaults(morph, 'strata')
 
     def _set_chunk_defaults(self, morph):
