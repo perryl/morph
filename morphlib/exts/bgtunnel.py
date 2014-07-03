@@ -248,7 +248,8 @@ class SSHTunnelForwarderThread(threading.Thread, UnicodeMagicMixin):
         validate_ssh_cmd_exists(self.ssh_path)
 
         # The path to the private key file to use
-        self.identity_file = normalize_path(identity_file or '') or None
+        self.identity_file = None
+        #normalize_path(identity_file or '') or None
 
         super(SSHTunnelForwarderThread, self).__init__()
 
