@@ -291,7 +291,8 @@ class Morph(cliapp.Application):
 
         def add_to_pool(reponame, ref, filename, absref, tree, morphology):
             source = morphlib.source.Source(reponame, ref, absref, tree,
-                                            morphology, filename)
+                                            morphology, filename,
+                                            morphology_repo, morphology_ref)
             pool.add(source)
 
         self.traverse_morphs([triplet], lrc, rrc,
