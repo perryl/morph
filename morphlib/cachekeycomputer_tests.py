@@ -36,15 +36,18 @@ class CacheKeyComputerTests(unittest.TestCase):
         for name, text in {
             'chunk.morph': '''{
                 "name": "chunk",
-                "kind": "chunk"
+                "kind": "chunk",
+                "description": "A test chunk"
             }''',
             'chunk2.morph': '''{
                 "name": "chunk2",
-                "kind": "chunk"
+                "kind": "chunk",
+                "description": "A test chunk"
             }''',
             'chunk3.morph': '''{
                 "name": "chunk3",
-                "kind": "chunk"
+                "kind": "chunk",
+                "description": "A test chunk"
             }''',
             'stratum.morph': '''{
                 "name": "stratum",
