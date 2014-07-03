@@ -69,9 +69,11 @@ def sanitise_morphology_path(morph_name):
 
     '''
     # If it has a / or a . it must be a path, so return it unmolested
-    if '/' in morph_name or '.' in morph_name:
+    if '/' in morph_name:
         return morph_name
     # must be a name, appent .morph
+    elif morph_name.endswith('.morph'):
+        return morph_name
     else:
         return morph_name + '.morph'
 
