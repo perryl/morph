@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -60,7 +60,8 @@ class UpdateGitsPlugin(cliapp.Plugin):
 
         subs_to_process = set()
 
-        def visit(reponame, ref, filename, absref, tree, morphology):
+        def visit(reponame, ref, filename, absref, tree, morphology,
+                morphology_repo, morphology_ref):
             app.status(msg='Updating %(repo_name)s %(ref)s %(filename)s',
                        repo_name=reponame, ref=ref, filename=filename)
             assert cache.has_repo(reponame)
