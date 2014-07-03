@@ -289,7 +289,8 @@ class Morph(cliapp.Application):
     def create_source_pool(self, lrc, rrc, triplet):
         pool = morphlib.sourcepool.SourcePool()
 
-        def add_to_pool(reponame, ref, filename, absref, tree, morphology):
+        def add_to_pool(reponame, ref, filename, absref, tree, morphology,
+                morphology_repo, morphology_ref):
             source = morphlib.source.Source(reponame, ref, absref, tree,
                                             morphology, filename,
                                             morphology_repo, morphology_ref)
@@ -346,46 +347,63 @@ class Morph(cliapp.Application):
         queue = collections.deque(triplets)
         resolved_refs = {}
         resolved_morphologies = {}
+        definitions_repo, definitions_ref, _ = queue[0]
+
+        # Resolve the (repo, ref) pair for the definitions repo, cache result.
+        reference = (definitions_repo, definitions_ref)
+        resolved_refs[reference] = self.resolve_ref(
+            lrc, rrc, definitions_repo, definitions_ref, update)
+        definitions_absref, definitions_tree = resolved_refs[reference]
 
         while queue:
-            reponame, ref, filename = queue.popleft()
+            reference = queue.popleft()
+            source_repo, source_ref, filename = reference[:3]
+            try:
+                morphology_in_source = reference[3]
+            except IndexError:
+                morphology_in_source = False
 
-            # Resolve the (repo, ref) reference, cache result.
-            reference = (reponame, ref)
+            # Resolve the (source_repo, source_ref) reference, cache result.
+            reference = (source_repo, source_ref)
             if not reference in resolved_refs:
                 resolved_refs[reference] = self.resolve_ref(
-                    lrc, rrc, reponame, ref, update)
-            absref, tree = resolved_refs[reference]
+                    lrc, rrc, source_repo, source_ref, update)
+            source_absref, source_tree = resolved_refs[reference]
 
             # Fetch the (repo, ref, filename) morphology, cache result.
-            reference = (reponame, absref, filename)
+            if morphology_in_source:
+                reference = (source_repo, source_absref, filename)
+            else:
+                reference = (definitions_repo, definitions_absref, filename)
             if not reference in resolved_morphologies:
                 resolved_morphologies[reference] = \
-                    morph_factory.get_morphology(reponame, absref, filename)
+                    morph_factory.get_morphology(
+                        reference[0], reference[1], reference[2])
             morphology = resolved_morphologies[reference]
 
-            visit(reponame, ref, filename, absref, tree, morphology)
+            visit(source_repo, source_ref, filename, source_absref,
+                source_tree, morphology, definitions_repo, definitions_ref)
             if morphology['kind'] == 'cluster':
                 raise cliapp.AppException(
                     "Cannot build a morphology of type 'cluster'.")
             elif morphology['kind'] == 'system':
                 queue.extend(
-                    (s.get('repo') or reponame,
-                     s.get('ref') or ref,
+                    (definitions_repo, definitions_ref,
                      morphlib.util.sanitise_morphology_path(s['morph']))
                     for s in morphology['strata'])
             elif morphology['kind'] == 'stratum':
                 if morphology['build-depends']:
                     queue.extend(
-                        (s.get('repo') or reponame,
-                         s.get('ref') or ref,
+                        (definitions_repo, definitions_ref,
                          morphlib.util.sanitise_morphology_path(s['morph']))
                         for s in morphology['build-depends'])
-                queue.extend(
-                    (c['repo'],
-                     c['ref'],
-                     morphlib.util.sanitise_morphology_path(c['morph']))
-                    for c in morphology['chunks'])
+                for c in morphology['chunks']:
+                    chunk_in_source = False
+                    if 'morph' not in c:
+                        chunk_in_source = True
+                    path = morphlib.util.sanitise_morphology_path(
+                            c.get('morph', c['name']))
+                    queue.append((c['repo'], c['ref'], path, chunk_in_source))
 
     def cache_repo_and_submodules(self, cache, url, ref, done):
         subs_to_process = set()
