@@ -7,3 +7,44 @@ Morph Building Tests
     WHEN the user checks out the system branch called master
     AND the user creates an uncommitted system morphology called systems/base-system.morph for our architecture in system branch master
     THEN morph build the system systems/base-system.morph of the branch master
+
+Chunk morphologies in definitions
+---------------------------------
+
+Chunk morphologies can either be in the source code repository for the
+chunk or in the definitions repository. All the other tests which build
+things are currently testing that chunk morphologies in the source
+repository works, but here we test that building with a chunk morphology
+in the definitions repository works correctly.
+
+    SCENARIO building a system with a chunk whose morphology is in the definitions repo
+    GIVEN a workspace
+    AND a git server
+
+A chunk morphology is added to the definitions repository, and the
+stratum is changed so that the chunk spec points to this morphology.
+
+    WHEN the user checks out the system branch called master
+    GIVEN a chunk morphology called test-chunk.morph in system branch master with install-command install -D -m 644 /dev/null "$DESTDIR/$PREFIX/chunks-in-definitions"
+    AND the chunk spec test-chunk in the stratum strata/test-stratum.morph in branch master has morph set to test-chunk.morph
+
+The system needs to be built to ensure that we can successfully build
+using a chunk morphology that is in the definitions repository.
+
+    WHEN the user builds the system systems/test-system.morph in branch master
+
+The system needs to be deployed as a tarball in order to ensure the
+chunk morphology from the definitions repository was used.
+
+    GIVEN a cluster called test-cluster.morph in system branch master
+    AND a system in cluster test-cluster.morph in branch master called test-system
+    AND system test-system in cluster test-cluster.morph in branch master builds systems/test-system.morph
+    AND system test-system in cluster test-cluster.morph in branch master has deployment type: tar
+    AND system test-system in cluster test-cluster.morph in branch master has deployment location: test.tar
+    WHEN the user attempts to deploy the cluster test-cluster.morph in branch master
+    THEN morph succeeded
+
+If the correct chunk morphology was used, then the tarball should
+contain the file "/usr/chunks-in-definitions".
+
+    THEN tarball workspace/master/test/morphs/test.tar contains usr/chunks-in-definitions

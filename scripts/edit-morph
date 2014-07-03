@@ -249,6 +249,12 @@ class EditMorph(cliapp.Application):
         with self._open_yaml(file_path) as d:
             d['products'] = yaml.load(match_rules)
 
+    def cmd_edit_chunk_spec(self, (spec_name, stratum_file, key, value)):
+        with self._open_yaml(stratum_file) as stratum:
+            for spec in stratum['chunks']:
+                if spec['name'] == spec_name:
+                    spec[key] = value
+
     @classmethod
     def _splice_cluster_system(cls, syslist, syspath):
         sysname = syspath[0]
@@ -326,5 +332,11 @@ class EditMorph(cliapp.Application):
         with self._open_yaml(cluster_file) as d:
             system = self._find_cluster_system(d['systems'], syspath)
             system['deploy'][syspath[-1]][key] = val
+
+    def cmd_chunk_add_install_command(self, (chunk_file, command)):
+        with self._open_yaml(chunk_file) as chunk:
+            if not 'install-commands' in chunk:
+                chunk['install-commands'] = []
+            chunk['install-commands'].append(command)
 
 EditMorph().run()
