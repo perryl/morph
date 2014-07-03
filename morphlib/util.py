@@ -68,10 +68,13 @@ def sanitise_morphology_path(morph_name):
     name for backwards compatibility.
 
     '''
-    # If it has a / or a . it must be a path, so return it unmolested
-    if '/' in morph_name or '.' in morph_name:
+    if morph_name.endswith('.morph'):
         return morph_name
-    # must be a name, append .morph
+
+    if '/' in morph_name:
+        # This must be a new-style path reference. Require the user to specify
+        # '.morph' in the filename.
+        return morph_name
     else:
         return morph_name + '.morph'
 
