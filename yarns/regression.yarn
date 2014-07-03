@@ -87,10 +87,10 @@ Implementations
     name: bootstrap-stratum
     kind: stratum
     chunks:
-    - name: bootstrap-chunk
+    - name: test-chunk
+      morph: test-chunk.morph
       repo: test:test-chunk
       ref: master
-      morph: test-chunk
       build-mode: bootstrap
       build-depends: []
     EOF

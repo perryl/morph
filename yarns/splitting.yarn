@@ -90,7 +90,7 @@ Implementations
     IMPLEMENTS GIVEN chunk (\S+) includes the default splitting rules
     # Append default products rules
     name="$(basename "${MATCH_1%.*}")"
-    cat <<EOF >>"$DATADIR/gits/$name/$MATCH_1"
+    cat <<EOF >>"$DATADIR/gits/morphs/$MATCH_1"
     products:
     - artifact: $name-bins
       include: [ "(usr/)?s?bin/.*" ]
@@ -117,8 +117,8 @@ Implementations
     - artifact: $name-misc
       include: [ .* ]
     EOF
-    run_in "$DATADIR/gits/$name" git add "$MATCH_1"
-    run_in "$DATADIR/gits/$name" git commit -m 'Add default splitting rules'
+    run_in "$DATADIR/gits/morphs" git add "$MATCH_1"
+    run_in "$DATADIR/gits/morphs" git commit -m 'Add default splitting rules'
 
     IMPLEMENTS GIVEN stratum (\S+) includes the default splitting rules
     name=$(basename "${MATCH_1%.*}")
@@ -142,7 +142,7 @@ Implementations
     -   name: test-chunk
         repo: test:test-chunk
         ref: master
-        morph: test-chunk
+        morph: test-chunk.morph
         build-mode: test
         build-depends: []
         artifacts:
@@ -170,14 +170,14 @@ Implementations
 
     IMPLEMENTS GIVEN stratum (\S+) has chunks that aren't used in (\S+)
     # Create an extra chunk that will never successfully build
-    cat >"$DATADIR/gits/test-chunk/unbuildable-chunk.morph" <<EOF
+    cat >"$DATADIR/gits/morphs/unbuildable-chunk.morph" <<EOF
     name: unbuildable-chunk
     kind: chunk
     install-commands:
     - "false"
     EOF
-    run_in "$DATADIR/gits/test-chunk" git add unbuildable-chunk.morph
-    run_in "$DATADIR/gits/test-chunk" git commit -m 'Add unbuildable chunk'
+    run_in "$DATADIR/gits/morphs" git add unbuildable-chunk.morph
+    run_in "$DATADIR/gits/morphs" git commit -m 'Add unbuildable chunk'
 
     # Create a stratum that has an artifact that doesn't include any
     # artifacts from unbuildable-chunk
@@ -190,13 +190,13 @@ Implementations
     - name: test-chunk
       repo: test:test-chunk
       ref: master
-      morph: test-chunk
+      morph: test-chunk.morph
       build-mode: test
       build-depends: []
     - name: unbuildable-chunk
       repo: test:test-chunk
       ref: refs/heads/master
-      morph: unbuildable-chunk
+      morph: unbuildable-chunk.morph
       build-mode: test
       build-depends:
       - test-chunk

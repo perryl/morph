@@ -87,16 +87,11 @@ another to hold a chunk.
     chunks:
     -   name: test-chunk
         repo: test:test-chunk
+        morph: test-chunk.morph
         ref: master
-        morph: test-chunk
         build-mode: test
         build-depends: []
     EOF
-
-    run_in "$DATADIR/gits/morphs" git init .
-    run_in "$DATADIR/gits/morphs" git add .
-    run_in "$DATADIR/gits/morphs" git commit -m Initial.
-    run_in "$DATADIR/gits/morphs" git tag -a "test-tag" -m "Tagging test-tag"
 
     # Create the chunk repository.
 
@@ -106,7 +101,7 @@ another to hold a chunk.
     # dummy files in all the places that different kinds of files are
     # usually installed. e.g. executables in `/bin` and `/usr/bin`
 
-    install -m644 -D /dev/stdin << 'EOF' "$DATADIR/gits/test-chunk/test-chunk.morph"
+    install -m644 -D /dev/stdin << 'EOF' "$DATADIR/gits/morphs/test-chunk.morph"
     name: test-chunk
     kind: chunk
     build-system: manual
@@ -240,6 +235,12 @@ another to hold a chunk.
       done
     EOF
 
+    run_in "$DATADIR/gits/morphs" git init .
+    run_in "$DATADIR/gits/morphs" git add .
+    run_in "$DATADIR/gits/morphs" git commit -m Initial.
+    run_in "$DATADIR/gits/morphs" git tag -a "test-tag" -m "Tagging test-tag"
+
+    touch "$DATADIR/gits/test-chunk/dummy"
     run_in "$DATADIR/gits/test-chunk" git init .
     run_in "$DATADIR/gits/test-chunk" git add .
     run_in "$DATADIR/gits/test-chunk" git commit -m Initial.
@@ -263,15 +264,14 @@ have a morphology using the test architecture.
 
     IMPLEMENTS GIVEN a system called (\S+) for the test architecture in the git server
 
-    cat << EOF > "$DATADIR/gits/test-chunk/stage1-chunk.morph"
+    cat << EOF > "$DATADIR/gits/morphs/stage1-chunk.morph"
     name: stage1-chunk
     kind: chunk
     build-system: dummy
     EOF
 
-    run_in "$DATADIR/gits/test-chunk" git init .
-    run_in "$DATADIR/gits/test-chunk" git add .
-    run_in "$DATADIR/gits/test-chunk" git commit -m Initial.
+    run_in "$DATADIR/gits/morphs" git add .
+    run_in "$DATADIR/gits/morphs" git commit -m "Add chunk for $MATCH_1"
 
 
     install -m644 -D /dev/stdin << EOF "$DATADIR/gits/morphs/strata/build-essential.morph"
@@ -279,9 +279,9 @@ have a morphology using the test architecture.
     kind: stratum
     chunks:
     -   name: stage1-chunk
+        morph: stage1-chunk.morph
         repo: test:test-chunk
         ref: master
-        morph: stage1-chunk
         build-mode: bootstrap
         build-depends: []
     EOF
@@ -293,9 +293,9 @@ have a morphology using the test architecture.
     - morph: strata/build-essential.morph
     chunks:
     -   name: test-chunk
+        morph: test-chunk.morph
         repo: test:test-chunk
         ref: master
-        morph: test-chunk
         build-mode: test
         build-depends: []
     EOF
