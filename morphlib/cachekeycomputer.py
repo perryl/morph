@@ -101,9 +101,12 @@ class CacheKeyComputer(object):
 
         kind = artifact.source.morphology['kind']
         if kind == 'chunk':
-            keys['build-mode'] = artifact.source.build_mode
-            keys['prefix'] = artifact.source.prefix
-            keys['tree'] = artifact.source.tree
+            morphology = artifact.source.morphology
+            morph_dict = dict((k, morphology[k]) for k in morphology.keys())
+            ignored_fields = ['description']
+            for key in morph_dict:
+                if key not in ignored_fields:
+                    keys[key] = morph_dict[key]
             keys['split-rules'] = [(a, [rgx.pattern for rgx in r._regexes])
                                    for (a, r) in artifact.source.split_rules]
         elif kind in ('system', 'stratum'):
@@ -117,13 +120,9 @@ class CacheKeyComputer(object):
                 # so are already handled by the 'kids' field.
                 'strata', 'build-depends', 'chunks',
                 'products')
-            for ignored_field in ignored_fields:
-                if ignored_field in le_dict:
-                    del le_dict[ignored_field]
-
-            checksum = hashlib.sha1()
-            self._hash_thing(checksum, le_dict)
-            keys['morphology-sha1'] = checksum.hexdigest()
+            for key in le_dict:
+                if key not in ignored_fields:
+                    keys[key] = le_dict[key]
         if kind == 'stratum':
             keys['stratum-format-version'] = 1
         elif kind == 'system':
