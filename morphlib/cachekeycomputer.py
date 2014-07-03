@@ -101,11 +101,16 @@ class CacheKeyComputer(object):
 
         kind = artifact.source.morphology['kind']
         if kind == 'chunk':
-            keys['build-mode'] = artifact.source.build_mode
-            keys['prefix'] = artifact.source.prefix
-            keys['tree'] = artifact.source.tree
-            keys['split-rules'] = [(a, [rgx.pattern for rgx in r._regexes])
-                                   for (a, r) in artifact.source.split_rules]
+            morphology = artifact.source.morphology
+            morph_dict = dict((k, morphology[k]) for k in morphology.keys())
+            ignored_fields = ['description']
+            for field in ignored_fields:
+                if field in morph_dict:
+                    del morph_dict[field]
+
+            checksum = hashlib.sha1()
+            self._hash_thing(checksum, morph_dict)
+            keys['morphology-sha1'] = checksum.hexdigest()
         elif kind in ('system', 'stratum'):
             morphology = artifact.source.morphology
             le_dict = dict((k, morphology[k]) for k in morphology.keys())
