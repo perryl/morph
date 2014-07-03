@@ -70,6 +70,7 @@ import localrepocache
 import mountableimage
 import morph2
 import morphologyfactory
+import morphologyfinder
 import morph3
 import morphloader
 import morphset
