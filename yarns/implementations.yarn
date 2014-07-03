@@ -820,12 +820,26 @@ Altering morphologies in their source repositories
 Altering morphologies in the workspace
 --------------------------------------
 
+### Altering chunks ###
+
+    IMPLEMENTS GIVEN a chunk morphology called (\S+) in system branch (\S+) with (\S+) (.+)
+    name="$MATCH_1"
+    branch="$MATCH_2"
+    cp "$DATADIR/gits/test-chunk/test-chunk.morph" "$DATADIR/workspace/$branch/test/morphs/$name"
+    "$SRCDIR/scripts/edit-morph" "chunk-add-$MATCH_3" \
+        "$DATADIR/workspace/$branch/test/morphs/$name" "$MATCH_4"
+
 ### Altering strata ###
 
     IMPLEMENTS GIVEN stratum (\S+) in system branch (\S+) has match rules: (.*)
     cd "$DATADIR/workspace/$MATCH_2/test/morphs"
     "$SRCDIR/scripts/edit-morph" set-stratum-match-rules \
       "$MATCH_1" "$MATCH_3"
+
+    IMPLEMENTS GIVEN the chunk spec (\S+) in the stratum (\S+) in branch (\S+) has (\S+) set to (\S+)
+    cd "$DATADIR/workspace/$MATCH_3/test/morphs"
+    "$SRCDIR/scripts/edit-morph" edit-chunk-spec \
+        "$MATCH_1" "$MATCH_2" "$MATCH_4" "$MATCH_5"
 
 ### Altering clusters ###
 
