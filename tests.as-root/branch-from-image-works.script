@@ -32,7 +32,7 @@ extracted="$DATADIR/extracted"
 mkdir -p "$extracted"
 tar -xf "$tar" -C "$extracted"
 get_sha1(){
-    sed -nre '/sha1/s/^.*([0-9a-f]{40}).*$/\1/p' "$1"
+    sed -nre '/\"sha1\"/s/^.*([0-9a-f]{40}).*$/\1/p' "$1"
 }
 hello_chunk_commit=$(get_sha1 "$extracted/baserock/hello-bins.meta")
 
