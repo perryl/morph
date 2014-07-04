@@ -150,9 +150,8 @@ class SplitRules(collections.Iterable):
     def partition(self, iterable):
         '''Match many files or artifacts.
 
-        It's the common case to take a bunch of filenames and determine
-        which artifact each should go to, so rather than implement this
-        logic in multiple places, it's here as a convenience method.
+        This function takes an iterable of file names, and partitions them
+        using the rules that have been added to this object.
 
         '''
 
