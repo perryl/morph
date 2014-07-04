@@ -296,7 +296,8 @@ class DeployPlugin(cliapp.Plugin):
         root_repo_dir = morphlib.gitdir.GitDirectory(
             sb.get_git_directory_name(sb.root_repository_url))
         mf = morphlib.morphologyfinder.MorphologyFinder(root_repo_dir)
-        cluster_text, cluster_filename = mf.read_morphology(cluster_name)
+        cluster_text, cluster_filename_2 = mf.read_morphology(cluster_filename[:-len('.morph')])
+        assert cluster_filename_2 == cluster_filename
         cluster_morphology = loader.load_from_string(cluster_text,
                                                      filename=cluster_filename)
 
