@@ -294,7 +294,7 @@ class BuilderBase(object):
         # Unit tests use StringIO, which in Python 2.6 isn't usable with
         # the "with" statement. So we don't do it with "with".
         f = self._open(filename, 'w')
-        f.write(json.dumps(meta, indent=4, sort_keys=True))
+        f.write(json.dumps(meta, indent=4, sort_keys=True, ensure_ascii=False))
         f.close()
 
     def new_artifact(self, artifact_name):
