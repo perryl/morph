@@ -1,4 +1,4 @@
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -54,13 +54,13 @@ class MorphologyFinderTests(unittest.TestCase):
         gd = morphlib.gitdir.GitDirectory(self.dirname)
         mf = morphlib.morphologyfinder.MorphologyFinder(gd, 'HEAD')
         self.assertEqual(sorted(mf.list_morphologies()),
-                         ['bar', 'baz'])
+                         ['bar.morph', 'baz.morph'])
 
     def test_list_morphs_in_master(self):
         gd = morphlib.gitdir.GitDirectory(self.dirname)
         mf = morphlib.morphologyfinder.MorphologyFinder(gd, 'master')
         self.assertEqual(sorted(mf.list_morphologies()),
-                         ['bar', 'baz'])
+                         ['bar.morph', 'baz.morph'])
 
     def test_list_morphs_raises_with_invalid_ref(self):
         gd = morphlib.gitdir.GitDirectory(self.dirname)
@@ -72,7 +72,7 @@ class MorphologyFinderTests(unittest.TestCase):
         gd = morphlib.gitdir.GitDirectory(self.dirname)
         mf = morphlib.morphologyfinder.MorphologyFinder(gd)
         self.assertEqual(sorted(mf.list_morphologies()),
-                         ['bar', 'baz', 'foo'])
+                         ['bar.morph', 'baz.morph', 'foo.morph'])
 
     def test_list_morphs_raises_no_worktree_no_ref(self):
         gd = morphlib.gitdir.GitDirectory(self.mirror)
@@ -83,13 +83,13 @@ class MorphologyFinderTests(unittest.TestCase):
     def test_read_morph_in_HEAD(self):
         gd = morphlib.gitdir.GitDirectory(self.dirname)
         mf = morphlib.morphologyfinder.MorphologyFinder(gd, 'HEAD')
-        self.assertEqual(mf.read_morphology('bar')[0],
+        self.assertEqual(mf.read_morphology('bar.morph'),
                          "dummy morphology text")
 
     def test_read_morph_in_master(self):
         gd = morphlib.gitdir.GitDirectory(self.dirname)
         mf = morphlib.morphologyfinder.MorphologyFinder(gd, 'master')
-        self.assertEqual(mf.read_morphology('bar')[0],
+        self.assertEqual(mf.read_morphology('bar.morph'),
                          "dummy morphology text")
 
     def test_read_morph_raises_with_invalid_ref(self):
@@ -101,11 +101,11 @@ class MorphologyFinderTests(unittest.TestCase):
     def test_read_morph_in_work_tree(self):
         gd = morphlib.gitdir.GitDirectory(self.dirname)
         mf = morphlib.morphologyfinder.MorphologyFinder(gd)
-        self.assertEqual(mf.read_morphology('foo')[0],
+        self.assertEqual(mf.read_morphology('foo.morph'),
                          "altered morphology text")
 
     def test_read_morph_raises_no_worktree_no_ref(self):
         gd = morphlib.gitdir.GitDirectory(self.mirror)
         mf = morphlib.morphologyfinder.MorphologyFinder(gd)
         self.assertRaises(morphlib.gitdir.NoWorkingTreeError,
-                          mf.read_morphology, 'bar')
+                          mf.read_morphology, 'bar.morph')
