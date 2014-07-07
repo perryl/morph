@@ -69,7 +69,7 @@ class ListSystemContentsPlugin(cliapp.Plugin):
         if len(args) != 1:
             raise morphlib.Error("Usage: morph-search-file SYSTEM")
 
-        system_name = morphlib.util.strip_morph_extension(args[0])
+        system_filename = morphlib.util.sanitise_morphology_path(args[0])
 
         workspace = morphlib.workspace.open('.')
         system_branch = morphlib.sysbranchdir.open_from_within('.')
@@ -81,7 +81,7 @@ class ListSystemContentsPlugin(cliapp.Plugin):
         source_pool = build_command.create_source_pool(
                 build_branch.root_repo_url,
                 build_branch.root_ref,
-                system_name + '.morph')
+                system_filename)
         root_artifact = build_command.resolve_artifacts(source_pool)
 
         build_command.build_in_order(root_artifact)
@@ -96,7 +96,8 @@ class ListSystemContentsPlugin(cliapp.Plugin):
                 for path in contents:
                     abs_path = '/%s' % path
                     if abs_path in files:
-                        print 'WARNING: file %s is in more than one chunk!' % abs_path
+                        print 'WARNING: file %s is in more than one ' \
+                              'chunk!' % abs_path
                     files[abs_path] = artifact
                 files.update('/%s' % p for p in contents)
             except tarfile.ReadError:

@@ -48,6 +48,10 @@ class FileMatch(Rule):
         # Possible optimisation: compile regexes as one pattern
         self._regexes = [re.compile(r) for r in regexes]
 
+    def __repr__(self):
+        matches = [x.pattern for x in self._regexes]
+        return '<file match: %s>' % ', '.join(matches)
+
     def match(self, path):
         return any(r.match(path) for r in self._regexes)
 
@@ -115,6 +119,11 @@ class SplitRules(collections.Iterable):
 
     def __iter__(self):
         return iter(self._rules)
+
+    def pretty_print(self):
+        rules = ['%s: %s' % (artifact, rules) for artifact, rules in
+                 self._rules]
+        return 'Split rules:\n\t%s' % '\n\t'.join(rules)
 
     def add(self, artifact, rule):
         self._rules.append((artifact, rule))
