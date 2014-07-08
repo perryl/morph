@@ -26,6 +26,7 @@ import docker
 
 import cliapp
 import logging
+import os
 import Queue
 import tarfile
 import threading
@@ -75,7 +76,7 @@ class ChunkedTarfileAdapter(object):
         self.status_interval = status_interval
         self.status_callback = status_callback
 
-        self.last_status_time = None
+        self.last_status_time = time.time()
 
     def __iter__(self):
         '''Generator for reading the queued data chunks.
@@ -83,9 +84,11 @@ class ChunkedTarfileAdapter(object):
         This should be used from the main thread of the program.
 
         '''
+        f = open('/tmp/fuckyou.tar', 'w')
         while True:
             try:
                 data_chunk = self.queue.get(block=True, timeout=0.1)
+                f.write(data_chunk)
                 yield data_chunk
                 self.bytes_sent += len(data_chunk)
             except Queue.Empty:
@@ -93,7 +96,12 @@ class ChunkedTarfileAdapter(object):
 
             if self.queue.empty() and self.eof:
                 logging.debug('All data queued for transfer!')
+                f.close()
                 break
+            elif self.exception is not None:
+                # We may have received an abort() from the writing thread,
+                # if so propagate it to the main loop.
+                raise self.exception
             else:
                 self.maybe_show_status()
 
@@ -289,22 +297,29 @@ class DockerWriteExtension(morphlib.writeexts.WriteExtension):
         return docker_client
 
     def stream_system_as_tar(self, fs_root, chunked_stream):
-        # Using tarfile.TarFile.gzopen() and passing compresslevel=1
-        # seems to result in compresslevel=9 anyway. That's completely
-        # unusable on ARM CPUs so it's important to force
-        # compresslevel=1 or something low.
+        def make_relative(tarinfo):
+            old_name = os.path.join('/', tarinfo.name)
+            tarinfo.name = os.path.relpath(old_name, fs_root)
+            #print 'Tarinfo name %s, from path %s root %s' % (tarinfo.name, old_name, fs_root)
+            if tarinfo.islnk():
+                tarinfo.linkname = os.path.relpath(tarinfo.linkname, fs_root)
+            return tarinfo
+
         try:
             tar_stream = tarfile.TarFile.open(
                 name='docker.write-temp',
                 mode='w|',
                 bufsize=chunked_stream.EXPECTED_BUFFER_SIZE,
                 fileobj=chunked_stream)
+
             logging.debug("Creating tar of rootfs")
-            tar_stream.add(fs_root, recursive=True)
+            tar_stream.add(fs_root, recursive=True, filter=make_relative)
             tar_stream.close()
             logging.debug('Tar complete')
         except BaseException as e:
             logging.debug('Tar thread: Received %r', e)
+            chunked_stream.abort(
+                cliapp.AppException('Error received in tar thread: %s' % e))
         else:
             chunked_stream.close()
 
