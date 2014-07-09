@@ -29,6 +29,8 @@ class Source(object):
     * ``sha1`` -- the absolute git commit id for the revision we use
     * ``tree`` -- the SHA1 of the tree corresponding to the commit
     * ``morphology`` -- the in-memory representation of the morphology we use
+    * ``morphology_repo`` -- the repo containing the morphology
+    * ``morphology_ref`` -- the ref in the repo containing the morphology
     * ``filename`` -- basename of the morphology filename
     * ``artifacts`` -- the set of artifacts this source produces.
     * ``split_rules`` -- rules for splitting the source's produced artifacts
@@ -36,13 +38,20 @@ class Source(object):
     '''
 
     def __init__(self, repo_name, original_ref, sha1, tree, morphology,
-            filename):
+            filename, morphology_repo=None, morphology_ref=None):
         self.repo = None
         self.repo_name = repo_name
         self.original_ref = original_ref
         self.sha1 = sha1
         self.tree = tree
         self.morphology = morphology
+        # Assume that morphology repo and ref are the same as the source
+        # unless they are given.
+        self.morphology_repo = repo_name
+        self.morphology_ref = original_ref
+        if morphology_repo is not None and morphology_ref is not None:
+            self.morphology_repo = morphology_repo
+            self.morphology_ref = morphology_ref
         self.filename = filename
 
         kind = morphology['kind']
