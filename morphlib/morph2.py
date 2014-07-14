@@ -190,8 +190,6 @@ class Morphology(object):
         for source in self['chunks']:
             if 'repo' not in source:
                 self._set_default_value(source, 'repo', source['name'])
-            if 'morph' not in source:
-                self._set_default_value(source, 'morph', source['name'])
             if 'build-depends' not in source:
                 self._set_default_value(source, 'build-depends', None)
             if 'build-mode' not in source:
@@ -225,7 +223,7 @@ class Morphology(object):
                     return info
         elif self['kind'] == 'stratum':
             for info in self['chunks']:
-                source_name = info.get('alias', info['morph'])
+                source_name = info.get('alias', info['name'])
                 if source_name == name:
                     return info
         raise KeyError('"%s" not found' % name)

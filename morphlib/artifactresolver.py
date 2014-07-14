@@ -191,10 +191,12 @@ class ArtifactResolver(object):
         name_to_processed_artifacts = {}
 
         for info in source.morphology['chunks']:
+            filename = morphlib.util.sanitise_morphology_path(
+                info.get('morph', info['name']))
             chunk_source = self._source_pool.lookup(
                 info['repo'],
                 info['ref'],
-                morphlib.util.sanitise_morphology_path(info['morph']))
+                filename)
 
             chunk_name = chunk_source.morphology['name']
 

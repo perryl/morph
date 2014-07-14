@@ -95,7 +95,6 @@ class MorphologyTests(unittest.TestCase):
         ''')
 
         self.assertEqual(m['chunks'][0]['repo'], 'le-chunk')
-        self.assertEqual(m['chunks'][0]['morph'], 'le-chunk')
         self.assertEqual(m['chunks'][0]['build-depends'], None)
 
     def test_returns_dict_keys(self):
