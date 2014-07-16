@@ -126,12 +126,19 @@ class OpenStackWriteExtension(morphlib.writeexts.WriteExtension):
                    '--os-username', username,
                    '--os-tenant-name', tenant_name,
                    '--os-password', password,
-                   '--os-auth-url', auth_url,
-                   'image-create',
-                   '--name=%s' % image_name,
-                   '--disk-format=raw',
-                   '--container-format', 'bare',
-                   '--file', raw_disk]
+                   '--os-auth-url', auth_url]
+
+        if 'OPENSTACK_IMAGE_URL' in os.environ:
+            cmdline += ['--os-image-url', os.environ['OPENSTACK_IMAGE_URL']]
+
+        if 'OPENSTACK_AUTH_TOKEN' in os.environ:
+            cmdline += ['--os-auth-token', os.environ['OPENSTACK_AUTH_TOKEN']]
+
+        cmdline += ['image-create',
+                    '--name=%s' % image_name,
+                    '--disk-format=raw',
+                    '--container-format', 'bare',
+                    '--file', raw_disk]
         cliapp.runcmd(cmdline)
 
         self.status(msg='Image configured.')
