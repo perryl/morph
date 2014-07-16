@@ -59,7 +59,7 @@ class SerialiseArtifactPlugin(cliapp.Plugin):
             raise cliapp.AppException('Must get triplet')
         
         repo_name, ref, morph_name = args
-        filename = '%s.morph' % morph_name
+        filename = morphlib.util.sanitise_morphology_path(morph_name)
         build_command = morphlib.buildcommand.BuildCommand(self.app)
         srcpool = build_command.create_source_pool(repo_name, ref, filename)
         artifact = build_command.resolve_artifacts(srcpool)
