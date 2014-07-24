@@ -1,0 +1,430 @@
+#!/usr/bin/env ruby
+#
+# Create a chunk morphology to integrate a RubyGem in Baserock
+#
+# Copyright (C) 2014  Codethink Limited
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+require 'bundler'
+require 'logger'
+require 'optparse'
+require 'yaml'
+
+BASEROCK_RUBY_VERSION = '2.0.0'
+
+# I'm no longer convinced about 'ignoring' Gems. My thinking is that it is
+# much easier to add a missing dependency than it is to detect and remove
+# unneeded dependencies. Therefore, a whilelist is perhaps the way forwards
+# instead.
+
+BUILD_DEPENDENCY_WHITELIST = [
+  'hoe',
+  # rake is bundled with Ruby, so it is not included in the whitelist.
+]
+
+#IGNORED_GROUPS = [:compat_testing, :test]
+#
+# Users of traditional distros seem to find it useful to override the versions
+# of these Gems that come bundled with the MRI Ruby intepreter with newer
+# versions from rubygems.org. In Baserock it should be just as easy to update
+# MRI. We should avoid building components from two places.
+#BUNDLED_GEMS = [
+#  'rake',
+#]
+
+# Ignoring the :test group isn't enough for these Gems, they are often in the
+# :development group too and thus we need to explicitly ignore them.
+#TEST_GEMS = [
+#  'rspec',
+#  'rspec_junit_formatter',
+#  'rspec-core',
+#  'rspec-expectations',
+#  'rspec-mocks',
+#  'simplecov',
+#]
+#
+#IGNORED_GEMS = BUNDLED_GEMS + TEST_GEMS
+
+# Log information was passed in from the main import process, probably.
+# This global constant approach seems a little ugly, but it seems to be
+# recommended here:
+# <https://stackoverflow.com/questions/1681745/share-global-logger-among-module-classes>
+#
+log_file = ENV['BASEROCK_IMPORT_LOG'] || '/dev/null'
+
+if log_file.length == 0 then log_file = '/dev/null' end
+
+Log = Logger.new(log_file)
+
+Log.level = case ENV['BASEROCK_IMPORT_LOG_LEVEL']
+                when 'debug' then Logger::DEBUG
+                when 'warning' then Logger::WARN
+                when 'error' then Logger::ERROR
+                when 'critical', 'fatal' then Logger::FATAL
+                else Logger::INFO
+                end
+
+Log.formatter = proc do |severity, datetime, progname, msg|
+    "rubygem.to_chunk: #{severity}: #{msg}\n"
+end
+
+class << Bundler
+  def default_gemfile
+    # This is a hack to make things not crash when there's no Gemfile
+    Pathname.new('.')
+  end
+end
+
+def spec_is_from_current_source_tree(spec)
+  spec.source.instance_of? Bundler::Source::Path and
+    spec.source.path.fnmatch?('.')
+end
+
+class Dsl < Bundler::Dsl
+  # The Bundler::Dsl class parses the Gemfile. We override it so that we can
+  # extend the class of the Bundler::Definition instance that is created, and
+  # so we can filter the results down to a specific Gem from the repo rather
+  # than the top-level one.
+
+  def self.evaluate(gemfile, lockfile, unlock, target_gem_name)
+    builder = new
+    builder.eval_gemfile(gemfile)
+    builder.to_definition(lockfile, unlock, target_gem_name)
+  end
+
+  def to_definition(lockfile, unlock, target_gem_name)
+    @sources << rubygems_source unless @sources.include?(rubygems_source)
+
+    #@dependencies = filter_dependencies_for_target_gem(@dependencies,
+    #                                                   target_gem_name)
+    #Log.debug "The modified list of dependencies is: #{@dependencies}"
+
+    Definition.new(lockfile, @dependencies, @sources, unlock, @ruby_version)
+  end
+
+  def filter_dependencies_for_target_gem(dependencies, target_gem_name)
+    # Find the local Bundler::Source object, remove everything from that
+    # source except the Gem we actually care about. This is necessary
+    # because Bundler is designed for people who want to develop or deploy
+    # all Gems from a given repo, but in this case we only care about *one*
+    # Gem from the repo, which may not be the top level one.
+
+    # Note that this doesn't solve all our problems!!!! For Rails, for
+    # example, the top-level Gemfile lists a bunch of stuff that isn't
+    # needed for all the Gems. For example some databases, which are not at
+    # all necessary for activesupport! And jquery-rails, which brings in
+    # railties, which brings in actionpack, which is just not needed!
+    #
+    # To be honest, I have no idea what to do about this right now. Maybe
+    # a blacklist for certain nested Gems?
+    #
+    # One possible solution is to ignore everything the Gemfile says except
+    # for the target gemspec. So ditch @dependencies altogether except for
+    # the one Gem we want. Will need to test this with the whole dependency
+    # graph of Chef and see if it works ....
+    local_source = nil
+    new_deps = []
+    have_target = false
+    dependencies.each do |dep|
+      Log.debug "  - #{dep} #{dep.source} #{dep.groups}"
+      if spec_is_from_current_source_tree(dep)
+        local_source = local_source || dep.source
+        if dep.name == target_gem_name
+          new_deps << dep
+          have_target = true
+        end
+      else
+        new_deps << dep
+      end
+    end
+
+    if not local_source
+      # While Bundler recommends using 'gemspec' in the Gemfile[1] it's not
+      # required, and some Gems are old enough to not have a .gemspec anyway.
+      # In this case the code will fail later on at get_spec_for_gem(), right
+      # now :) We need to manually search for Gemspecs.
+      Log.info "No gemspecs were included in the Gemfile, so the full " +
+               "list of specified dependencies will be used."
+      return dependencies
+    end
+
+    if not have_target
+      target_dep = Bundler::Dependency.new(
+        target_gem_name, '>= 0',
+        {"type" => :runtime, "source" => local_source}
+      )
+      new_deps << target_dep
+      Log.debug "The target gem #{target_dep} was not found in the " +
+                    "dependencies list, so I have added it."
+      Log.debug "Its source is: #{target_dep.source.inspect}"
+    end
+    new_deps
+  end
+end
+
+class Definition < Bundler::Definition
+  # The Bundler::Definition class holds the dependency info we need.
+
+  def self.build(gemfile, lockfile, unlock, target_gem_name)
+    # Overridden so that our subclassed Dsl is used.
+    unlock ||= {}
+    gemfile = Pathname.new(gemfile).expand_path
+
+    unless gemfile.file?
+      raise Bundler::GemfileNotFound, "#{gemfile} not found"
+    end
+
+    Dsl.evaluate(gemfile, lockfile, unlock, target_gem_name)
+  end
+
+  def requested_dependencies
+    # Overridden to remove more stuff from the list: excluding certain
+    # groups using Bundler.settings.without is a good first step, but some
+    # test tools seem to be in the generic :development group and thus
+    # need to be explicitly removed from the list.
+    #result = super.reject { |d| IGNORED_GEMS.member? d.name }
+    #removed = dependencies - result
+    #Log.info "Removed dependencies: #{removed.collect {|d| d.name}}"
+
+    #result
+    super
+  end
+
+  def resolve_dependencies
+    # The term "build dependencies" is my own. RubyGems seem to mostly care
+    # about "needed at runtime" (:runtime) vs. "useful during development"
+    # (:development). We actually want "needed at runtime or during `rake
+    # install`" but we have to work this out for ourselves.
+
+    # Note you can set ENV['DEBUG_RESOLVER'] for more debug info.
+
+    # Here we do the equivalent of resolve_remotely! and resolve_cached!
+    # combined. In the hope that they work OK together. Ideally we'd
+    # cache the specs after fetching them the first time so that on the
+    # next run we only needed to fetch the ones we didn't already have. Not
+    # sure the Bundler code makes this at all easy though. Probably
+    # extending Source::Rubygems would be the way forwards.
+    @remote = true
+    @sources.each { |s| s.remote! }
+    @sources.each { |s| s.cached! }
+
+    build_deps = specs_for([:development])
+    # FIXME: this list seems to always just contain 'bundler'.
+    # not what I want, I think. Any value achieves the same thing so
+    # I guess ':runtime' is not right. Maybe Bundler doesn't track
+    # runtime deps at all?
+    runtime_deps = specs_for([:runtime])
+    STDERR.puts "Build deps: "
+    build_deps.each { |s| STDERR.puts "  - #{s.name}" }
+    STDERR.puts "Runtime deps:"
+    runtime_deps.each { |s| STDERR.puts "  - #{s.name}" }
+    return [build_deps, runtime_deps]
+  end
+end
+
+class RubyGemChunkMorphologyGenerator
+  def parse_options(arguments)
+    # No options so far ..
+    opts = OptionParser.new
+
+    opts.banner = "Usage: rubygem.import SOURCE_DIR GEM_NAME"
+    opts.separator ""
+    opts.separator "This tool reads the Gemfile and optionally the " +
+             "Gemfile.lock from a Ruby project "
+    opts.separator "source tree in SOURCE_DIR. It outputs a chunk " +
+             "morphology for GEM_NAME on stdout."
+    opts.separator ""
+    opts.separator "It is intended for use with the `baserock-import` tool."
+
+    parsed_arguments = opts.parse!(arguments)
+
+    if parsed_arguments.length != 2
+      STDERR.puts opts.help
+      exit 1
+    end
+
+    parsed_arguments
+  end
+
+  def error(message)
+    Log.error(message)
+    STDERR.puts(message)
+  end
+
+  def load_local_gemspecs()
+    # Look for .gemspec files in the source repo.
+    #
+    # If there is no .gemspec, but you set 'name' and 'version' then
+    # inside Bundler::Source::Path.load_spec_files this call will create a
+    # fake gemspec matching that name and version. That's probably not useful.
+
+    dir = '.'
+
+    source = Bundler::Source::Path.new({
+      'path' => dir,
+    })
+
+    Log.info "Loaded #{source.specs.count} specs from source dir."
+    source.specs.each do |spec|
+      Log.debug "  * #{spec.inspect} #{spec.dependencies.inspect}"
+    end
+
+    source
+  end
+
+  def load_definition(target_gem_name)
+    # Load and parse the Gemfile and, if found, the Gemfile.lock file.
+    Log.info("Loading Gemfile and Gemfile.lock for gem #{target_gem_name}")
+    definition = Definition.build(
+      'Gemfile', 'Gemfile.lock', update=false, target_gem_name)
+  end
+
+  def get_spec_for_gem(specs, gem_name)
+    found = specs[gem_name].select {|s| Gem::Platform.match(s.platform)}
+    if found.empty?
+      raise Exception,
+        "No Gemspecs found matching '#{gem_name}'"
+    elsif found.length != 1
+      raise Exception,
+        "Unsure which Gem to use for #{gem_name}, got #{found}"
+    end
+    found[0]
+  end
+
+  def chunk_name_for_gemspec(spec)
+    # Chunk names are the Gem's "full name" (name + version number), so
+    # that we don't break in the rare but possible case that two different
+    # versions of the same Gem are required for something to work. It'd be
+    # nicer to only use the full_name if we detect such a conflict.
+    spec.full_name
+  end
+
+  def generate_chunk_morph_for_gem(spec)
+    description = 'Automatically generated by rubygem.import'
+
+    bin_dir = "\"$DESTDIR/$PREFIX/bin\""
+    gem_dir = "\"$DESTDIR/$PREFIX/lib/ruby/gems/#{BASEROCK_RUBY_VERSION}\""
+
+    # There's more splitting to be done, but putting the docs in the
+    # correct artifact is the single biggest win for enabling smaller
+    # system images.
+    split_rules = [
+      {
+        'artifact' => "#{spec.full_name}-doc",
+        'include' => [
+          "usr/lib/ruby/gems/#{BASEROCK_RUBY_VERSION}/doc/.*"
+        ]
+      }
+    ]
+
+    build_commands = [
+      "gem build #{spec.name}.gemspec",
+    ]
+
+    install_commands = [
+      "mkdir -p #{gem_dir}",
+      "gem install --install-dir #{gem_dir} --bindir #{bin_dir} " +
+        "--ignore-dependencies --local ./#{spec.full_name}.gem"
+    ]
+
+    {
+      'name' => chunk_name_for_gemspec(spec),
+      'kind' => 'chunk',
+      'description' => description,
+      'build-system' => 'manual',
+      ##'gem-url' => "http://rubygems.org/downloads/#{spec.full_name}.gem",
+      'products' => split_rules,
+      'build-commands' => build_commands,
+      'install-commands' => install_commands,
+    }
+  end
+
+  def build_deps_for_gem(spec)
+    deps = spec.dependencies.select do |d|
+      d.type == :development && BUILD_DEPENDENCY_WHITELIST.member?(d.name)
+    end
+  end
+
+  def runtime_deps_for_gem(spec)
+    spec.dependencies.select {|d| d.type == :runtime}
+  end
+
+  def write_morph(file, morph)
+    file.write(YAML.dump(morph))
+  end
+
+  def run
+    source_dir_name, gem_name = parse_options(ARGV)
+
+    Log.info("Creating chunk morph for #{gem_name} based on " +
+             "source code in #{source_dir_name}")
+
+    Dir.chdir(source_dir_name)
+
+    ## Find the .gemspec file in the project repo corresponding to the Gem
+    ## requested on the commandline.
+    #local_source = load_local_gemspecs
+    #local_specset = Bundler::SpecSet.new(local_source.local_specs)
+    #spec = get_spec_for_gem(local_specset, gem_name)
+
+    # Instead of reading the real Gemfile, invent one that simply includes the
+    # chosen .gemspec. If present, the Gemfile.lock will be honoured.
+    fake_gemfile = Bundler::Dsl.new
+    fake_gemfile.source('https://rubygems.org')
+    fake_gemfile.gemspec({:name => gem_name})
+
+    definition = fake_gemfile.to_definition('Gemfile.lock', true)
+    resolved_specs = definition.resolve_remotely!
+
+    #build_specs, runtime_specs = definition.resolve_dependencies
+
+    spec = get_spec_for_gem(resolved_specs, gem_name)
+
+    if not spec_is_from_current_source_tree(spec)
+      error "Specified gem '#{spec.name}' doesn't live in the source in " +
+            "'#{source_dir_name}'"
+      Log.debug "SPEC: #{spec.inspect} #{spec.source}"
+      exit 1
+    end
+
+    morph = generate_chunk_morph_for_gem(spec)
+
+    # One might think that you could use the Bundler::Dependency.groups
+    # field to filter but it doesn't seem to be useful. Instead we go back to
+    # the Gem::Specification of the target Gem and use the dependencies fild
+    # there. We look up each dependency in the resolved_specset to find out
+    # what version Bundler has chosen of it.
+
+    def format_deps_for_morphology(specset, dep_list)
+      info = dep_list.collect do |dep|
+        spec = specset[dep][0]
+        [spec.name, spec.version.to_s]
+      end
+      Hash[info]
+    end
+
+    build_deps = format_deps_for_morphology(
+      resolved_specs, build_deps_for_gem(spec))
+    runtime_deps = format_deps_for_morphology(
+      resolved_specs, runtime_deps_for_gem(spec))
+
+    morph['x-build-dependencies-rubygem'] = build_deps
+    morph['x-runtime-dependencies-rubygem'] = runtime_deps
+
+    write_morph(STDOUT, morph)
+  end
+end
+
+RubyGemChunkMorphologyGenerator.new.run
