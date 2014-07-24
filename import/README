@@ -1,0 +1,100 @@
+How to use the Baserock Import Tool
+===================================
+
+The tool helps you generate Baserock build instructions by importing metadata
+from a foreign packaging system.
+
+The process it follows is this:
+
+1. Pick a package from the processing queue.
+2. Find its source code, and generate a suitable .lorry file.
+3. Make it available as a local Git repo.
+4. Check out the commit corresponding to the requested version of the package.
+5. Analyse the source tree and generate a suitable chunk .morph to build the
+   requested package.
+6. Analyse the source tree and generate a list of dependencies for the package.
+7. Enqueue any new dependencies, and repeat.
+
+Once the queue is empty:
+
+8. Generate a stratum .morph for the package(s) the user requested.
+
+The tool is not magic. It can be taught the conventions for each packaging
+system, but these will not work in all cases. When an import fails it will
+continue to the next package, so that the first run does as many imports as
+possible.
+
+For imports that could not be done automatically, you will need to write an
+appropriate .lorry or .morph file manually and rerun the tool. It will resume
+processing where it left off.
+
+It's possible to teach the code about more conventions, but it is only
+worthwhile to do that for common patterns.
+
+
+Package-system specific code and data
+-------------------------------------
+
+For each supported package system, there should be an xxx.to_lorry program, and
+a xxx.to_chunk program. These should output on stdout a .lorry file and a .morph
+file, respectively.
+
+Each packaging system can have static data saved in a .yaml file, for known
+metadata that the programs cannot discover automatically.
+
+The following field should be honoured by most packaging systems:
+`known-source-uris`. It maps package name to source URI.
+
+
+Help with .lorry generation
+---------------------------
+
+The simplest fix is to add the source to the 'known-source-uris` dict in the
+static metadata.
+
+If you write a .lorry file by hand, be sure to fill in the `x-products-YYY`
+field. 'x' means this field is an extension to the .lorry format. YYY is the
+name of the packaging system, e.g. 'rubygems'. It should contain a list of
+which packages this repository contains the source code for.
+
+
+Help with linking package version to Git tag
+--------------------------------------------
+
+Some projects do not tag releases.
+
+Currently, you must create a tag in the local checkout for the tool to continue.
+In future, the Lorry tool should be extended to handle creation of missing
+tags, so that they are propagated to the project Trove. The .lorry file would
+need to contain a dict mapping product version number to commit SHA1.
+
+If you are in a hurry, you can use the `--use-master-if-no-tag` option. Instead
+of an error, the tool will use whatever is the `master` ref of the component
+repo.
+
+
+Help with chunk .morph generation
+---------------------------------
+
+If you create a chunk morph by hand, you must add some extra fields:
+
+  - `x-build-dependencies-YYY`
+  - `x-runtime-dependencies-YYY`
+
+These are a dict mapping dependency name to dependency version. For example:
+
+    x-build-dependencies-rubygems: {}
+    x-runtime-dependencies-rubygems:
+        hashie: 2.1.2
+        json: 1.8.1
+        mixlib-log: 1.6.0
+        rack: 1.5.2
+
+All dependencies will be included in the resulting stratum. Those which are build
+dependencies of other components will be added to the relevant 'build-depends'
+field.
+
+These fields are non-standard extensions to the morphology format.
+
+For more package-system specific information, see the relevant README file, e.g
+README.rubygems for RubyGem imports.
