@@ -488,7 +488,7 @@ class ChunkBuilder(BuilderBase):
         def filepaths(destdir):
             for dirname, subdirs, basenames in os.walk(destdir):
                 subdirsymlinks = [os.path.join(dirname, x) for x in subdirs
-                                  if os.path.islink(x)]
+                                  if os.path.islink(os.path.join(dirname, x))]
                 filenames = [os.path.join(dirname, x) for x in basenames]
                 for relpath in (os.path.relpath(x, destdir) for x in
                                 [dirname] + subdirsymlinks + filenames):
