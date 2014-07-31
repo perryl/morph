@@ -498,7 +498,7 @@ class DeployPlugin(cliapp.Plugin):
                     system_tree, 'baserock', 'deployment.meta')
             with morphlib.savefile.SaveFile(metadata_path, 'w') as f:
                 json.dump(metadata, f, indent=4,
-                          sort_keys=True, encoding='unicode-escape')
+                          sort_keys=True)
             return system_tree
         except Exception:
             shutil.rmtree(system_tree)
