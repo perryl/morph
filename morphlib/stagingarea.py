@@ -271,6 +271,13 @@ class StagingArea(object):
 
         self.do_unmounts()
 
+    def copy_file_to_build_dir(self, data, target_relpath):
+        # FIXME: should give progress info
+        target_abspath = os.path.join(self.builddirname, target_relpath)
+        logging.debug('Writing %s to %s', data, target_abspath)
+        with open(target_abspath, 'wb') as f:
+            shutil.copyfileobj(data, f)
+
     def runcmd(self, argv, **kwargs):  # pragma: no cover
         '''Run a command in a chroot in the staging area.'''
         assert 'env' not in kwargs
@@ -334,4 +341,3 @@ class StagingArea(object):
                                 'failed', os.path.basename(self.dirname))
         os.rename(self.dirname, dest_dir)
         self.dirname = dest_dir
-
