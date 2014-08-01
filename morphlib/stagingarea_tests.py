@@ -17,6 +17,7 @@
 import cliapp
 import os
 import shutil
+import StringIO
 import tarfile
 import tempfile
 import unittest
@@ -45,6 +46,7 @@ class FakeApplication(object):
         self.settings = {
             'cachedir': cachedir,
             'tempdir': tempdir,
+            'no-ccache': True
         }
         for leaf in ('chunks',):
             d = os.path.join(tempdir, leaf)
@@ -140,3 +142,16 @@ class StagingAreaTests(unittest.TestCase):
             object(), self.staging, self.build_env, use_chroot=False)
         filename = os.path.join(self.staging, 'foobar')
         self.assertEqual(sa.relative(filename), filename)
+
+    def test_supports_inserting_files_into_build(self):
+        sa = self.sa
+        source = FakeSource()
+        sa.chroot_open(source, False)
+
+        data = StringIO.StringIO('test content')
+        sa.copy_file_to_build_dir(data, 'test-data.txt')
+
+        builddir = '%s.build' % source.morphology['name']
+        test_data_file = os.path.join(self.staging, builddir, 'test-data.txt')
+        with open(test_data_file) as f:
+            self.assertEqual(f.read(), data.getvalue())
