@@ -589,6 +589,7 @@ build-system: dummy
                 'products': [],
                 'devices': [],
                 'max-jobs': None,
+                'gem-url': None,
             })
 
     def test_unsets_defaults_for_chunks(self):

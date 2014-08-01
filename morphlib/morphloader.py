@@ -243,6 +243,7 @@ class MorphologyDumper(yaml.SafeDumper):
         'products',
         'chunks',
         'build-system',
+        'gem-url',
         'pre-configure-commands',
         'configure-commands',
         'post-configure-commands',
@@ -354,6 +355,7 @@ class MorphologyLoader(object):
             'products': [],
             'max-jobs': None,
             'build-system': 'manual',
+            'gem-url': None,
         },
         'stratum': {
             'chunks': [],
