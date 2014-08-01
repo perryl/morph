@@ -29,6 +29,7 @@ import traceback
 import subprocess
 import tempfile
 import gzip
+import urllib2
 
 import cliapp
 
@@ -539,8 +540,16 @@ class ChunkBuilder(BuilderBase):
         return built_artifacts
 
     def get_sources(self, srcdir):  # pragma: no cover
-        s = self.artifact.source
-        extract_sources(self.app, self.repo_cache, s.repo, s.sha1, srcdir)
+        if self.artifact.source.build_mode == 'rubygem':
+            gem_url = self.artifact.source.morphology['gem-url']
+            self.app.status(
+                msg='Downloading %(url)s into build chroot', url=gem_url)
+            response = urllib2.urlopen(gem_url)
+            gem_filename = os.path.basename(gem_url)
+            self.staging_area.copy_file_to_build_dir(response, gem_filename)
+        else:
+            s = self.artifact.source
+            extract_sources(self.app, self.repo_cache, s.repo, s.sha1, srcdir)
 
 
 class StratumBuilder(BuilderBase):

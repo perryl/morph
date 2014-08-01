@@ -325,13 +325,13 @@ class BuildCommand(object):
             dep_prefix_set = artifact.get_dependency_prefix_set()
             extra_path = [os.path.join(d, 'bin') for d in dep_prefix_set]
 
-            if build_mode not in ['bootstrap', 'staging', 'test']:
+            if build_mode not in ['bootstrap', 'rubygem', 'staging', 'test']:
                 logging.warning('Unknown build mode %s for chunk %s. '
                                 'Defaulting to staging mode.' %
                                 (build_mode, artifact.name))
                 build_mode = 'staging'
 
-            if build_mode == 'staging':
+            if build_mode in ['rubygem', 'staging']:
                 use_chroot = True
                 setup_mounts = True
 
