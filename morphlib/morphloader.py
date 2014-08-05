@@ -255,6 +255,7 @@ class MorphologyDumper(yaml.SafeDumper):
         'artifact',
         'include',
         'systems',
+        'deploy-defaults',
         'deploy',
         'type',
         'location',
