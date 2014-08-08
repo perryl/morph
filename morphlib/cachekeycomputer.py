@@ -122,10 +122,7 @@ class CacheKeyComputer(object):
             # products is omitted as they are part of the split-rules
         elif kind in ('system', 'stratum'):
             morphology = artifact.source.morphology
-            # Exclude fields starting with _orig_. This filtering can be
-            # removed once the morph2 code is gone.
-            morph_dict = dict((k, morphology[k]) for k in morphology.keys()
-                              if not k.startswith('_orig_'))
+            morph_dict = dict((k, morphology[k]) for k in morphology.keys())
 
             # Disregard all fields of a morphology that aren't important
             ignored_fields = (
