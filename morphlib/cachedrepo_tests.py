@@ -219,10 +219,6 @@ class CachedRepoTests(unittest.TestCase):
         morph_filename = os.path.join(unpack_dir, 'foo.morph')
         self.assertTrue(os.path.exists(morph_filename))
 
-    def test_load_morphology_from_existing_ref(self):
-        morph = self.repo.load_morphology('master', 'foo')
-        self.assertTrue(morph['name'] == 'foo')
-
     def test_ls_tree_in_existing_ref(self):
         data = self.repo.ls_tree('e28a23812eadf2fce6583b8819b9c5dbd36b9fb9')
         self.assertEqual(data, ['foo.morph'])

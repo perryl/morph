@@ -195,15 +195,6 @@ class CachedRepo(object):
 
         self._checkout_ref(ref, target_dir)
 
-    def load_morphology(self, ref, name):
-        '''Loads a morphology from a given ref'''
-
-        if not morphlib.git.is_valid_sha1(ref):
-            ref = self._rev_parse(ref)
-        text = self.cat(ref, '%s.morph' % name)
-        morphology = morphlib.morph2.Morphology(text)
-        return morphology
-
     def ls_tree(self, ref):
         '''Return file names found in root tree. Does not recurse to subtrees.
 
