@@ -24,17 +24,14 @@ chunkrepo="$DATADIR/chunk-repo"
 cd "$chunkrepo"
 git checkout -b tarball-links
 cat >links.morph <<'EOF'
-{
-    "name": "links",
-    "kind": "chunk",
-    "build-system": "manual",
-    "install-commands": [
-        "mkdir -p \"$DESTDIR/bin\"",
-        "touch \"$DESTDIR/bin/true\"",
-        "cd \"$DESTDIR/bin\" && ln true true-hardlink",
-        "cd \"$DESTDIR/bin\" && ln -s true true-symlink"
-    ]
-}
+name: links
+kind: chunk
+build-system: manual
+install-commands:
+  - mkdir -p "$DESTDIR/bin"
+  - touch "$DESTDIR/bin/true"
+  - cd "$DESTDIR/bin" && ln true true-hardlink
+  - cd "$DESTDIR/bin" && ln -s true true-symlink
 EOF
 git add links.morph
 git commit --quiet -m 'Add link adding chunk'
@@ -43,22 +40,13 @@ morphsrepo="$DATADIR/morphs"
 cd "$morphsrepo"
 git checkout -b tarball-links
 cat <<EOF > hello-tarball.morph
-{
-    "name": "hello-tarball",
-    "kind": "system",
-    "arch": "$("$SRCDIR/scripts/test-morph" print-architecture)",
-    "strata": [
-        {
-            "morph": "link-stratum",
-        },
-        {
-            "morph": "hello-stratum",
-        },
-        {
-            "morph": "linux-stratum",
-        }
-    ]
-}
+name: hello-tarball
+kind: system
+arch: $("$SRCDIR/scripts/test-morph" print-architecture)
+strata:
+  - morph: link-stratum
+  - morph: hello-stratum
+  - morph: linux-stratum
 EOF
 git add hello-tarball.morph
 
@@ -69,19 +57,14 @@ sed -i linux-stratum.morph \
 git add linux-stratum.morph
 
 cat <<EOF > link-stratum.morph
-{
-    "name": "link-stratum",
-    "kind": "stratum",
-    "chunks": [
-        {
-            "name": "links",
-            "repo": "test:chunk-repo",
-            "ref": "tarball-links",
-            "build-mode": "test",
-            "build-depends": []
-        }
-    ]
-}
+name: link-stratum
+kind: stratum
+chunks:
+  - name: links
+    repo: test:chunk-repo
+    ref: tarball-links
+    build-mode: test
+    build-depends: []
 EOF
 git add link-stratum.morph
 git commit --quiet -m "add morphs"

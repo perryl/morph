@@ -38,12 +38,11 @@ EOF
 git add CMakeLists.txt
 
 cat <<EOF > hello.morph
-{
-    "name": "hello",
-    "kind": "chunk",
-    "build-system": "cmake",
-    "install-commands": ["make DESTDIR=\"\$DESTDIR\" install"]
-}
+name: hello
+kind: chunk
+build-system: cmake
+install-commands:
+  - make DESTDIR="\$DESTDIR" install
 EOF
 git add hello.morph
 git commit --quiet -m "Convert hello to a cmake project"

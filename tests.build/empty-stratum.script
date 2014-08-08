@@ -24,10 +24,8 @@ git checkout --quiet -b empty-stratum
 
 # Create empty stratum to test S4585
 cat <<EOF > hello-stratum.morph
-{
-    "name": "hello-stratum",
-    "kind": "stratum"
-}
+name: hello-stratum
+kind: stratum
 EOF
 sed -i 's/master/empty-stratum/' hello-system.morph
 git add hello-stratum.morph hello-system.morph

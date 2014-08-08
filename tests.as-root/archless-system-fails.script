@@ -23,17 +23,10 @@ set -eu
 cd "$DATADIR/morphs"
 git checkout --quiet -b archless master
 cat <<EOF >archless-system.morph
-{
-  "name": "archless-system",
-  "kind": "system",
-  "strata": [
-    {
-      "morph": "hello-stratum",
-      "repo": "tests:morphs",
-      "ref": "archless"
-    }
-  ]
-}
+name: archless-system
+kind: system
+strata:
+  - morph: hello-stratum
 EOF
 git add archless-system.morph
 git commit --quiet -m "add archless system"

@@ -26,14 +26,11 @@ set -eu
 parent="$DATADIR/parent-repo"
 mkdir "$parent"
 cat <<EOF > "$parent/parent.morph"
-{
-    "name": "parent",
-    "kind": "chunk",
-    "build-system": "manual",
-    "build-commands": [
-        "test -f le-sub/README"
-    ]
-}
+name: parent
+kind: chunk
+build-system: manual
+build-commands:
+  - test -f le-sub/README
 EOF
 
 "$SRCDIR/scripts/run-git-in" "$parent" init --quiet
@@ -47,19 +44,14 @@ EOF
 
 morphs="$DATADIR/morphs-repo"
 cat <<EOF > "$morphs/hello-stratum.morph"
-{
-    "name": "hello-stratum",
-    "kind": "stratum",
-    "chunks": [
-        {
-            "name": "parent",
-            "repo": "test:parent-repo",
-            "ref": "master",
-            "build-depends": [],
-            "build-mode": "test"
-        }
-    ]
-}
+name: hello-stratum
+kind: stratum
+chunks:
+  - name: parent
+    repo: test:parent-repo
+    ref: master
+    build-depends: []
+    build-mode: test
 EOF
 "$SRCDIR/scripts/run-git-in" "$morphs" add hello-stratum.morph
 "$SRCDIR/scripts/run-git-in" "$morphs" commit --quiet -m 'foo'
