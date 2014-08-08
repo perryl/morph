@@ -1,4 +1,4 @@
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@ import morphlib
 class MorphologyTests(unittest.TestCase):
 
     def setUp(self):
-        self.morph = morphlib.morph3.Morphology()
+        self.morph = morphlib.morphology.Morphology()
 
     def test_has_repo_url_attribute(self):
         self.assertEqual(self.morph.repo_url, None)

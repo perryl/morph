@@ -26,7 +26,7 @@ class MorphologySetTests(unittest.TestCase):
     def setUp(self):
         self.morphs = morphlib.morphset.MorphologySet()
 
-        self.system = morphlib.morph3.Morphology({
+        self.system = morphlib.morphology.Morphology({
             'kind': 'system',
             'name': 'foo-system',
             'strata': [
@@ -41,7 +41,7 @@ class MorphologySetTests(unittest.TestCase):
         self.system.ref = 'master'
         self.system.filename = 'foo-system.morph'
 
-        self.stratum = morphlib.morph3.Morphology({
+        self.stratum = morphlib.morphology.Morphology({
             'kind': 'stratum',
             'name': 'foo-stratum',
             'chunks': [
@@ -111,7 +111,7 @@ class MorphologySetTests(unittest.TestCase):
             })
 
     def test_changes_stratum_ref_in_build_depends(self):
-        other_stratum = morphlib.morph3.Morphology({
+        other_stratum = morphlib.morphology.Morphology({
             'name': 'other-stratum',
             'kind': 'stratum',
             'chunks': [],
