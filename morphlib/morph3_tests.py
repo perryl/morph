@@ -1,4 +1,4 @@
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -46,3 +46,37 @@ class MorphologyTests(unittest.TestCase):
         self.morph.dirty = True
         self.assertEqual(self.morph.dirty, True)
 
+    def test_uses_morphology_commands_when_given(self):
+        m = morphlib.morph3.Morphology(
+            {
+                'name': 'foo',
+                'kind': 'chunk',
+                'build-system': 'dummy',
+                'build-commands': ['build-it']
+            }
+        )
+        cmds = m.get_commands('build-commands')
+        self.assertEqual(cmds, ['build-it'])
+
+    def test_uses_build_system_commands_when_morphology_doesnt(self):
+        m = morphlib.morph3.Morphology(
+            {
+                'name': 'foo',
+                'kind': 'chunk',
+                'build-system': 'dummy',
+            }
+        )
+        cmds = m.get_commands('build-commands')
+        self.assertEqual(cmds, ['echo dummy build'])
+
+    def test_uses_morphology_commands_when_morphology_has_empty_list(self):
+        m = morphlib.morph3.Morphology(
+            {
+                'name': 'foo',
+                'kind': 'chunk',
+                'build-system': 'dummy',
+                'build-commands': []
+            }
+        )
+        cmds = m.get_commands('build-commands')
+        self.assertEqual(cmds, [])

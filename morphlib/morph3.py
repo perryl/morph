@@ -1,4 +1,4 @@
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,6 +17,8 @@
 
 
 import UserDict
+
+import morphlib
 
 
 class Morphology(UserDict.IterableUserDict):
@@ -43,3 +45,11 @@ class Morphology(UserDict.IterableUserDict):
         self.filename = None
         self.dirty = None
 
+    def get_commands(self, which):
+        '''Return the commands to run from a morphology or the build system'''
+        if self.get(which, None) is None:
+            attr = '_'.join(which.split('-'))
+            bs = morphlib.buildsystem.lookup_build_system(self['build-system'])
+            return getattr(bs, attr)
+        else:
+            return self[which]
