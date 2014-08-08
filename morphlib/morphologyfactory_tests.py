@@ -30,7 +30,7 @@ class FakeRemoteRepoCache(object):
             return '''{
                  "name": "%s",
                  "kind": "chunk",
-                 "build-system": "bar"
+                 "build-system": "dummy"
              }''' % filename[:-len('.morph')]
         return 'text'
 
@@ -43,12 +43,12 @@ class FakeLocalRepo(object):
         'chunk.morph': '''
                 name: chunk
                 kind: chunk
-                build-system: bar
+                build-system: dummy
             ''',
         'chunk-split.morph': '''
                 name: chunk-split
                 kind: chunk
-                build-system: bar
+                build-system: dummy
                 products:
                     - artifact: chunk-split-runtime
                       include: []
@@ -125,7 +125,7 @@ class FakeLocalRepo(object):
             return '''{
                 "name": "%s",
                 "kind": "chunk",
-                "build-system": "bar"
+                "build-system": "dummy"
             }''' % filename[:-len('.morph')]
         return 'text'
 

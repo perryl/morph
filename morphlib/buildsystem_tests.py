@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -49,10 +49,10 @@ class BuildSystemTests(unittest.TestCase):
     def test_has_install_commands(self):
         self.assertEqual(self.bs['install-commands'], [])
 
-    def test_returns_morphology_text(self):
+    def test_returns_morphology(self):
         self.bs.name = 'fake'
-        text = self.bs.get_morphology_text('foobar')
-        self.assertTrue(type(text) in (str, unicode))
+        morph = self.bs.get_morphology('foobar')
+        self.assertTrue(morph.__class__.__name__ == 'Morphology')
 
 
 class ManualBuildSystemTests(unittest.TestCase):
