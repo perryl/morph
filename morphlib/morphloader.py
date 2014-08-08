@@ -338,22 +338,24 @@ class MorphologyLoader(object):
     _static_defaults = {
         'chunk': {
             'description': '',
-            'pre-configure-commands': [],
-            'configure-commands': [],
-            'post-configure-commands': [],
-            'pre-build-commands': [],
-            'build-commands': [],
-            'post-build-commands': [],
-            'pre-test-commands': [],
-            'test-commands': [],
-            'post-test-commands': [],
-            'pre-install-commands': [],
-            'install-commands': [],
-            'post-install-commands': [],
+            'pre-configure-commands': None,
+            'configure-commands': None,
+            'post-configure-commands': None,
+            'pre-build-commands': None,
+            'build-commands': None,
+            'post-build-commands': None,
+            'pre-test-commands': None,
+            'test-commands': None,
+            'post-test-commands': None,
+            'pre-install-commands': None,
+            'install-commands': None,
+            'post-install-commands': None,
             'devices': [],
             'products': [],
             'max-jobs': None,
             'build-system': 'manual',
+            'build-mode': 'staging',
+            'prefix': '/usr',
         },
         'stratum': {
             'chunks': [],
@@ -438,9 +440,6 @@ class MorphologyLoader(object):
         self._require_field('kind', morph)
 
         # The rest of the validation is dependent on the kind.
-
-        # FIXME: move validation of clusters from morph2 to
-        # here, and use morphload to load the morphology
         kind = morph['kind']
         if kind not in ('system', 'stratum', 'chunk', 'cluster'):
             raise UnknownKindError(morph['kind'], morph.filename)
@@ -731,16 +730,24 @@ class MorphologyLoader(object):
         for spec in morph['chunks']:
             if 'repo' not in spec:
                 spec['repo'] = spec['name']
-            if 'morph' not in spec:
-                spec['morph'] = spec['name']
+            if 'build-mode' not in spec:
+                spec['build-mode'] = \
+                    self._static_defaults['chunk']['build-mode']
+            if 'prefix' not in spec:
+                spec['prefix'] = \
+                    self._static_defaults['chunk']['prefix']
         self._set_stratum_specs_defaults(morph, 'build-depends')
 
     def _unset_stratum_defaults(self, morph):
         for spec in morph['chunks']:
             if 'repo' in spec and spec['repo'] == spec['name']:
                 del spec['repo']
-            if 'morph' in spec and spec['morph'] == spec['name']:
-                del spec['morph']
+            if 'build-mode' in spec and spec['build-mode'] == \
+                    self._static_defaults['chunk']['build-mode']:
+                del spec['build-mode']
+            if 'prefix' in spec and spec['prefix'] == \
+                    self._static_defaults['chunk']['prefix']:
+                del spec['prefix']
         self._unset_stratum_specs_defaults(morph, 'strata')
 
     def _set_chunk_defaults(self, morph):

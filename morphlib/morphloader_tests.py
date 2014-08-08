@@ -569,26 +569,28 @@ build-system: dummy
                 'name': 'foo',
                 'description': '',
                 'build-system': 'manual',
+                'build-mode': 'staging',
 
-                'configure-commands': [],
-                'pre-configure-commands': [],
-                'post-configure-commands': [],
+                'configure-commands': None,
+                'pre-configure-commands': None,
+                'post-configure-commands': None,
 
-                'build-commands': [],
-                'pre-build-commands': [],
-                'post-build-commands': [],
+                'build-commands': None,
+                'pre-build-commands': None,
+                'post-build-commands': None,
 
-                'test-commands': [],
-                'pre-test-commands': [],
-                'post-test-commands': [],
+                'test-commands': None,
+                'pre-test-commands': None,
+                'post-test-commands': None,
 
-                'install-commands': [],
-                'pre-install-commands': [],
-                'post-install-commands': [],
+                'install-commands': None,
+                'pre-install-commands': None,
+                'post-install-commands': None,
 
                 'products': [],
                 'devices': [],
                 'max-jobs': None,
+                'prefix': '/usr',
             })
 
     def test_unsets_defaults_for_chunks(self):
@@ -637,6 +639,7 @@ build-system: dummy
                         "morph": "bar",
                         'build-mode': 'bootstrap',
                         'build-depends': [],
+                        'prefix': '/usr',
                     },
                 ],
                 'products': [],
@@ -650,8 +653,9 @@ build-system: dummy
                 {
                     'name': 'bar',
                     "ref": "bar",
-                    'build-mode': 'bootstrap',
+                    'build-mode': 'staging',
                     'build-depends': [],
+                    'prefix': '/usr',
                 },
             ],
         }
@@ -754,7 +758,7 @@ build-system: dummy
                          [{'morph': 'foo'},
                           {'morph': 'bar'}])
 
-    def test_sets_stratum_chunks_repo_and_morph_from_name(self):
+    def test_sets_stratum_chunks_repo_from_name(self):
         m = morphlib.morph3.Morphology(
             {
                 "name": "foo",
@@ -771,9 +775,8 @@ build-system: dummy
         self.loader.set_defaults(m)
         self.loader.validate(m)
         self.assertEqual(m['chunks'][0]['repo'], 'le-chunk')
-        self.assertEqual(m['chunks'][0]['morph'], 'le-chunk')
 
-    def test_collapses_stratum_chunks_repo_and_morph_from_name(self):
+    def test_collapses_stratum_chunks_repo_from_name(self):
         m = morphlib.morph3.Morphology(
             {
                 "name": "foo",
@@ -791,7 +794,6 @@ build-system: dummy
 
         self.loader.unset_defaults(m)
         self.assertTrue('repo' not in m['chunks'][0])
-        self.assertTrue('morph' not in m['chunks'][0])
 
     def test_convertes_max_jobs_to_an_integer(self):
         m = morphlib.morph3.Morphology(
