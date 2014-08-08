@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -65,7 +65,7 @@ class ShowDependenciesPlugin(cliapp.Plugin):
 
         # traverse the morphs to list all the sources
         for repo, ref, filename in self.app.itertriplets(args):
-            morph = filename[:-len('.morph')]
+            morph = morphlib.util.sanitise_morphology_path(filename)
             self.app.output.write('dependency graph for %s|%s|%s:\n' %
                                   (repo, ref, morph))
 

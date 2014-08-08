@@ -1,4 +1,4 @@
-dependency graph for test-repo|master|xfce-system:
+dependency graph for test-repo|master|xfce-system.morph:
   test-repo|master|xfce-system.morph|xfce-system-rootfs
     -> test-repo|master|xfce-core.morph|xfce-core-devel
     -> test-repo|master|xfce-core.morph|xfce-core-runtime
