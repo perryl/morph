@@ -1,4 +1,4 @@
-# Copyright (C) 2012  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,10 +22,8 @@ import morphlib
 class SourceTests(unittest.TestCase):
 
     morphology_text = '''
-        {
-            "name": "foo",
-            "kind": "chunk"
-        }
+            name: foo
+            kind: chunk
     '''
 
     def setUp(self):
@@ -33,7 +31,8 @@ class SourceTests(unittest.TestCase):
         self.original_ref = 'original/ref'
         self.sha1 = 'CAFEF00D'
         self.tree = 'F000000D'
-        self.morphology = morphlib.morph2.Morphology(self.morphology_text)
+        loader = morphlib.morphloader.MorphologyLoader()
+        self.morphology = loader.load_from_string(self.morphology_text)
         self.filename = 'foo.morph'
         self.source = morphlib.source.Source(
             self.repo_name, self.original_ref, self.sha1, self.tree,

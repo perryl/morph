@@ -24,26 +24,24 @@ import morphlib
 class RemoteArtifactCacheTests(unittest.TestCase):
 
     def setUp(self):
-        morph = morphlib.morph2.Morphology(
+        loader = morphlib.morphloader.MorphologyLoader()
+        morph = loader.load_from_string(
             '''
-            {
-                "name": "chunk",
-                "kind": "chunk",
-                "artifacts": {
-                    "chunk-runtime": [
-                        "usr/bin",
-                        "usr/sbin",
-                        "usr/lib",
-                        "usr/libexec"
-                    ],
-                    "chunk-devel": [
-                        "usr/include"
-                    ],
-                    "chunk-doc": [
-                        "usr/share/doc"
-                    ]
-                }
-            }
+                name: chunk
+                kind: chunk
+                products:
+                    - artifact: chunk-runtime
+                      include:
+                          - usr/bin
+                          - usr/sbin
+                          - usr/lib
+                          - usr/libexec
+                    - artifact: chunk-devel
+                      include:
+                          - usr/include
+                    - artifact: chunk-doc
+                      include:
+                          - usr/share/doc
             ''')
         self.source = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')

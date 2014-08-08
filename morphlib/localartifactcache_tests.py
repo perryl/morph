@@ -27,23 +27,21 @@ class LocalArtifactCacheTests(unittest.TestCase):
     def setUp(self):
         self.tempfs = fs.tempfs.TempFS()
 
-        morph = morphlib.morph2.Morphology(
+        loader = morphlib.morphloader.MorphologyLoader()
+        morph = loader.load_from_string(
             '''
-            {
-                "name": "chunk",
-                "kind": "chunk",
-                "artifacts": {
-                    "chunk-runtime": [
-                        "usr/bin",
-                        "usr/sbin",
-                        "usr/lib",
-                        "usr/libexec"
-                    ],
-                    "chunk-devel": [
-                        "usr/include"
-                    ]
-                }
-            }
+            name: chunk
+            kind: chunk
+            products:
+                - artifact: chunk-runtime
+                  include:
+                    - usr/bin
+                    - usr/sbin
+                    - usr/lib
+                    - usr/libexec
+                - artifact: chunk-devel
+                  include:
+                    - usr/include
             ''')
         self.source = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
