@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,6 +15,8 @@
 
 
 import os
+
+import morphlib
 
 
 class BuildSystem(object):
@@ -49,19 +51,14 @@ class BuildSystem(object):
         key = '_'.join(key.split('-'))
         return getattr(self, key)
 
-    def get_morphology_text(self, name):
+    def get_morphology(self, name):
         '''Return the text of an autodetected chunk morphology.'''
 
-        return '''
-            {
-                "name": "%(name)s",
-                "kind": "chunk",
-                "build-system": "%(bs)s"
-            }
-        ''' % {
+        return morphlib.morphology.Morphology({
             'name': name,
-            'bs': self.name,
-        }
+            'kind': 'chunk',
+            'build-system': self.name,
+        })
 
     def used_by_project(self, file_list):
         '''Does a project use this build system?
