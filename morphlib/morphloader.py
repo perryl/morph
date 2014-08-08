@@ -394,7 +394,7 @@ class MorphologyLoader(object):
         if not isinstance(obj, dict):
             raise NotADictionaryError(morph_filename)
 
-        return morphlib.morph3.Morphology(obj)
+        return morphlib.morphology.Morphology(obj)
 
     def load_from_string(self, string, filename='string'):
         '''Load a morphology from a string.

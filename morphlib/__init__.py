@@ -70,7 +70,7 @@ import localrepocache
 import mountableimage
 import morphologyfactory
 import morphologyfinder
-import morph3
+import morphology
 import morphloader
 import morphset
 import remoteartifactcache
