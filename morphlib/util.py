@@ -463,3 +463,27 @@ def iter_trickle(iterable, limit):
         if len(buf) == 0:
            break
         yield buf
+
+
+def get_data_path(relative_path): # pragma: no cover
+    '''Return path to a data file in the morphlib Python package.
+
+    ``relative_path`` is the name of the data file, relative to the
+    location in morphlib where the data files are.
+
+    '''
+
+    morphlib_dir = os.path.dirname(morphlib.__file__)
+    return os.path.join(morphlib_dir, relative_path)
+
+
+def get_data(relative_path): # pragma: no cover
+    '''Return contents of a data file from the morphlib Python package.
+
+    ``relative_path`` is the name of the data file, relative to the
+    location in morphlib where the data files are.
+
+    '''
+
+    with open(get_data_path(relative_path)) as f:
+        return f.read()
