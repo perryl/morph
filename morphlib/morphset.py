@@ -127,7 +127,8 @@ class MorphologySet(object):
             specs = m[kind]
             for spec in specs:
                 if cb_filter(m, kind, spec):
-                    fn = morphlib.util.sanitise_morphology_path(spec['morph'])
+                    fn = morphlib.util.sanitise_morphology_path(
+                        spec['morph'] if 'morph' in spec else spec['name'])
                     orig_spec = (spec.get('repo'), spec.get('ref'), fn)
                     dirtied = cb_process(m, kind, spec)
                     if dirtied:
@@ -148,7 +149,8 @@ class MorphologySet(object):
                 if m.ref != spec.get('ref'):
                     m.ref = spec.get('ref')
                     m.dirty = True
-                file = morphlib.util.sanitise_morphology_path(spec['morph'])
+                file = morphlib.util.sanitise_morphology_path(
+                    spec['morph'] if 'morph' in spec else spec['name'])
                 assert (m.filename == file
                         or m.repo_url == spec.get('repo')), \
                        'Moving morphologies is not supported.'
@@ -162,7 +164,7 @@ class MorphologySet(object):
         '''
 
         def wanted_spec(m, kind, spec):
-            spec_name = spec.get('name', spec['morph'])
+            spec_name = spec['name'] if 'name' in spec else spec['morph']
             return (spec.get('repo') == repo_url and
                     spec.get('ref') == orig_ref and
                     spec_name == morph_name)
