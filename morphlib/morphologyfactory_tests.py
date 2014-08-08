@@ -17,7 +17,6 @@
 import unittest
 
 import morphlib
-from morphlib.morph2 import Morphology
 from morphlib.morphologyfactory import (MorphologyFactory,
                                         MorphologyNotFoundError,
                                         NotcachedError)
@@ -41,94 +40,76 @@ class FakeRemoteRepoCache(object):
 class FakeLocalRepo(object):
 
     morphologies = {
-        'chunk.morph': '''{
-                "name": "chunk",
-                "kind": "chunk",
-                "build-system": "bar"
-            }''',
-        'chunk-split.morph': '''{
-                "name": "chunk-split",
-                "kind": "chunk",
-                "build-system": "bar",
-                "products": [
-                    {
-                        "artifact": "chunk-split-runtime",
-                        "include": []
-                    },
-                    {
-                        "artifact": "chunk-split-devel",
-                        "include": []
-                    }
-                ]
-            }''',
-        'stratum.morph': '''{
-                "name": "stratum",
-                "kind": "stratum",
-                "chunks": [
-                    {
-                        "name": "chunk",
-                        "repo": "test:repo",
-                        "ref": "sha1",
-                        "build-mode": "bootstrap",
-                        "build-depends": []
-                    }
-                ]
-            }''',
-        'stratum-no-chunk-bdeps.morph': '''{
-                "name": "stratum-no-chunk-bdeps",
-                "kind": "stratum",
-                "chunks": [
-                    {
-                        "name": "chunk",
-                        "repo": "test:repo",
-                        "ref": "sha1",
-                        "build-mode": "bootstrap"
-                    }
-                ]
-            }''',
-        'stratum-no-bdeps-no-bootstrap.morph': '''{
-                "name": "stratum-no-bdeps-no-bootstrap",
-                "kind": "stratum",
-                "chunks": [
-                    {
-                        "name": "chunk",
-                        "repo": "test:repo",
-                        "ref": "sha1",
-                        "build-depends": []
-                    }
-                ]
-            }''',
-        'stratum-bdeps-no-bootstrap.morph': '''{
-                "name": "stratum-bdeps-no-bootstrap",
-                "kind": "stratum",
-                "build-depends": [
-                    {
-                        "morph": "stratum"
-                    }
-                ],
-                "chunks": [
-                    {
-                        "name": "chunk",
-                        "repo": "test:repo",
-                        "ref": "sha1",
-                        "build-depends": []
-                    }
-                ]
-            }''',
-        'stratum-empty.morph': '''{
-                "name": "stratum-empty",
-                "kind": "stratum"
-            }''',
-        'system.morph': '''{
-                "name": "system",
-                "kind": "system",
-                "arch": "%(arch)s"
-            }''',
-        'parse-error.morph': '''{ "name"''',
-        'name-mismatch.morph': '''{
-                "name": "fred",
-                "kind": "stratum"
-            }''',
+        'chunk.morph': '''
+                name: chunk
+                kind: chunk
+                build-system: bar
+            ''',
+        'chunk-split.morph': '''
+                name: chunk-split
+                kind: chunk
+                build-system: bar
+                products:
+                    - artifact: chunk-split-runtime
+                      include: []
+                    - artifact: chunk-split-devel
+                      include: []
+            ''',
+        'stratum.morph': '''
+                name: stratum
+                kind: stratum
+                chunks:
+                    - name: chunk
+                      repo: test:repo
+                      ref: sha1
+                      build-mode: bootstrap
+                      build-depends: []
+            ''',
+        'stratum-no-chunk-bdeps.morph': '''
+                name: stratum-no-chunk-bdeps
+                kind: stratum
+                chunks:
+                    - name: chunk
+                      repo: test:repo
+                      ref: sha1
+                      build-mode: bootstrap
+            ''',
+        'stratum-no-bdeps-no-bootstrap.morph': '''
+                name: stratum-no-bdeps-no-bootstrap
+                kind: stratum
+                chunks:
+                    - name: chunk
+                      repo: test:repo
+                      ref: sha1
+                      build-depends: []
+            ''',
+        'stratum-bdeps-no-bootstrap.morph': '''
+                name: stratum-bdeps-no-bootstrap
+                kind: stratum
+                build-depends:
+                    - morph: stratum
+                chunks:
+                    - name: chunk
+                      repo: test:repo
+                      ref: sha1
+                      build-depends: []
+            ''',
+        'stratum-empty.morph': '''
+                name: stratum-empty
+                kind: stratum
+            ''',
+        'system.morph': '''
+                name: system
+                kind: system
+                arch: %(arch)s
+                strata:
+                    - morph: stratum
+            ''',
+        'parse-error.morph': ''' name''',
+        'name-mismatch.morph': '''
+                name: fred
+                kind: stratum
+            ''',
     }
 
     def __init__(self):
@@ -313,13 +294,13 @@ class MorphologyFactoryTests(unittest.TestCase):
                           'reponame', 'sha1', 'parse-error.morph')
 
     def test_fails_on_no_chunk_bdeps(self):
-        self.assertRaises(morphlib.morphologyfactory.NoChunkBuildDependsError,
+        self.assertRaises(morphlib.morphloader.NoBuildDependenciesError,
                           self.mf.get_morphology, 'reponame', 'sha1',
                           'stratum-no-chunk-bdeps.morph')
 
     def test_fails_on_no_bdeps_or_bootstrap(self):
         self.assertRaises(
-            morphlib.morphologyfactory.NoStratumBuildDependsError,
+            morphlib.morphloader.NoStratumBuildDependenciesError,
             self.mf.get_morphology, 'reponame', 'sha1',
             'stratum-no-bdeps-no-bootstrap.morph')
 
@@ -330,6 +311,6 @@ class MorphologyFactoryTests(unittest.TestCase):
 
     def test_fails_on_empty_stratum(self):
         self.assertRaises(
-            morphlib.morphologyfactory.EmptyStratumError,
+            morphlib.morphloader.EmptyStratumError,
             self.mf.get_morphology, 'reponame', 'sha1', 'stratum-empty.morph')
 
