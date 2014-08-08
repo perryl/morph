@@ -44,11 +44,9 @@ EOF
 git add Makefile.PL
 
 cat <<EOF >hello.morph
-{
-    "name": "hello",
-    "kind": "chunk",
-    "build-system": "cpan"
-}
+name: hello
+kind: chunk
+build-system: cpan
 EOF
 git add hello.morph
 
@@ -57,20 +55,15 @@ git commit --quiet -m 'convert hello into a perl cpan project'
 # Set 'prefix' of hello to something custom
 cd "$DATADIR/morphs-repo"
 cat <<EOF > hello-stratum.morph
-{
-    "name": "hello-stratum",
-    "kind": "stratum",
-    "chunks": [
-        {
-            "name": "hello",
-            "repo": "test:chunk-repo",
-            "ref": "farrokh",
-            "build-depends": [],
-            "build-mode": "test",
-            "prefix": "/"
-        }
-    ]
-}
+name: hello-stratum
+kind: stratum
+chunks:
+  - name: hello
+    repo: test:chunk-repo
+    ref: farrokh
+    build-depends: []
+    build-mode: test
+    prefix: /
 EOF
 git add hello-stratum.morph
 git commit -q -m "Set custom install prefix for hello"

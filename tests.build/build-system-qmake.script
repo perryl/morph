@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2011-2013  Codethink Limited
+# Copyright (C) 2011-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -46,12 +46,11 @@ EOF
 git add hello.pro
 
 cat <<EOF > hello.morph
-{
-    "name": "hello",
-    "kind": "chunk",
-    "build-system": "qmake",
-    "install-commands": ["make INSTALL_ROOT=\"\$DESTDIR\" install"]
-}
+name: hello
+kind: chunk
+build-system: qmake
+install-commands:
+  - make INSTALL_ROOT="\$DESTDIR" install
 EOF
 git add hello.morph
 git commit --quiet -m "Convert hello to an qmake project"

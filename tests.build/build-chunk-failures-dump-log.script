@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (C) 2011-2013  Codethink Limited
+# Copyright (C) 2011-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -25,15 +25,12 @@ chunkrepo="$DATADIR/chunk-repo"
 cd "$chunkrepo"
 git checkout --quiet farrokh
 cat <<EOF >hello.morph
-{
-    "name": "hello",
-    "kind": "chunk",
-    "build-system": "dummy",
-    "build-commands": [
-        "echo The next command will fail",
-        "false"
-    ]
-}
+name: hello
+kind: chunk
+build-system: dummy
+build-commands:
+  - echo The next command will fail
+  - "false"
 EOF
 git add hello.morph
 git commit --quiet -m "Make morphology fail to build."

@@ -10,7 +10,7 @@
 # The stratum repository contains a single branch, "master", with a
 # stratum and a system morphology that include the chunk above.
 #
-# Copyright (C) 2011-2013  Codethink Limited
+# Copyright (C) 2011-2014  Codethink Limited
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -57,19 +57,15 @@ EOF
 git add hello.c
 
 cat <<EOF > hello.morph
-{
-    "name": "hello",
-    "kind": "chunk",
-    "build-system": "dummy",
-    "build-commands": [
-        "gcc -o hello hello.c"
-    ],
-    "install-commands": [
-        "install -d \\"\$DESTDIR\\"/etc",
-        "install -d \\"\$DESTDIR\\"/bin",
-        "install hello \\"\$DESTDIR\\"/bin/hello"
-    ]
-}
+name: hello
+kind: chunk
+build-system: dummy
+build-commands:
+  - gcc -o hello hello.c
+install-commands:
+  - install -d "\$DESTDIR/etc"
+  - install -d "\$DESTDIR/bin"
+  - install hello "\$DESTDIR/bin/hello"
 EOF
 git add hello.morph
 
@@ -87,34 +83,22 @@ cd "$morphsrepo"
 git init --quiet
 
 cat <<EOF > hello-stratum.morph
-{
-    "name": "hello-stratum",
-    "kind": "stratum",
-    "chunks": [
-        {
-            "name": "hello",
-            "repo": "test:chunk-repo",
-            "ref": "farrokh",
-            "build-mode": "test",
-            "build-depends": []
-        }
-    ]
-}
+name: hello-stratum
+kind: stratum
+chunks:
+  - name: hello
+    repo: test:chunk-repo
+    ref: farrokh
+    build-mode: test
+    build-depends: []
 EOF
 git add hello-stratum.morph
 
 cat <<EOF > hello-system.morph
-{
-    "name": "hello-system",
-    "kind": "system",
-    "strata": [
-        {
-            "morph": "hello-stratum",
-            "repo": "test:morphs-repo",
-            "ref": "master"
-        }
-    ]
-}
+name: hello-system
+kind: system
+strata:
+  - morph: hello-stratum
 EOF
 git add hello-system.morph
 

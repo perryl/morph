@@ -24,24 +24,18 @@ set -eu
 cd "$DATADIR/chunk-repo"
 git checkout -q master
 cat <<\EOF > xyzzy.morph
-{
-    "name": "xyzzy",
-    "kind": "chunk",
-    "configure-commands": [
-        "echo First chunk: prefix $PREFIX"
-    ]
-}
+name: xyzzy
+kind: chunk
+configure-commands:
+    - "echo First chunk: prefix $PREFIX"
 EOF
 
 cat <<\EOF > plugh.morph
-{
-    "name": "plugh",
-    "kind": "chunk",
-    "configure-commands": [
-        "echo Second chunk: prefix $PREFIX",
-        "echo Path: $(echo $PATH | grep -o '/plover')"
-    ]
-}
+name: plugh
+kind: chunk
+configure-commands:
+  - "echo Second chunk: prefix $PREFIX"
+  - "echo Path: $(echo $PATH | grep -o '/plover')"
 EOF
 
 git add xyzzy.morph
@@ -51,29 +45,21 @@ git commit -q -m "Add chunks"
 # Change stratum to include those two chunks, and use a custom install prefix
 cd "$DATADIR/morphs-repo"
 cat <<EOF > hello-stratum.morph
-{
-    "name": "hello-stratum",
-    "kind": "stratum",
-    "chunks": [
-        {
-            "name": "xyzzy",
-            "repo": "test:chunk-repo",
-            "ref": "master",
-            "build-depends": [],
-            "build-mode": "test",
-            "prefix": "/plover"
-        },
-        {
-            "name": "plugh",
-            "repo": "test:chunk-repo",
-            "ref": "master",
-            "build-mode": "test",
-            "build-depends": [
-                "xyzzy"
-            ]
-        }
-    ]
-}
+name: hello-stratum
+kind: stratum
+chunks:
+  - name: xyzzy
+    repo: test:chunk-repo
+    ref: master
+    build-depends: []
+    build-mode: test
+    prefix: /plover
+  - name: plugh
+    repo: test:chunk-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - xyzzy
 EOF
 git add hello-stratum.morph
 git commit -q -m "Update stratum"

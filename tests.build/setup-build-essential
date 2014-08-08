@@ -28,28 +28,21 @@ EOF
 chmod +x morph-test-cc
 
 cat <<EOF > "stage1-cc.morph"
-{
-    "name": "stage1-cc",
-    "kind": "chunk",
-    "install-commands": [
-        "install -d \"\$DESTDIR\$PREFIX/bin\"",
-        "install -m 755 morph-test-cc \"\$DESTDIR\$PREFIX/bin/morph-test-cc\""
-    ]
-}
+name: stage1-cc
+kind: chunk
+install-commands:
+  - install -d "\$DESTDIR\$PREFIX/bin"
+  - install -m 755 morph-test-cc "\$DESTDIR\$PREFIX/bin/morph-test-cc"
 EOF
 
 cat <<EOF > "cc.morph"
-{
-    "name": "cc",
-    "kind": "chunk",
-    "configure-commands": [
-        "[ -e ../tools/bin/morph-test-cc ]"
-    ],
-    "install-commands": [
-        "install -d \"\$DESTDIR\$PREFIX/bin\"",
-        "install -m 755 morph-test-cc \"\$DESTDIR\$PREFIX/bin/morph-test-cc\""
-    ]
-}
+name: cc
+kind: chunk
+configure-commands:
+  - [ -e ../tools/bin/morph-test-cc ]
+install-commands:
+  - install -d "\$DESTDIR\$PREFIX/bin"
+  - install -m 755 morph-test-cc "\$DESTDIR\$PREFIX/bin/morph-test-cc"
 EOF
 
 git init -q
@@ -61,21 +54,16 @@ git commit -q -m "Create compiler chunk"
 cd "$DATADIR/chunk-repo"
 git checkout -q farrokh
 cat <<EOF > "hello.morph"
-{
-    "name": "hello",
-    "kind": "chunk",
-    "configure-commands": [
-        "[ ! -e ../tools/bin/morph-test-cc ]",
-        "[ -e ../usr/bin/morph-test-cc ]"
-    ],
-    "build-commands": [
-        "../usr/bin/morph-test-cc > hello"
-    ],
-    "install-commands": [
-        "install -d \"\$DESTDIR\$PREFIX/bin\"",
-        "install hello \"\$DESTDIR\$PREFIX/bin/hello\""
-    ]
-}
+name: hello
+kind: chunk
+configure-commands:
+  - [ ! -e ../tools/bin/morph-test-cc ]
+  - [ -e ../usr/bin/morph-test-cc ]
+build-commands:
+  - ../usr/bin/morph-test-cc > hello
+install-commands:
+  - install -d "\$DESTDIR\$PREFIX/bin"
+  - install hello "\$DESTDIR\$PREFIX/bin/hello"
 EOF
 git add hello.morph
 git commit -q -m "Make 'hello' require our mock compiler"
@@ -85,50 +73,34 @@ git commit -q -m "Make 'hello' require our mock compiler"
 # artifact, and neither should make it into the system.
 cd "$DATADIR/morphs-repo"
 cat <<EOF > "build-essential.morph"
-{
-    "name": "build-essential",
-    "kind": "stratum",
-    "chunks": [
-        {
-            "name": "stage1-cc",
-            "repo": "test:cc-repo",
-            "ref": "master",
-            "build-depends": [],
-            "build-mode": "bootstrap",
-            "prefix": "/tools"
-        },
-        {
-            "name": "cc",
-            "repo": "test:cc-repo",
-            "ref": "master",
-            "build-depends": [
-                "stage1-cc"
-            ],
-            "build-mode": "test"
-        }
-    ]
-}
+name: build-essential
+kind: stratum
+chunks:
+  - name: stage1-cc
+    repo: test:cc-repo
+    ref: master
+    build-depends: []
+    build-mode: bootstrap
+    prefix: /tools
+  - name: cc
+    repo: test:cc-repo
+    ref: master
+    build-depends:
+      - stage1-cc
+    build-mode: test
 EOF
 
 cat <<EOF > "hello-stratum.morph"
-{
-    "name": "hello-stratum",
-    "kind": "stratum",
-    "build-depends": [
-        {
-            "morph": "build-essential",
-        }
-    ],
-    "chunks": [
-        {
-            "name": "hello",
-            "repo": "test:chunk-repo",
-            "ref": "farrokh",
-            "build-depends": [],
-            "build-mode": "test"
-        }
-    ]
-}
+name: hello-stratum
+kind: stratum
+build-depends:
+  - morph: build-essential
+chunks:
+  - name: hello
+    repo: test:chunk-repo
+    ref: farrokh
+    build-depends: []
+    build-mode: test
 EOF
 
 git add build-essential.morph hello-stratum.morph hello-system.morph

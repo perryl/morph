@@ -37,12 +37,10 @@ EOF
 git add Makefile
 
 cat <<EOF > hello.morph
-{
-    "name": "hello",
-    "kind": "chunk",
-    "build-system": "autotools",
-    "configure-commands": []
-}
+name: hello
+kind: chunk
+build-system: autotools
+configure-commands: []
 EOF
 git add hello.morph
 git commit --quiet -m "Convert hello to an autotools project"

@@ -62,19 +62,15 @@ EOF
 git add hello.c
 
 cat <<EOF > hello.morph
-{
-    "name": "hello",
-    "kind": "chunk",
-    "build-system": "dummy",
-    "build-commands": [
-        "gcc -o hello hello.c"
-    ],
-    "install-commands": [
-        "install -d \\"\$DESTDIR\\"/etc",
-        "install -d \\"\$DESTDIR\\"/bin",
-        "install hello \\"\$DESTDIR\\"/bin/hello"
-    ]
-}
+name: hello
+kind: chunk
+build-system: dummy
+build-commands:
+  - gcc -o hello hello.c
+install-commands:
+  - install -d "\$DESTDIR/etc"
+  - install -d "\$DESTDIR/bin"
+  - install hello "\$DESTDIR/bin/hello"
 EOF
 git add hello.morph
 
@@ -92,76 +88,49 @@ cd "$morphsrepo"
 git init --quiet
 
 cat <<EOF > hello-stratum.morph
-{
-    "name": "hello-stratum",
-    "kind": "stratum",
-    "chunks": [
-        {
-            "name": "hello",
-            "repo": "test:chunk-repo",
-            "ref": "farrokh",
-            "build-depends": [],
-            "build-mode": "test"
-        }
-    ]
-}
+name: hello-stratum
+kind: stratum
+chunks:
+  - name: hello
+    repo: test:chunk-repo
+    ref: farrokh
+    build-depends: []
+    build-mode: test
 EOF
 git add hello-stratum.morph
 
 cat <<EOF > hello-system.morph
-{
-    "name": "hello-system",
-    "kind": "system",
-    "arch": "$("$SRCDIR/scripts/test-morph" print-architecture)",
-    "strata": [
-        {
-            "morph": "hello-stratum",
-        }
-    ]
-}
+name: hello-system
+kind: system
+arch: $("$SRCDIR/scripts/test-morph" print-architecture)
+strata:
+  - morph: hello-stratum
 EOF
 git add hello-system.morph
 
 cat <<EOF > linux-stratum.morph
-{
-    "name": "linux-stratum",
-    "kind": "stratum",
-    "build-depends": [
-        {
-            "morph": "hello-stratum",
-        }
-    ],
-    "chunks": [
-        {
-            "name": "linux",
-            "repo": "test:kernel-repo",
-            "ref": "master",
-            "build-depends": [],
-            "build-mode": "test"
-        }
-    ]
-}
+name: linux-stratum
+kind: stratum
+build-depends:
+  - morph: hello-stratum
+chunks:
+  - name: linux
+    repo: test:kernel-repo
+    ref: master
+    build-depends: []
+    build-mode: test
 EOF
 git add linux-stratum.morph
 
 cat <<EOF > linux-system.morph
-{
-    "name": "linux-system",
-    "kind": "system",
-    "arch": "$("$SRCDIR/scripts/test-morph" print-architecture)",
-    "strata": [
-        {
-            "morph": "hello-stratum",
-        },
-        {
-            "morph": "linux-stratum",
-        }
-    ],
-    "configuration-extensions": [
-        set-hostname
-    ]
-
-}
+name: linux-system
+kind: system
+arch: $("$SRCDIR/scripts/test-morph" print-architecture)
+strata:
+  - morph: hello-stratum
+  - morph: linux-stratum
+configuration-extensions:
+  - set-hostname
 EOF
 git add linux-system.morph
 
@@ -222,16 +191,13 @@ git commit --quiet -m "add morphs"
 # Make a dummy kernel chunk.
 mkdir "$DATADIR/kernel-repo"
 cat <<EOF > "$DATADIR/kernel-repo/linux.morph"
-{
-    "name": "linux",
-    "kind": "chunk",
-    "install-commands": [
-        "mkdir -p \"\$DESTDIR/boot\"",
-        "touch \"\$DESTDIR\"/extlinux.conf",
-        "touch \"\$DESTDIR\"/boot/vmlinuz",
-        "touch \"\$DESTDIR\"/boot/System.map"
-    ]
-}
+name: linux
+kind: chunk
+install-commands:
+  - mkdir -p "\$DESTDIR/boot"
+  - touch "\$DESTDIR/extlinux.conf"
+  - touch "\$DESTDIR/boot/vmlinuz"
+  - touch "\$DESTDIR/boot/System.map"
 EOF
 "$SRCDIR/scripts/run-git-in" "$DATADIR/kernel-repo" init --quiet
 "$SRCDIR/scripts/run-git-in" "$DATADIR/kernel-repo" add .
