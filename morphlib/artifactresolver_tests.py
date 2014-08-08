@@ -15,84 +15,68 @@
 
 
 import itertools
-import json
 import unittest
+import yaml
 
 import morphlib
 
 
-class FakeChunkMorphology(morphlib.morph2.Morphology):
+def get_chunk_morphology(name, artifact_names=[]):
+    assert(isinstance(artifact_names, list))
 
-    def __init__(self, name, artifact_names=[]):
-        assert(isinstance(artifact_names, list))
+    if artifact_names:
+        # fake a list of artifacts
+        artifacts = []
+        for artifact_name in artifact_names:
+            artifacts.append({'artifact': artifact_name,
+                              'include': [artifact_name]})
+        text = yaml.dump({"name": name,
+                          "kind": "chunk",
+                          "products": artifacts}, default_flow_style=False)
+        builds_artifacts = artifact_names
+    else:
+        text = yaml.dump({'name': name,
+                          'kind': 'chunk'}, default_flow_style=False)
+        builds_artifacts = [name]
 
-        if artifact_names:
-            # fake a list of artifacts
-            artifacts = []
-            for artifact_name in artifact_names:
-                artifacts.append({'artifact': artifact_name,
-                                  'include': artifact_name})
-            text = json.dumps({
-                        "name": name,
-                        "kind": "chunk",
-                        "products": artifacts
-                    })
-            self.builds_artifacts = artifact_names
-        else:
-            text = ('''
-                    {
-                        "name": "%s",
-                        "kind": "chunk"
-                    }
-                    ''' % name)
-            self.builds_artifacts = [name]
-        morphlib.morph2.Morphology.__init__(self, text)
+    loader = morphlib.morphloader.MorphologyLoader()
+    morph = loader.load_from_string(text)
+    morph.builds_artifacts = builds_artifacts
+    return morph
 
+def get_stratum_morphology(name, chunks=[], build_depends=[]):
+    assert(isinstance(chunks, list))
+    assert(isinstance(build_depends, list))
 
-class FakeStratumMorphology(morphlib.morph2.Morphology):
+    chunks_list = []
+    for source_name, morph, repo, ref in chunks:
+        chunks_list.append({
+            'name': source_name,
+            'morph': morph,
+            'repo': repo,
+            'ref': ref,
+            'build-depends': [],
+        })
+    build_depends_list = []
+    for morph in build_depends:
+        build_depends_list.append({
+            'morph': morph,
+        })
+    if chunks_list:
+        text = yaml.dump({"name": name,
+                          "kind": "stratum",
+                          "build-depends": build_depends_list,
+                          "chunks": chunks_list,}, default_flow_style=False)
+    else:
+        text = yaml.dump({"name": name,
+                          "kind": "stratum",
+                          "build-depends": build_depends_list},
+                         default_flow_style=False)
 
-    def __init__(self, name, chunks=[], build_depends=[]):
-        assert(isinstance(chunks, list))
-        assert(isinstance(build_depends, list))
-
-        chunks_list = []
-        for source_name, morph, repo, ref in chunks:
-            chunks_list.append({
-                'name': source_name,
-                'morph': morph,
-                'repo': repo,
-                'ref': ref,
-                'build-depends': [],
-            })
-        build_depends_list = []
-        for morph, repo, ref in build_depends:
-            build_depends_list.append({
-                'morph': morph,
-                'repo': repo,
-                'ref': ref
-            })
-        if chunks_list:
-            text = ('''
-                    {
-                        "name": "%s",
-                        "kind": "stratum",
-                        "build-depends": %s,
-                        "chunks": %s
-                    }
-                    ''' % (name,
-                           json.dumps(build_depends_list),
-                           json.dumps(chunks_list)))
-        else:
-            text = ('''
-                    {
-                        "name": "%s",
-                        "kind": "stratum",
-                        "build-depends": %s
-                    }
-                    ''' % (name,
-                           json.dumps(build_depends_list)))
-        self.builds_artifacts = [name]
-        morphlib.morph2.Morphology.__init__(self, text)
+    loader = morphlib.morphloader.MorphologyLoader()
+    morph = loader.load_from_string(text)
+    morph.builds_artifacts = [name]
+    return morph
 
 
 class ArtifactResolverTests(unittest.TestCase):
@@ -108,7 +92,7 @@ class ArtifactResolverTests(unittest.TestCase):
     def test_resolve_single_chunk_with_no_subartifacts(self):
         pool = morphlib.sourcepool.SourcePool()
 
-        morph = FakeChunkMorphology('chunk')
+        morph = get_chunk_morphology('chunk')
         source = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
         pool.add(source)
@@ -127,7 +111,7 @@ class ArtifactResolverTests(unittest.TestCase):
     def test_resolve_single_chunk_with_one_new_artifact(self):
         pool = morphlib.sourcepool.SourcePool()
 
-        morph = FakeChunkMorphology('chunk', ['chunk-foobar'])
+        morph = get_chunk_morphology('chunk', ['chunk-foobar'])
         source = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
         pool.add(source)
@@ -145,7 +129,7 @@ class ArtifactResolverTests(unittest.TestCase):
     def test_resolve_single_chunk_with_two_new_artifacts(self):
         pool = morphlib.sourcepool.SourcePool()
 
-        morph = FakeChunkMorphology('chunk', ['chunk-baz', 'chunk-qux'])
+        morph = get_chunk_morphology('chunk', ['chunk-baz', 'chunk-qux'])
         source = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
         pool.add(source)
@@ -165,12 +149,12 @@ class ArtifactResolverTests(unittest.TestCase):
     def test_resolve_stratum_and_chunk(self):
         pool = morphlib.sourcepool.SourcePool()
 
-        morph = FakeChunkMorphology('chunk')
+        morph = get_chunk_morphology('chunk')
         chunk = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
         pool.add(chunk)
 
-        morph = FakeStratumMorphology(
+        morph = get_stratum_morphology(
             'stratum', chunks=[('chunk', 'chunk', 'repo', 'ref')])
         stratum = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'stratum.morph')
@@ -199,12 +183,12 @@ class ArtifactResolverTests(unittest.TestCase):
     def test_resolve_stratum_and_chunk_with_two_new_artifacts(self):
         pool = morphlib.sourcepool.SourcePool()
 
-        morph = FakeChunkMorphology('chunk', ['chunk-foo', 'chunk-bar'])
+        morph = get_chunk_morphology('chunk', ['chunk-foo', 'chunk-bar'])
         chunk = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
         pool.add(chunk)
 
-        morph = FakeStratumMorphology(
+        morph = get_stratum_morphology(
             'stratum',
             chunks=[
                 ('chunk', 'chunk', 'repo', 'ref'),
@@ -236,51 +220,42 @@ class ArtifactResolverTests(unittest.TestCase):
     def test_resolving_artifacts_for_a_system_with_two_dependent_strata(self):
         pool = morphlib.sourcepool.SourcePool()
 
-        morph = FakeChunkMorphology('chunk1')
+        morph = get_chunk_morphology('chunk1')
         chunk1 = morphlib.source.Source(
             'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk1.morph')
         pool.add(chunk1)
 
-        morph = FakeStratumMorphology(
+        morph = get_stratum_morphology(
                 'stratum1',
                 chunks=[('chunk1', 'chunk1', 'repo', 'original/ref')])
         stratum1 = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'stratum1.morph')
         pool.add(stratum1)
 
-        morph = morphlib.morph2.Morphology(
+        loader = morphlib.morphloader.MorphologyLoader()
+        morph = loader.load_from_string(
             '''
-            {
-                "name": "system",
-                "kind": "system",
-                "strata": [
-                    {
-                         "repo": "repo",
-                         "ref": "ref",
-                         "morph": "stratum1"
-                    },
-                    {
-                         "repo": "repo",
-                         "ref": "ref",
-                         "morph": "stratum2"
-                    }
-                ]
-            }
+                name: system
+                kind: system
+                arch: testarch
+                strata:
+                    - morph: stratum1
+                    - morph: stratum2
             ''')
         morph.builds_artifacts = ['system-rootfs']
         system = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'system.morph')
         pool.add(system)
 
-        morph = FakeChunkMorphology('chunk2')
+        morph = get_chunk_morphology('chunk2')
         chunk2 = morphlib.source.Source(
             'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk2.morph')
         pool.add(chunk2)
 
-        morph = FakeStratumMorphology(
+        morph = get_stratum_morphology(
             'stratum2',
             chunks=[('chunk2', 'chunk2', 'repo', 'original/ref')],
-            build_depends=[('stratum1', 'repo', 'ref')])
+            build_depends=['stratum1'])
         stratum2 = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'stratum2.morph')
         pool.add(stratum2)
@@ -337,52 +312,44 @@ class ArtifactResolverTests(unittest.TestCase):
     def test_resolving_stratum_with_explicit_chunk_dependencies(self):
         pool = morphlib.sourcepool.SourcePool()
 
-        morph = morphlib.morph2.Morphology(
+        loader = morphlib.morphloader.MorphologyLoader()
+        morph = loader.load_from_string(
             '''
-            {
-                "name": "stratum",
-                "kind": "stratum",
-                "chunks": [
-                    {
-                        "name": "chunk1",
-                        "repo": "repo",
-                        "ref": "original/ref",
-                        "build-depends": []
-                    },
-                    {
-                        "name": "chunk2",
-                        "repo": "repo",
-                        "ref": "original/ref",
-                        "build-depends": []
-                    },
-                    {
-                        "name": "chunk3",
-                        "repo": "repo",
-                        "ref": "original/ref",
-                        "build-depends": [
-                            "chunk1",
-                            "chunk2"
-                        ]
-                    }
-                ]
-            }
+                name: stratum
+                kind: stratum
+                build-depends: []
+                chunks:
+                    - name: chunk1
+                      repo: repo
+                      ref: original/ref
+                      build-depends: []
+                    - name: chunk2
+                      repo: repo
+                      ref: original/ref
+                      build-depends: []
+                    - name: chunk3
+                      repo: repo
+                      ref: original/ref
+                      build-depends:
+                          - chunk1
+                          - chunk2
             ''')
         morph.builds_artifacts = ['stratum']
         stratum = morphlib.source.Source(
             'repo', 'original/ref', 'sha1', 'tree', morph, 'stratum.morph')
         pool.add(stratum)
 
-        morph = FakeChunkMorphology('chunk1')
+        morph = get_chunk_morphology('chunk1')
         chunk1 = morphlib.source.Source(
             'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk1.morph')
         pool.add(chunk1)
 
-        morph = FakeChunkMorphology('chunk2')
+        morph = get_chunk_morphology('chunk2')
         chunk2 = morphlib.source.Source(
             'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk2.morph')
         pool.add(chunk2)
 
-        morph = FakeChunkMorphology('chunk3')
+        morph = get_chunk_morphology('chunk3')
         chunk3 = morphlib.source.Source(
             'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk3.morph')
         pool.add(chunk3)
@@ -418,20 +385,33 @@ class ArtifactResolverTests(unittest.TestCase):
                                 for c3a in chunk_artifacts[2]))
 
     def test_detection_of_mutual_dependency_between_two_strata(self):
+        loader = morphlib.morphloader.MorphologyLoader()
         pool = morphlib.sourcepool.SourcePool()
 
-        morph = FakeStratumMorphology(
+        chunk = get_chunk_morphology('chunk1')
+        chunk1 = morphlib.source.Source(
+            'repo', 'original/ref', 'sha1', 'tree', chunk, 'chunk1.morph')
+        pool.add(chunk1)
+
+        morph = get_stratum_morphology(
             'stratum1',
-            chunks=[],
-            build_depends=[('stratum2', 'repo', 'original/ref')])
+            chunks=[(loader.save_to_string(chunk), 'chunk1.morph',
+                     'repo', 'original/ref')],
+            build_depends=['stratum2'])
         stratum1 = morphlib.source.Source(
             'repo', 'original/ref', 'sha1', 'tree', morph, 'stratum1.morph')
         pool.add(stratum1)
 
-        morph = FakeStratumMorphology(
+        chunk = get_chunk_morphology('chunk2')
+        chunk2 = morphlib.source.Source(
+            'repo', 'original/ref', 'sha1', 'tree', chunk, 'chunk2.morph')
+        pool.add(chunk2)
+
+        morph = get_stratum_morphology(
             'stratum2',
-            chunks=[],
-            build_depends=[('stratum1', 'repo', 'original/ref')])
+            chunks=[(loader.save_to_string(chunk), 'chunk2.morph',
+                     'repo', 'original/ref')],
+            build_depends=['stratum1'])
         stratum2 = morphlib.source.Source(
             'repo', 'original/ref', 'sha1', 'tree', morph, 'stratum2.morph')
         pool.add(stratum2)
@@ -442,39 +422,34 @@ class ArtifactResolverTests(unittest.TestCase):
     def test_detection_of_chunk_dependencies_in_invalid_order(self):
         pool = morphlib.sourcepool.SourcePool()
 
-        morph = morphlib.morph2.Morphology(
+        loader = morphlib.morphloader.MorphologyLoader()
+        morph = loader.load_from_string(
             '''
-            {
-                "name": "stratum",
-                "kind": "stratum",
-                "chunks": [
-                    {
-                        "name": "chunk1",
-                        "repo": "repo",
-                        "ref": "original/ref",
-                        "build-depends": [
-                            "chunk2"
-                        ]
-                    },
-                    {
-                        "name": "chunk2",
-                        "repo": "repo",
-                        "ref": "original/ref"
-                    }
-                ]
-            }
+                name: stratum
+                kind: stratum
+                build-depends: []
+                chunks:
+                    - name: chunk1
+                      repo: repo
+                      ref: original/ref
+                      build-depends:
+                          - chunk2
+                    - name: chunk2
+                      repo: repo
+                      ref: original/ref
+                      build-depends: []
             ''')
         morph.builds_artifacts = ['stratum']
         stratum = morphlib.source.Source(
             'repo', 'original/ref', 'sha1', 'tree', morph, 'stratum.morph')
         pool.add(stratum)
 
-        morph = FakeChunkMorphology('chunk1')
+        morph = get_chunk_morphology('chunk1')
         chunk1 = morphlib.source.Source(
             'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk1.morph')
         pool.add(chunk1)
 
-        morph = FakeChunkMorphology('chunk2')
+        morph = get_chunk_morphology('chunk2')
         chunk2 = morphlib.source.Source(
             'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk2.morph')
         pool.add(chunk2)
@@ -485,27 +460,24 @@ class ArtifactResolverTests(unittest.TestCase):
     def test_detection_of_invalid_build_depends_format(self):
         pool = morphlib.sourcepool.SourcePool()
 
-        morph = morphlib.morph2.Morphology(
+        loader = morphlib.morphloader.MorphologyLoader()
+        morph = loader.load_from_string(
             '''
-            {
-                "name": "stratum",
-                "kind": "stratum",
-                "chunks": [
-                    {
-                        "name": "chunk",
-                        "repo": "repo",
-                        "ref": "original/ref",
-                        "build-depends": "whatever"
-                    }
-                ]
-            }
+                name: stratum
+                kind: stratum
+                build-depends: []
+                chunks:
+                    - name: chunk
+                      repo: repo
+                      ref: original/ref
+                      build-depends: whatever
             ''')
         morph.builds_artifacts = ['stratum']
         stratum = morphlib.source.Source(
             'repo', 'original/ref', 'sha1', 'tree', morph, 'stratum.morph')
         pool.add(stratum)
 
-        morph = FakeChunkMorphology('chunk')
+        morph = get_chunk_morphology('chunk')
         chunk = morphlib.source.Source(
             'repo', 'original/ref', 'sha1', 'tree', morph, 'chunk.morph')
         pool.add(chunk)

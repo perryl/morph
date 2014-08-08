@@ -32,73 +32,60 @@ class DummyBuildEnvironment:
 class CacheKeyComputerTests(unittest.TestCase):
 
     def setUp(self):
+        loader = morphlib.morphloader.MorphologyLoader()
         self.source_pool = morphlib.sourcepool.SourcePool()
         for name, text in {
-            'chunk.morph': '''{
-                "name": "chunk",
-                "kind": "chunk",
-                "description": "A test chunk"
-            }''',
-            'chunk2.morph': '''{
-                "name": "chunk2",
-                "kind": "chunk",
-                "description": "A test chunk"
-            }''',
-            'chunk3.morph': '''{
-                "name": "chunk3",
-                "kind": "chunk",
-                "description": "A test chunk"
-            }''',
-            'stratum.morph': '''{
-                "name": "stratum",
-                "kind": "stratum",
-                "chunks": [
-                    {
-                        "name": "chunk",
-                        "repo": "repo",
-                        "ref": "original/ref",
-                        "build-depends": []
-                    }
-                ]
-            }''',
-            'stratum2.morph': '''{
-                "name": "stratum2",
-                "kind": "stratum",
-                "chunks": [
-                    {
-                        "name": "chunk2",
-                        "repo": "repo",
-                        "ref": "original/ref",
-                        "build-depends": []
-                    },
-                    {
-                        "name": "chunk3",
-                        "repo": "repo",
-                        "ref": "original/ref",
-                        "build-depends": []
-                    }
-                ]
-            }''',
-            'system.morph': '''{
-                "name": "system",
-                "kind": "system",
-                "strata": [
-                    {
-                        "morph": "stratum",
-                        "repo": "repo",
-                        "ref": "original/ref"
-                    },
-                    {
-                        "morph": "stratum2",
-                        "repo": "repo",
-                        "ref": "original/ref"
-                    }
-                ]
-            }''',
+            'chunk.morph': '''
+                name: chunk
+                kind: chunk
+                description: A test chunk
+            ''',
+            'chunk2.morph': '''
+                name: chunk2
+                kind: chunk
+                description: A test chunk
+            ''',
+            'chunk3.morph': '''
+                name: chunk3
+                kind: chunk
+                description: A test chunk
+            ''',
+            'stratum.morph': '''
+                name: stratum
+                kind: stratum
+                build-depends: []
+                chunks:
+                    - name: chunk
+                      repo: repo
+                      ref: original/ref
+                      build-depends: []
+            ''',
+            'stratum2.morph': '''
+                name: stratum2
+                kind: stratum
+                build-depends: []
+                chunks:
+                    - name: chunk2
+                      repo: repo
+                      ref: original/ref
+                      build-depends: []
+                    - name: chunk3
+                      repo: repo
+                      ref: original/ref
+                      build-depends: []
+            ''',
+            'system.morph': '''
+                name: system
+                kind: system
+                arch: testarch
+                strata:
+                    - morph: stratum
+                    - morph: stratum2
+            ''',
         }.iteritems():
             source = morphlib.source.Source(
                 'repo', 'original/ref', 'sha', 'tree',
-                morphlib.morph2.Morphology(text), name)
+                loader.load_from_string(text), name)
             self.source_pool.add(source)
             # FIXME: This should use MorphologyFactory
             m = source.morphology
@@ -202,7 +189,12 @@ class CacheKeyComputerTests(unittest.TestCase):
         self.assertEqual(old_sha, new_sha)
 
     def test_same_morphology_added_to_source_pool_only_appears_once(self):
-        m = morphlib.morph2.Morphology('{"name": "chunk", "kind": "chunk"}')
+        loader = morphlib.morphloader.MorphologyLoader()
+        m = loader.load_from_string(
+            '''
+            name: chunk
+            kind: chunk
+            ''')
         src = morphlib.source.Source('repo', 'original/ref', 'sha', 'tree', m,
                                      'chunk.morph')
         sp = morphlib.sourcepool.SourcePool()

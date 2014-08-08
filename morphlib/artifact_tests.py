@@ -23,24 +23,22 @@ import morphlib
 class ArtifactTests(unittest.TestCase):
 
     def setUp(self):
-        morph = morphlib.morph2.Morphology(
-            '''
-            {
-                "name": "chunk",
-                "kind": "chunk",
-                "chunks": {
-                    "chunk-runtime": [
-                        "usr/bin",
-                        "usr/sbin",
-                        "usr/lib",
-                        "usr/libexec"
-                    ],
-                    "chunk-devel": [
-                        "usr/include"
-                    ]
-                }
-            }
-            ''')
+        loader = morphlib.morphloader.MorphologyLoader()
+        morph = loader.load_from_string(
+                '''
+                name: chunk
+                kind: chunk
+                products:
+                    - artifact: chunk-runtime
+                      include:
+                        - usr/bin
+                        - usr/sbin
+                        - usr/lib
+                        - usr/libexec
+                    - artifact: chunk-devel
+                      include:
+                        - usr/include
+                ''')
         self.source = morphlib.source.Source(
             'repo', 'ref', 'sha1', 'tree', morph, 'chunk.morph')
         self.artifact_name = 'chunk-runtime'
