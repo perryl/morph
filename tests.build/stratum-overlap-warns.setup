@@ -3,7 +3,7 @@
 # If a stratum has multiple chunks that have the same files in them,
 # then this should be notified
 #
-# Copyright (C) 2011-2013  Codethink Limited
+# Copyright (C) 2011-2014  Codethink Limited
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,40 +26,32 @@ morphsrepo="$DATADIR/morphs-repo"
 cd "$morphsrepo"
 git checkout --quiet -b overlap master
 cat <<EOF >hello-stratum.morph
-{
-  "name": "hello-stratum",
-  "kind": "stratum",
-  "chunks": [
-    {
-      "name": "dirs",
-      "repo": "test:chunk-repo",
-      "ref": "overlap",
-      "build-depends": [],
-      "build-mode": "test"
-    },
-    {
-      "name": "overlap-foobar",
-      "repo": "test:chunk-repo",
-      "ref": "overlap",
-      "build-depends": ["dirs"],
-      "build-mode": "test"
-    },
-    {
-      "name": "overlap-fooqux",
-      "repo": "test:chunk-repo",
-      "ref": "overlap",
-      "build-depends": ["overlap-foobar"],
-      "build-mode": "test"
-    },
-    {
-      "name": "overlap-foo-baz",
-      "repo": "test:chunk-repo",
-      "ref": "overlap",
-      "build-depends": ["overlap-fooqux"],
-      "build-mode": "test"
-    }
-  ]
-}
+name: hello-stratum
+kind: stratum
+chunks:
+  - name: dirs
+    repo: test:chunk-repo
+    ref: overlap
+    build-depends: []
+    build-mode: test
+  - name: overlap-foobar
+    repo: test:chunk-repo
+    ref: overlap
+    build-depends:
+      - dirs
+    build-mode: test
+  - name: overlap-fooqux
+    repo: test:chunk-repo
+    ref: overlap
+    build-depends:
+      - overlap-foobar
+    build-mode: test
+  - name: overlap-foo-baz
+    repo: test:chunk-repo
+    ref: overlap
+    build-depends:
+      - overlap-fooqux
+    build-mode: test
 EOF
 sed -i 's/master/overlap/' hello-system.morph
 git add hello-stratum.morph hello-system.morph
@@ -69,53 +61,41 @@ cd "$chunkrepo"
 git checkout --quiet -b overlap master
 
 cat <<EOF >dirs.morph
-{
-  "name": "dirs",
-  "kind": "chunk",
-  "install-commands": [
-    "mkdir -p \$DESTDIR/bin",
-    "ln -s .. \$DESTDIR/usr"
-  ]
-}
+name: dirs
+kind: chunk
+install-commands:
+  - mkdir -p "\$DESTDIR/bin"
+  - ln -s .. "\$DESTDIR/usr"
 EOF
 git add dirs.morph
 
 cat <<EOF >overlap-foo-baz.morph
-{
-  "name": "overlap-foo-baz",
-  "kind": "chunk",
-  "install-commands": [
-    "mkdir -p \$DESTDIR/bin",
-    "for f in foo bar baz; do echo echo \$f >\$DESTDIR/bin/\$f; done"
-  ]
-}
+name: overlap-foo-baz
+kind: chunk
+install-commands:
+  - mkdir -p "\$DESTDIR/bin"
+  - for f in foo bar baz; do echo echo \$f >"\$DESTDIR/bin/\$f"; done
 EOF
 git add overlap-foo-baz.morph
 
 cat <<EOF >overlap-foobar.morph
-{
-  "name": "overlap-foobar",
-  "kind": "chunk",
-  "install-commands": [
-    "mkdir -p \$DESTDIR/usr/bin \$DESTDIR/bin",
-    "echo echo foobar >\$DESTDIR/usr/bin/foobar",
-    "ln -s /usr/bin/foobar \$DESTDIR/bin/foo",
-    "ln -s /usr/bin/foobar \$DESTDIR/bin/bar"
-  ]
-}
+name: overlap-foobar
+kind: chunk
+install-commands:
+  - mkdir -p "\$DESTDIR/usr/bin" "\$DESTDIR/bin"
+  - echo echo foobar >"\$DESTDIR/usr/bin/foobar"
+  - ln -s /usr/bin/foobar "\$DESTDIR/bin/foo"
+  - ln -s /usr/bin/foobar "\$DESTDIR/bin/bar"
 EOF
 git add overlap-foobar.morph
 
 cat <<EOF >overlap-fooqux.morph
-{
-  "name": "overlap-fooqux",
-  "kind": "chunk",
-  "install-commands": [
-    "mkdir -p \$DESTDIR/usr/bin \$DESTDIR/bin",
-    "for f in qux fooqux; do echo echo \$f >\$DESTDIR/usr/bin/\$f; done",
-    "ln -s /usr/bin/fooqux \$DESTDIR/bin/foo"
-  ]
-}
+name: overlap-fooqux
+kind: chunk
+install-commands:
+  - mkdir -p "\$DESTDIR/usr/bin" "\$DESTDIR/bin"
+  - for f in qux fooqux; do echo echo \$f >"\$DESTDIR/usr/bin/\$f"; done
+  - ln -s /usr/bin/fooqux "\$DESTDIR/bin/foo"
 EOF
 git add overlap-fooqux.morph
 

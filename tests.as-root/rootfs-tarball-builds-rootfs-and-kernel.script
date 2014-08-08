@@ -27,14 +27,11 @@ arch=$("$SRCDIR/scripts/test-morph" print-architecture)
 
 cd "$DATADIR/kernel-repo"
 cat <<EOF >linux.morph
-{
-  "name": "linux",
-  "kind": "chunk",
-  "install-commands": [
-      "mkdir -p \"\$DESTDIR/boot\"",
-      "touch \"\$DESTDIR\"/boot/zImage"
-  ]
-}
+name: linux
+kind: chunk
+install-commands:
+  - mkdir -p "\$DESTDIR/boot"
+  - touch "\$DESTDIR/boot/zImage"
 EOF
 git add linux.morph
 git commit --quiet -m 'Make the kernel create a dummy zImage'

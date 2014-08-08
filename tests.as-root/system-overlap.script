@@ -28,63 +28,44 @@ morphsrepo="$DATADIR/morphs"
 cd "$morphsrepo"
 git checkout --quiet -b overlap master
 cat <<EOF >overlap-system.morph
-{
-  "name": "overlap-system",
-  "kind": "system",
-  "arch": "$("$SRCDIR/scripts/test-morph" print-architecture)",
-  "strata": [
-    {
-      "morph": "foo-baz-stratum",
-    },
-    {
-      "morph": "foo-barqux-stratum",
-    }
-  ]
-}
+name: overlap-system
+kind: system
+arch: $("$SRCDIR/scripts/test-morph" print-architecture)
+strata:
+  - morph: foo-baz-stratum
+  - morph: foo-barqux-stratum
 EOF
 cat <<EOF >foo-baz-stratum.morph
-{
-  "name": "foo-baz-stratum",
-  "kind": "stratum",
-  "chunks": [
-    {
-      "name": "overlap-foo-baz",
-      "repo": "test:chunk-repo",
-      "ref": "overlap",
-      "build-mode": "test",
-      "build-depends": []
-    },
-    {
-      "name": "linux",
-      "repo": "test:kernel-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": ["overlap-foo-baz"]
-    }
-  ]
-}
+name: foo-baz-stratum
+kind: stratum
+chunks:
+  - name: overlap-foo-baz
+    repo: test:chunk-repo
+    ref: overlap
+    build-mode: test
+    build-depends: []
+  - name: linux
+    repo: test:kernel-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - overlap-foo-baz
 EOF
 cat <<EOF >foo-barqux-stratum.morph
-{
-  "name": "foo-barqux-stratum",
-  "kind": "stratum",
-  "chunks": [
-    {
-      "name": "overlap-foobar",
-      "repo": "test:chunk-repo",
-      "ref": "overlap",
-      "build-mode": "test",
-      "build-depends": []
-    },
-    {
-      "name": "overlap-fooqux",
-      "repo": "test:chunk-repo",
-      "ref": "overlap",
-      "build-mode": "test",
-      "build-depends": ["overlap-foobar"]
-    }
-  ]
-}
+name: foo-barqux-stratum
+kind: stratum
+chunks:
+  - name: overlap-foobar
+    repo: test:chunk-repo
+    ref: overlap
+    build-mode: test
+    build-depends: []
+  - name: overlap-fooqux
+    repo: test:chunk-repo
+    ref: overlap
+    build-mode: test
+    build-depends:
+      - overlap-foobar
 EOF
 git add overlap-system.morph foo-baz-stratum.morph foo-barqux-stratum.morph
 git commit --quiet -m "add overlapping system"
@@ -92,39 +73,30 @@ git commit --quiet -m "add overlapping system"
 cd "$chunkrepo"
 git checkout --quiet -b overlap master
 cat <<EOF >overlap-foo-baz.morph
-{
-  "name": "overlap-foo-baz",
-  "kind": "chunk",
-  "install-commands": [
-    "mkdir -p \$DESTDIR/bin",
-    "for f in foo bar baz; do echo echo \$f >\$DESTDIR/bin/\$f; done"
-  ]
-}
+name: overlap-foo-baz
+kind: chunk
+install-commands:
+  - mkdir -p "\$DESTDIR"/bin
+  - for f in foo bar baz; do echo echo \$f >"\$DESTDIR"/bin/\$f; done
 EOF
 
 cat <<EOF >overlap-foobar.morph
-{
-  "name": "overlap-foobar",
-  "kind": "chunk",
-  "install-commands": [
-    "mkdir -p \$DESTDIR/usr/bin \$DESTDIR/bin",
-    "echo echo foobar >\$DESTDIR/usr/bin/foobar",
-    "ln -s /usr/bin/foobar \$DESTDIR/bin/foo",
-    "ln -s /usr/bin/foobar \$DESTDIR/bin/bar"
-  ]
-}
+name: overlap-foobar
+kind: chunk
+install-commands:
+  - mkdir -p "\$DESTDIR"/usr/bin "\$DESTDIR"/bin
+  - echo echo foobar >"\$DESTDIR"/usr/bin/foobar
+  - ln -s /usr/bin/foobar "\$DESTDIR"/bin/foo
+  - ln -s /usr/bin/foobar "\$DESTDIR"/bin/bar
 EOF
 
 cat <<EOF >overlap-fooqux.morph
-{
-  "name": "overlap-fooqux",
-  "kind": "chunk",
-  "install-commands": [
-    "mkdir -p \$DESTDIR/usr/bin \$DESTDIR/bin",
-    "for f in qux fooqux; do echo echo \$f >\$DESTDIR/usr/bin/\$f; done",
-    "ln -s /usr/bin/fooqux \$DESTDIR/bin/foo"
-  ]
-}
+name: overlap-fooqux
+kind: chunk
+install-commands:
+  - mkdir -p "\$DESTDIR"/usr/bin "\$DESTDIR"/bin
+  - for f in qux fooqux; do echo echo \$f >"\$DESTDIR"/usr/bin/\$f; done
+  - ln -s /usr/bin/fooqux "\$DESTDIR"/bin/foo
 EOF
 git add overlap-*.morph
 

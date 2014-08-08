@@ -57,19 +57,15 @@ EOF
 git add hello.c
 
 cat <<EOF > hello.morph
-{
-    "name": "hello",
-    "kind": "chunk",
-    "build-system": "dummy",
-    "build-commands": [
-        "gcc -o hello hello.c"
-    ],
-    "install-commands": [
-        "install -d \\"\$DESTDIR\\"/etc",
-        "install -d \\"\$DESTDIR\\"/bin",
-        "install hello \\"\$DESTDIR\\"/bin/hello"
-    ]
-}
+name: hello
+kind: chunk
+build-system: dummy
+build-commands:
+  - gcc -o hello hello.c
+install-commands:
+  - install -d "\$DESTDIR"/etc
+  - install -d "\$DESTDIR"/bin
+  - install hello "\$DESTDIR"/bin/hello
 EOF
 git add hello.morph
 
@@ -87,33 +83,23 @@ cd "$morphsrepo"
 git init --quiet
 
 cat <<EOF > hello-stratum.morph
-{
-    "name": "hello-stratum",
-    "kind": "stratum",
-    "chunks": [
-        {
-            "name": "hello",
-            "repo": "test:chunk-repo",
-            "ref": "farrokh",
-            "build-mode": "test",
-            "build-depends": []
-        }
-    ]
-}
+name: hello-stratum
+kind: stratum
+chunks:
+  - name: hello
+    repo: test:chunk-repo
+    ref: farrokh
+    build-mode: test
+    build-depends: []
 EOF
 git add hello-stratum.morph
 
 cat <<EOF > hello-system.morph
-{
-    "name": "hello-system",
-    "kind": "system",
-    "arch": "$("$SRCDIR/scripts/test-morph" print-architecture)",
-    "strata": [
-        {
-            "morph": "hello-stratum",
-        }
-    ]
-}
+name: hello-system
+kind: system
+arch: $("$SRCDIR/scripts/test-morph" print-architecture)
+strata:
+  - morph: hello-stratum
 EOF
 git add hello-system.morph
 

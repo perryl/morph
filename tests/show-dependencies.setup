@@ -42,18 +42,14 @@ gtkcomponents=(freetype fontconfig cairo pango glib gdk-pixbuf gtk
 for component in "${gtkcomponents[@]}"
 do
     cat <<EOF > $component.morph
-{
-    "name": "$component",
-    "kind": "chunk",
-    "build-commands": [
-        "gcc -o hello hello.c"
-    ],
-    "install-commands": [
-        "install -d \\"\$DESTDIR\\"/etc",
-        "install -d \\"\$DESTDIR\\"/bin",
-        "install hello \\"\$DESTDIR\\"/bin/$component"
-    ]
-}
+name: $component
+kind: chunk
+build-commands:
+  - gcc -o hello hello.c
+install-commands:
+  - install -d "\$DESTDIR"/etc
+  - install -d "\$DESTDIR"/bin
+  - install hello "\$DESTDIR"/bin/$component
 EOF
     git add $component.morph
 done
@@ -61,95 +57,64 @@ git commit --quiet -m "add .c source file and GTK chunk morphologies"
 
 # Define a stratum for the GTK stack
 cat <<EOF > gtk-stack.morph
-{
-  "name": "gtk-stack",
-  "kind": "stratum",
-  "build-depends": [
-  ],
-  "chunks": [
-    {
-      "name": "freetype",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-      ]
-    },
-    {
-      "name": "fontconfig",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-      ]
-    },
-    {
-      "name": "cairo",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-      ]
-    },
-    {
-      "name": "pango",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-        "freetype",
-        "fontconfig"
-      ]
-    },
-    {
-      "name": "glib",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-      ]
-    },
-    {
-      "name": "gdk-pixbuf",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-        "glib"
-      ]
-    },
-    {
-      "name": "gtk",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-        "cairo",
-        "gdk-pixbuf",
-        "glib",
-        "pango"
-      ]
-    },
-    {
-      "name": "dbus",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-      ]
-    },
-    {
-      "name": "dbus-glib",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-        "dbus",
-        "glib"
-      ]
-    }
-  ]
-}
+name: gtk-stack
+kind: stratum
+build-depends: []
+chunks:
+  - name: freetype
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends: []
+  - name: fontconfig
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends: []
+  - name: cairo
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends: []
+  - name: pango
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - freetype
+      - fontconfig
+  - name: glib
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends: []
+  - name: gdk-pixbuf
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - glib
+  - name: gtk
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - cairo
+      - gdk-pixbuf
+      - glib
+      - pango
+  - name: dbus
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends: []
+  - name: dbus-glib
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - dbus
+      - glib
 EOF
 git add gtk-stack.morph
 git commit --quiet -m "add gtk-stack.morph stratum"
@@ -172,18 +137,14 @@ xfcecomponents=(xfce4-dev-tools libxfce4util libxfce4ui exo xfconf garcon
 for component in "${xfcecomponents[@]}"
 do
     cat <<EOF > $component.morph
-{
-    "name": "$component",
-    "kind": "chunk",
-    "build-commands": [
-        "gcc -o hello hello.c"
-    ],
-    "install-commands": [
-        "install -d \\"\$DESTDIR\\"/etc",
-        "install -d \\"\$DESTDIR\\"/bin",
-        "install hello \\"\$DESTDIR\\"/bin/$component"
-    ]
-}
+name: $component
+kind: chunk
+build-commands:
+  - gcc -o hello hello.c
+install-commands:
+  - install -d "\$DESTDIR"/etc
+  - install -d "\$DESTDIR"/bin
+  - install hello "\$DESTDIR"/bin/$component
 EOF
     git add $component.morph
 done
@@ -191,170 +152,117 @@ git commit --quiet -m "add .c source file and GTK chunk morphologies"
 
 # Define a stratum for the Xfce core
 cat <<EOF > xfce-core.morph
-{
-  "name": "xfce-core",
-  "kind": "stratum",
-  "build-depends": [
-    {
-      "morph": "gtk-stack",
-    }
-  ],
-  "chunks": [
-    {
-      "name": "libxfce4util",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-      ]
-    },
-    {
-      "name": "xfconf",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-        "libxfce4util"
-      ]
-    },
-    {
-      "name": "libxfce4ui",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-        "xfconf"
-      ]
-    },
-    {
-      "name": "exo",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-        "libxfce4util"
-      ]
-    },
-    {
-      "name": "garcon",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-        "libxfce4util"
-      ]
-    },
-    {
-      "name": "thunar",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-        "libxfce4ui",
-        "exo"
-      ]
-    },
-    {
-      "name": "tumbler",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-      ]
-    },
-    {
-      "name": "xfce4-panel",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-        "libxfce4ui",
-        "exo",
-        "garcon"
-      ]
-    },
-    {
-      "name": "xfce4-settings",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-        "libxfce4ui",
-        "exo",
-        "xfconf"
-      ]
-    },
-    {
-      "name": "xfce4-session",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-        "libxfce4ui",
-        "exo",
-        "xfconf"
-      ]
-    },
-    {
-      "name": "xfwm4",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-        "libxfce4ui",
-        "xfconf"
-      ]
-    },
-    {
-      "name": "xfdesktop",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-        "libxfce4ui",
-        "xfconf"
-      ]
-    },
-    {
-      "name": "xfce4-appfinder",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-        "libxfce4ui",
-        "garcon",
-        "xfconf"
-      ]
-    },
-    {
-      "name": "gtk-xfce-engine",
-      "repo": "test:test-repo",
-      "ref": "master",
-      "build-mode": "test",
-      "build-depends": [
-        "libxfce4ui",
-        "garcon",
-        "xfconf"
-      ]
-    }
-  ]
-}
+name: xfce-core
+kind: stratum
+build-depends:
+  - morph: gtk-stack
+chunks:
+  - name: libxfce4util
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends: []
+  - name: xfconf
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - libxfce4util
+  - name: libxfce4ui
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - xfconf
+  - name: exo
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - libxfce4util
+  - name: garcon
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - libxfce4util
+  - name: thunar
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - libxfce4ui
+      - exo
+  - name: tumbler
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends: []
+  - name: xfce4-panel
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - libxfce4ui
+      - exo
+      - garcon
+  - name: xfce4-settings
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - libxfce4ui
+      - exo
+      - xfconf
+  - name: xfce4-session
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - libxfce4ui
+      - exo
+      - xfconf
+  - name: xfwm4
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - libxfce4ui
+      - xfconf
+  - name: xfdesktop
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - libxfce4ui
+      - xfconf
+  - name: xfce4-appfinder
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - libxfce4ui
+      - garcon
+      - xfconf
+  - name: gtk-xfce-engine
+    repo: test:test-repo
+    ref: master
+    build-mode: test
+    build-depends:
+      - libxfce4ui
+      - garcon
+      - xfconf
 EOF
 git add xfce-core.morph
 git commit --quiet -m "add xfce-core.morph stratum"
 
 cat <<EOF > xfce-system.morph
-{
-  "name": "xfce-system",
-  "kind": "system",
-  "arch": "$("$SRCDIR/scripts/test-morph" print-architecture)",
-  "strata": [
-    {
-      "build-mode": "test",
-      "morph": "xfce-core"
-    }
-  ]
-}
+name: xfce-system
+kind: system
+arch: $("$SRCDIR/scripts/test-morph" print-architecture)
+strata:
+  - build-mode: test
+    morph: xfce-core
 EOF
 git add xfce-system.morph
 git commit --quiet -m "add xfce-system"
