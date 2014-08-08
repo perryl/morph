@@ -24,7 +24,7 @@ import morphlib
 class MorphologyTests(unittest.TestCase):
 
     def setUp(self):
-        self.morph = morphlib.morph3.Morphology()
+        self.morph = morphlib.morphology.Morphology()
 
     def test_has_repo_url_attribute(self):
         self.assertEqual(self.morph.repo_url, None)
@@ -47,7 +47,7 @@ class MorphologyTests(unittest.TestCase):
         self.assertEqual(self.morph.dirty, True)
 
     def test_uses_morphology_commands_when_given(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             {
                 'name': 'foo',
                 'kind': 'chunk',
@@ -59,7 +59,7 @@ class MorphologyTests(unittest.TestCase):
         self.assertEqual(cmds, ['build-it'])
 
     def test_uses_build_system_commands_when_morphology_doesnt(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             {
                 'name': 'foo',
                 'kind': 'chunk',
@@ -70,7 +70,7 @@ class MorphologyTests(unittest.TestCase):
         self.assertEqual(cmds, ['echo dummy build'])
 
     def test_uses_morphology_commands_when_morphology_has_empty_list(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             {
                 'name': 'foo',
                 'kind': 'chunk',

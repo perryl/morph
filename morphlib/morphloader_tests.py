@@ -59,21 +59,21 @@ build-system: dummy
             self.loader.parse_morphology_text, '- item1\n- item2\n', 'test')
 
     def test_fails_to_validate_dict_without_kind(self):
-        m = morphlib.morph3.Morphology({
+        m = morphlib.morphology.Morphology({
             'invalid': 'field',
         })
         self.assertRaises(
             morphlib.morphloader.MissingFieldError, self.loader.validate, m)
 
     def test_fails_to_validate_chunk_with_no_fields(self):
-        m = morphlib.morph3.Morphology({
+        m = morphlib.morphology.Morphology({
             'kind': 'chunk',
         })
         self.assertRaises(
             morphlib.morphloader.MissingFieldError, self.loader.validate, m)
 
     def test_fails_to_validate_chunk_with_invalid_field(self):
-        m = morphlib.morph3.Morphology({
+        m = morphlib.morphology.Morphology({
             'kind': 'chunk',
             'name': 'foo',
             'invalid': 'field',
@@ -82,7 +82,7 @@ build-system: dummy
             morphlib.morphloader.InvalidFieldError, self.loader.validate, m)
 
     def test_validate_requires_products_list(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             kind='chunk',
             name='foo',
             products={
@@ -98,7 +98,7 @@ build-system: dummy
         self.assertEqual(e.morphology_name, 'foo')
 
     def test_validate_requires_products_list_of_mappings(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             kind='chunk',
             name='foo',
             products=[
@@ -113,7 +113,7 @@ build-system: dummy
         self.assertEqual(e.morphology_name, 'foo')
 
     def test_validate_requires_products_list_required_fields(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             kind='chunk',
             name='foo',
             products=[
@@ -136,7 +136,7 @@ build-system: dummy
         self.assertEqual(exs[3].field, 'products[0].factiart')
 
     def test_validate_requires_products_list_include_is_list(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             kind='chunk',
             name='foo',
             products=[
@@ -154,7 +154,7 @@ build-system: dummy
         self.assertEqual(ex.morphology_name, 'foo')
 
     def test_validate_requires_products_list_include_is_list_of_strings(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             kind='chunk',
             name='foo',
             products=[
@@ -175,14 +175,14 @@ build-system: dummy
 
 
     def test_fails_to_validate_stratum_with_no_fields(self):
-        m = morphlib.morph3.Morphology({
+        m = morphlib.morphology.Morphology({
             'kind': 'stratum',
         })
         self.assertRaises(
             morphlib.morphloader.MissingFieldError, self.loader.validate, m)
 
     def test_fails_to_validate_stratum_with_invalid_field(self):
-        m = morphlib.morph3.Morphology({
+        m = morphlib.morphology.Morphology({
             'kind': 'stratum',
             'name': 'foo',
             'invalid': 'field',
@@ -191,7 +191,7 @@ build-system: dummy
             morphlib.morphloader.InvalidFieldError, self.loader.validate, m)
 
     def test_validate_requires_chunk_refs_in_stratum_to_be_strings(self):
-        m = morphlib.morph3.Morphology({
+        m = morphlib.morphology.Morphology({
             'kind': 'stratum',
             'name': 'foo',
             'build-depends': [],
@@ -209,7 +209,7 @@ build-system: dummy
             self.loader.validate(m)
 
     def test_fails_to_validate_stratum_with_empty_refs_for_a_chunk(self):
-        m = morphlib.morph3.Morphology({
+        m = morphlib.morphology.Morphology({
             'kind': 'stratum',
             'name': 'foo',
             'build-depends': [],
@@ -227,7 +227,7 @@ build-system: dummy
             self.loader.validate(m)
 
     def test_fails_to_validate_system_with_obsolete_system_kind_field(self):
-        m = morphlib.morph3.Morphology({
+        m = morphlib.morphology.Morphology({
             'kind': 'system',
             'name': 'foo',
             'arch': 'x86_64',
@@ -240,7 +240,7 @@ build-system: dummy
             morphlib.morphloader.ObsoleteFieldsError, self.loader.validate, m)
 
     def test_fails_to_validate_system_with_obsolete_disk_size_field(self):
-        m = morphlib.morph3.Morphology({
+        m = morphlib.morphology.Morphology({
             'kind': 'system',
             'name': 'foo',
             'arch': 'x86_64',
@@ -253,14 +253,14 @@ build-system: dummy
             morphlib.morphloader.ObsoleteFieldsError, self.loader.validate, m)
 
     def test_fails_to_validate_system_with_no_fields(self):
-        m = morphlib.morph3.Morphology({
+        m = morphlib.morphology.Morphology({
             'kind': 'system',
         })
         self.assertRaises(
             morphlib.morphloader.MissingFieldError, self.loader.validate, m)
 
     def test_fails_to_validate_system_with_invalid_field(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             kind="system",
             name="foo",
             arch="blah",
@@ -272,14 +272,14 @@ build-system: dummy
             morphlib.morphloader.InvalidFieldError, self.loader.validate, m)
 
     def test_fails_to_validate_morphology_with_unknown_kind(self):
-        m = morphlib.morph3.Morphology({
+        m = morphlib.morphology.Morphology({
             'kind': 'invalid',
         })
         self.assertRaises(
             morphlib.morphloader.UnknownKindError, self.loader.validate, m)
 
     def test_validate_requires_unique_stratum_names_within_a_system(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             {
                 "kind": "system",
                 "name": "foo",
@@ -301,7 +301,7 @@ build-system: dummy
                           self.loader.validate, m)
 
     def test_validate_requires_unique_chunk_names_within_a_stratum(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             {
                 "kind": "stratum",
                 "name": "foo",
@@ -322,7 +322,7 @@ build-system: dummy
                           self.loader.validate, m)
 
     def test_validate_requires_a_valid_architecture(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             kind="system",
             name="foo",
             arch="blah",
@@ -334,7 +334,7 @@ build-system: dummy
             self.loader.validate, m)
 
     def test_validate_normalises_architecture_armv7_to_armv7l(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             kind="system",
             name="foo",
             arch="armv7",
@@ -345,7 +345,7 @@ build-system: dummy
         self.assertEqual(m['arch'], 'armv7l')
 
     def test_validate_requires_build_deps_for_chunks_in_strata(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             {
                 "kind": "stratum",
                 "name": "foo",
@@ -365,7 +365,7 @@ build-system: dummy
             self.loader.validate, m)
 
     def test_validate_requires_build_deps_or_bootstrap_mode_for_strata(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             {
                 "name": "stratum-no-bdeps-no-bootstrap",
                 "kind": "stratum",
@@ -395,7 +395,7 @@ build-system: dummy
         self.loader.validate(m)
 
     def test_validate_requires_chunks_in_strata(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             {
                 "name": "stratum",
                 "kind": "stratum",
@@ -415,7 +415,7 @@ build-system: dummy
             self.loader.validate, m)
 
     def test_validate_requires_strata_in_system(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             name='system',
             kind='system',
             arch='testarch')
@@ -425,7 +425,7 @@ build-system: dummy
 
     def test_validate_requires_list_of_strata_in_system(self):
         for v in (None, {}):
-            m = morphlib.morph3.Morphology(
+            m = morphlib.morphology.Morphology(
                 name='system',
                 kind='system',
                 arch='testarch',
@@ -437,7 +437,7 @@ build-system: dummy
             self.assertEqual(cm.exception.strata_type, type(v))
 
     def test_validate_requires_non_empty_strata_in_system(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             name='system',
             kind='system',
             arch='testarch',
@@ -447,7 +447,7 @@ build-system: dummy
             self.loader.validate, m)
 
     def test_validate_requires_stratum_specs_in_system(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             name='system',
             kind='system',
             arch='testarch',
@@ -460,7 +460,7 @@ build-system: dummy
 
     def test_validate_requires_unique_deployment_names_in_cluster(self):
         subsystem = [{'morph': 'baz', 'deploy': {'foobar': None}}]
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             name='cluster',
             kind='cluster',
             systems=[{'morph': 'foo',
@@ -513,7 +513,7 @@ build-system: dummy
         self.assertEqual(morph['build-system'], 'dummy')
 
     def test_saves_to_string(self):
-        morph = morphlib.morph3.Morphology({
+        morph = morphlib.morphology.Morphology({
             'name': 'foo',
             'kind': 'chunk',
             'build-system': 'dummy',
@@ -529,7 +529,7 @@ build-system: dummy
 ''')
 
     def test_saves_to_file(self):
-        morph = morphlib.morph3.Morphology({
+        morph = morphlib.morphology.Morphology({
             'name': 'foo',
             'kind': 'chunk',
             'build-system': 'dummy',
@@ -548,7 +548,7 @@ build-system: dummy
 ''')
 
     def test_validate_does_not_set_defaults(self):
-        m = morphlib.morph3.Morphology({
+        m = morphlib.morphology.Morphology({
             'kind': 'chunk',
             'name': 'foo',
         })
@@ -556,7 +556,7 @@ build-system: dummy
         self.assertEqual(sorted(m.keys()), sorted(['kind', 'name']))
 
     def test_sets_defaults_for_chunks(self):
-        m = morphlib.morph3.Morphology({
+        m = morphlib.morphology.Morphology({
             'kind': 'chunk',
             'name': 'foo',
         })
@@ -594,7 +594,7 @@ build-system: dummy
             })
 
     def test_unsets_defaults_for_chunks(self):
-        m = morphlib.morph3.Morphology({
+        m = morphlib.morphology.Morphology({
             'kind': 'chunk',
             'name': 'foo',
             'build-system': 'manual',
@@ -608,7 +608,7 @@ build-system: dummy
             })
 
     def test_sets_defaults_for_strata(self):
-        m = morphlib.morph3.Morphology({
+        m = morphlib.morphology.Morphology({
             'kind': 'stratum',
             'name': 'foo',
             'chunks': [
@@ -661,14 +661,14 @@ build-system: dummy
         }
         test_dict_with_build_depends = dict(test_dict)
         test_dict_with_build_depends["build-depends"] = []
-        m = morphlib.morph3.Morphology(test_dict_with_build_depends)
+        m = morphlib.morphology.Morphology(test_dict_with_build_depends)
         self.loader.unset_defaults(m)
         self.assertEqual(
             dict(m),
             test_dict)
 
     def test_sets_defaults_for_system(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             kind='system',
             name='foo',
             arch='testarch',
@@ -696,7 +696,7 @@ build-system: dummy
             dict(m))
 
     def test_unsets_defaults_for_system(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             {
                 'description': '',
                 'kind': 'system',
@@ -724,7 +724,7 @@ build-system: dummy
             })
 
     def test_sets_defaults_for_cluster(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             name='foo',
             kind='cluster',
             systems=[
@@ -741,7 +741,7 @@ build-system: dummy
               'deploy': {}}])
 
     def test_unsets_defaults_for_cluster(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             name='foo',
             kind='cluster',
             description='',
@@ -759,7 +759,7 @@ build-system: dummy
                           {'morph': 'bar'}])
 
     def test_sets_stratum_chunks_repo_from_name(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             {
                 "name": "foo",
                 "kind": "stratum",
@@ -777,7 +777,7 @@ build-system: dummy
         self.assertEqual(m['chunks'][0]['repo'], 'le-chunk')
 
     def test_collapses_stratum_chunks_repo_from_name(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             {
                 "name": "foo",
                 "kind": "stratum",
@@ -796,7 +796,7 @@ build-system: dummy
         self.assertTrue('repo' not in m['chunks'][0])
 
     def test_convertes_max_jobs_to_an_integer(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             {
                 "name": "foo",
                 "kind": "chunk",
@@ -829,7 +829,7 @@ build-system: dummy
 
     def test_warns_when_systems_refer_to_strata_with_repo_or_ref(self):
         for obsolete_field in ('repo', 'ref'):
-            m = morphlib.morph3.Morphology(
+            m = morphlib.morphology.Morphology(
                 name="foo",
                 kind="system",
                 arch="testarch",
@@ -852,7 +852,7 @@ build-system: dummy
 
     def test_warns_when_strata_refer_to_build_depends_with_repo_or_ref(self):
         for obsolete_field in ('repo', 'ref'):
-            m = morphlib.morph3.Morphology(
+            m = morphlib.morphology.Morphology(
                 {
                     'name': 'foo',
                     'kind': 'stratum',
@@ -885,7 +885,7 @@ build-system: dummy
 
     def test_unordered_asciibetically_after_ordered(self):
         # We only get morphologies with arbitrary keys in clusters
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             name='foo',
             kind='cluster',
             systems=[
@@ -926,21 +926,21 @@ build-system: dummy
         self.assertEqual(s, self.loader.save_to_string(m))
 
     def test_smoketest_multi_line_unicode(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             name=u'foo',
             description=u'1 2 3\n4 5 6\n7 8 9\n',
         )
         s = self.loader.save_to_string(m)
 
     def test_smoketest_multi_line_unicode_encoded(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             name=u'foo \u263A'.encode('utf-8'),
             description=u'1 \u263A\n2 \u263A\n3 \u263A\n'.encode('utf-8'),
         )
         s = self.loader.save_to_string(m)
 
     def test_smoketest_binary_garbage(self):
-        m = morphlib.morph3.Morphology(
+        m = morphlib.morphology.Morphology(
             description='\x92',
         )
         s = self.loader.save_to_string(m)
