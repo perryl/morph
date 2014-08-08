@@ -406,6 +406,7 @@ class MorphologyLoader(object):
         m = self.parse_morphology_text(string, filename)
         m.filename = filename
         self.validate(m)
+        self.set_commands(m)
         self.set_defaults(m)
         return m
 
@@ -754,3 +755,15 @@ class MorphologyLoader(object):
         if morph['max-jobs'] is not None:
             morph['max-jobs'] = int(morph['max-jobs'])
 
+    def set_commands(self, morph):
+        if morph['kind'] == 'chunk':
+            steps = [key for key, value in
+                     self._static_defaults['chunk'].iteritems()
+                     if 'commands' in key]
+            for key in steps:
+                if not key in morph:
+                    attr = '_'.join(key.split('-'))
+                    default = self._static_defaults['chunk']['build-system']
+                    bs = morphlib.buildsystem.lookup_build_system(
+                        morph.get('build-system', default))
+                    morph[key] = getattr(bs, attr)
