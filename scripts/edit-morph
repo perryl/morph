@@ -32,13 +32,8 @@ class EditMorph(cliapp.Application):
                               'automatically')
 
     def load_morphology(self, file_name, expected_kind = None):
-        with open(file_name) as f:
-            text = f.read()
-        try:
-            morphology = morphlib.morph2.Morphology(text)
-        except ValueError as e:
-            raise morphlib.Error("Error parsing %s: %s" %
-                                 (file_name, str(e)))
+        loader = morphlib.morphloader.MorphologyLoader()
+        morphology = loader.load_from_file(file_name)
 
         if expected_kind is not None and morphology['kind'] != expected_kind:
             raise morphlib.Error("Expected: a %s morphology" % expected_kind)
@@ -67,10 +62,10 @@ class EditMorph(cliapp.Application):
             elif chunk_name in info['build-depends']:
                 info['build-depends'].remove(chunk_name)
                 build_depends_count += 1
-        morphology._dict['chunks'] = new_chunks
+        morphology['chunks'] = new_chunks
 
-        with morphlib.savefile.SaveFile(file_name, 'w') as f:
-            morphology.update_text(text, f)
+        loader = morphlib.morphloader.MorphologyLoader()
+        loader.save_to_file(file_name, morphology)
 
         self.output.write("Removed: %i chunk(s) and %i build depend(s).\n" %
                           (component_count, build_depends_count))
@@ -88,49 +83,10 @@ class EditMorph(cliapp.Application):
         for chunk in morphology['chunks']:
             chunk['build-depends'].sort()
 
-        morphology._dict['chunks'] = self.sort_chunks(morphology['chunks'])
+        morphology['chunks'] = self.sort_chunks(morphology['chunks'])
 
-        with morphlib.savefile.SaveFile(file_name, 'w') as f:
-            morphology.update_text(text, f)
-
-    def cmd_to_json(self, args):
-        """Convert one or more FILES to JSON.
-
-           Assumes a .yaml extension, which will be removed in the output file.
-        """
-
-        if len(args) == 0:
-            raise cliapp.AppException("to-json expects one or more filenames")
-
-        for file_name in args:
-            try:
-                morphology, text = self.load_morphology(file_name)
-
-                if not file_name.endswith('.yaml'):
-                    raise morphlib.Error('file name does not end with .yaml')
-                out_file_name = file_name[:-len('.yaml')]
-
-                with morphlib.savefile.SaveFile(out_file_name, 'w') as f:
-                    morphology.update_text(text, f, convert_to='json')
-            except Exception as e:
-                self.output.write('%s: %s\n' % (file_name, e))
-
-    def cmd_to_yaml(self, args):
-        """Convert one or more FILES to YAML.
-
-           Adds a .yaml extension for each input file."""
-
-        if len(args) == 0:
-            raise cliapp.AppException("to-yaml expects one or more filenames")
-
-        for file_name in args:
-            try:
-                morphology, text = self.load_morphology(file_name)
-
-                with morphlib.savefile.SaveFile(file_name + '.yaml', 'w') as f:
-                    morphology.update_text(text, f, convert_to='yaml')
-            except Exception as e:
-                self.output.write('%s: %s\n' % (file_name, e))
+        loader = morphlib.morphloader.MorphologyLoader()
+        loader.save_to_file(file_name, morphology)
 
     def sort_chunks(self, chunks_list):
         """Sort stratum chunks
