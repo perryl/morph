@@ -1,1 +1,1 @@
-ERROR: No arch specified in system archless-system.morph (arch is a mandatory field)
+ERROR: Missing field arch from morphology string
