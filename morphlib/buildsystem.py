@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013  Codethink Limited
+# Copyright (C) 2012-2014  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -53,11 +53,9 @@ class BuildSystem(object):
         '''Return the text of an autodetected chunk morphology.'''
 
         return '''
-            {
-                "name": "%(name)s",
-                "kind": "chunk",
-                "build-system": "%(bs)s"
-            }
+                name: %(name)s
+                kind: chunk
+                build-system: %(bs)s
         ''' % {
             'name': name,
             'bs': self.name,
