@@ -114,7 +114,7 @@ class CacheKeyComputer(object):
             for prefix in ('pre-', '', 'post-'):
                 for cmdtype in ('configure', 'build', 'test', 'install'):
                     cmd_field = prefix + cmdtype + '-commands'
-                    keys[cmd_field] = morphology.get_commands(cmd_field)
+                    keys[cmd_field] = morphology[cmd_field]
             keys['devices'] = morphology.get('devices')
             keys['max-jobs'] = morphology.get('max-jobs')
             keys['system-integration'] = morphology.get('system-integration',

@@ -86,6 +86,7 @@ class MorphologyFactory(object):
             morph = bs.get_morphology(morph_name)
             loader.set_defaults(morph)
             loader.validate(morph)
+            loader.set_commands(morph)
         return morph
 
     def get_morphology(self, reponame, sha1, filename):

@@ -405,7 +405,7 @@ class ChunkBuilder(BuilderBase):
         for step, in_parallel in steps:
             with self.build_watch(step):
                 key = '%s-commands' % step
-                cmds = m.get_commands(key)
+                cmds = m[key]
                 if cmds:
                     with open(logfilepath, 'a') as log:
                         self.app.status(msg='Running %(key)s', key=key)
