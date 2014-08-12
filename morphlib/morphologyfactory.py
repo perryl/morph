@@ -50,16 +50,17 @@ class MorphologyFactory(object):
         if self._app is not None:
             self._app.status(*args, **kwargs)
 
-    def _get_morphology_text(self, reponame, sha1, filename):
+    def _load_morphology(self, reponame, sha1, filename):
         morph_name = os.path.splitext(os.path.basename(filename))[0]
+        loader = morphlib.morphloader.MorphologyLoader()
         if self._lrc.has_repo(reponame):
             self.status(msg="Looking for %s in local repo cache" % filename,
                         chatty=True)
             try:
                 repo = self._lrc.get_repo(reponame)
-                text = repo.cat(sha1, filename)
+                morph = loader.load_from_string(repo.cat(sha1, filename))
             except IOError:
-                text = None
+                morph = None
                 file_list = repo.ls_tree(sha1)
         elif self._rrc is not None:
             self.status(msg="Retrieving %(reponame)s %(sha1)s %(filename)s"
@@ -68,27 +69,27 @@ class MorphologyFactory(object):
                         chatty=True)
             try:
                 text = self._rrc.cat_file(reponame, sha1, filename)
+                morph = loader.load_from_string(text)
             except morphlib.remoterepocache.CatFileError:
-                text = None
+                morph = None
                 file_list = self._rrc.ls_tree(reponame, sha1)
         else:
             raise NotcachedError(reponame)
 
-        if text is None:
+        if morph is None:
             self.status(msg="File %s doesn't exist: attempting to infer "
                             "chunk morph from repo's build system"
                         % filename, chatty=True)
             bs = morphlib.buildsystem.detect_build_system(file_list)
             if bs is None:
                 raise MorphologyNotFoundError(filename)
-            text = bs.get_morphology_text(morph_name)
-        return morph_name, text
+            morph = bs.get_morphology(morph_name)
+            loader.set_defaults(morph)
+            loader.validate(morph)
+        return morph
 
     def get_morphology(self, reponame, sha1, filename):
-        morph_name, text = self._get_morphology_text(reponame, sha1, filename)
-
-        loader = morphlib.morphloader.MorphologyLoader()
-        morphology = loader.load_from_string(text)
+        morphology = self._load_morphology(reponame, sha1, filename)
 
         method_name = '_check_and_tweak_%s' % morphology['kind']
         if hasattr(self, method_name):

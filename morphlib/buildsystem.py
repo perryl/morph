@@ -16,6 +16,8 @@
 
 import os
 
+import morphlib
+
 
 class BuildSystem(object):
 
@@ -49,17 +51,14 @@ class BuildSystem(object):
         key = '_'.join(key.split('-'))
         return getattr(self, key)
 
-    def get_morphology_text(self, name):
+    def get_morphology(self, name):
         '''Return the text of an autodetected chunk morphology.'''
 
-        return '''
-                name: %(name)s
-                kind: chunk
-                build-system: %(bs)s
-        ''' % {
+        return morphlib.morphology.Morphology({
             'name': name,
-            'bs': self.name,
-        }
+            'kind': 'chunk',
+            'build-system': self.name,
+        })
 
     def used_by_project(self, file_list):
         '''Does a project use this build system?
