@@ -182,7 +182,7 @@ class BootstrapSystemBuilder(morphlib.builder2.BuilderBase):
         
         for step, in_parallel in steps:
             key = '%s-commands' % step
-            cmds = m.get_commands(key)
+            cmds = m[key]
             for cmd in cmds:
                 f.write('(')
                 if in_parallel:
