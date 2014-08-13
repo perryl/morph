@@ -45,38 +45,3 @@ class MorphologyTests(unittest.TestCase):
         self.assertEqual(self.morph.dirty, None)
         self.morph.dirty = True
         self.assertEqual(self.morph.dirty, True)
-
-    def test_uses_morphology_commands_when_given(self):
-        m = morphlib.morphology.Morphology(
-            {
-                'name': 'foo',
-                'kind': 'chunk',
-                'build-system': 'dummy',
-                'build-commands': ['build-it']
-            }
-        )
-        cmds = m.get_commands('build-commands')
-        self.assertEqual(cmds, ['build-it'])
-
-    def test_uses_build_system_commands_when_morphology_doesnt(self):
-        m = morphlib.morphology.Morphology(
-            {
-                'name': 'foo',
-                'kind': 'chunk',
-                'build-system': 'dummy',
-            }
-        )
-        cmds = m.get_commands('build-commands')
-        self.assertEqual(cmds, ['echo dummy build'])
-
-    def test_uses_morphology_commands_when_morphology_has_empty_list(self):
-        m = morphlib.morphology.Morphology(
-            {
-                'name': 'foo',
-                'kind': 'chunk',
-                'build-system': 'dummy',
-                'build-commands': []
-            }
-        )
-        cmds = m.get_commands('build-commands')
-        self.assertEqual(cmds, [])

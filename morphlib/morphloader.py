@@ -761,4 +761,7 @@ class MorphologyLoader(object):
                      if 'commands' in key]
             for key in steps:
                 if morph[key] == self._static_defaults['chunk'][key]:
-                    morph[key] = morph.get_commands(key)
+                    attr = '_'.join(key.split('-'))
+                    bs = morphlib.buildsystem.lookup_build_system(
+                        morph['build-system'])
+                    morph[key] = getattr(bs, attr)

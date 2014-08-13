@@ -44,12 +44,3 @@ class Morphology(UserDict.IterableUserDict):
         self.ref = None
         self.filename = None
         self.dirty = None
-
-    def get_commands(self, which):
-        '''Return the commands to run from a morphology or the build system'''
-        if self.get(which, None) is None:
-            attr = '_'.join(which.split('-'))
-            bs = morphlib.buildsystem.lookup_build_system(self['build-system'])
-            return getattr(bs, attr)
-        else:
-            return self[which]
