@@ -383,7 +383,8 @@ Attempt to branch a system branch from a root that had no systems.
 Pushing all changes in a system branch checkout to the git server.
 
     IMPLEMENTS WHEN the user pushes the system branch called (\S+) to the git server
-    run_in "$DATADIR/workspace/$MATCH_1/" morph foreach -- sh -c 'git push -u origin HEAD 2>&1'
+    cd "$DATADIR/workspace/$MATCH_1/"
+    run_morph foreach -- sh -c 'git push -u origin HEAD 2>&1'
 
 Report workspace path.
 
