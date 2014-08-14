@@ -224,6 +224,15 @@ build branch is made to include that change.
     AND  the user builds systems/test-system.morph of the master branch
     THEN the changes to test-chunk in branch master are included in the temporary build branch
 
+It's also useful to be able to check out other branches to see the effect
+of building those changes instead.
+
+    GIVEN a different branch of test-chunk to build from
+    WHEN  the user checks out the different branch of test-chunk in branch master
+    AND   the user builds systems/test-system.morph of the master branch
+    THEN  the state of the current branch of test-chunk in branch master is included in the temporary build branch
+    AND   test-chunk of branch master's tree was used in the most recently built system
+
 ### When branches are created ###
 
 It's convenient to have Temporary Build Branches, but we don't always
@@ -396,6 +405,34 @@ Nor do we need temporary build branches for distributed builds.
     eval "$(git for-each-ref --count=1 --shell --sort=committerdate \
             --format='git cat-file -p %(refname):test-bin | diff test-bin -' \
             "$build_ref_prefix")"
+
+    IMPLEMENTS GIVEN a (\S+) branch of (test-chunk) to build from
+    cd "$DATADIR/gits/$MATCH_2"
+    git checkout -b "$MATCH_1"
+    sed -i 's/Hello/Farewell/g' test-bin
+    git add test-bin
+    git commit -m 'Change message of test-bin'
+
+    IMPLEMENTS WHEN the user checks out the (\S+) branch of (\S+) in branch (\S+)
+    chunkdir="$(slashify_colons "test:$MATCH_2")"
+    cd "$DATADIR/workspace/$MATCH_3/$chunkdir"
+    git remote update
+    git clean -fxd
+    git reset --hard HEAD
+    git checkout "$MATCH_1"
+
+    IMPLEMENTS THEN the state of the current branch of (\S+) in branch (\S+) is included in the temporary build branch
+    chunkdir="$(slashify_colons "test:$MATCH_1")"
+    cd "$DATADIR/workspace/$MATCH_2/$chunkdir"
+    eval "$(git for-each-ref --count=1 --shell --sort=committerdate \
+            --format='test "$(git rev-parse HEAD^{tree})" = %(tree)' \
+            "$build_ref_prefix")"
+
+    IMPLEMENTS THEN (test-chunk) of branch (\S+)'s tree was used in the most recently built system
+    chunkdir="$(slashify_colons "test:$MATCH_1")"
+    cd "$DATADIR/workspace/$MATCH_2/$chunkdir"
+    artifact="$(ls -t "$DATADIR/cache/artifacts/"*.system.*-rootfs | head -n1)"
+    tar -xf "$artifact" -O usr/libexec/test-bin | diff test-bin -
 
     IMPLEMENTS WHEN the user commits changes to (\S+) in branch (\S+)
     chunkdir="$(slashify_colons "test:$MATCH_1")"

@@ -125,14 +125,18 @@ class BuildBranch(object):
 
         sb_info = {}
         for gd, (build_ref, index) in self._to_push.iteritems():
-            repo, ref = gd.get_config('morph.repository'), gd.HEAD
-            sb_info[repo, ref] = (gd, build_ref)
+            if gd == self._root:
+                continue
+            morph_name = gd.get_config('morph.chunk-name')
+            sb_info[morph_name] = (gd, build_ref)
 
         def filter(m, kind, spec):
-            return (spec.get('repo'), spec.get('ref')) in sb_info
+            name = (spec['name'] if 'name' in spec else spec['morph'])
+            return name in sb_info
         def process(m, kind, spec):
+            name = (spec['name'] if 'name' in spec else spec['morph'])
+            gd, build_ref = sb_info[name]
             repo, ref = spec['repo'], spec['ref']
-            gd, build_ref = sb_info[repo, ref]
             if (repo, ref) == (root_repo, root_ref):
                 spec['repo'] = None
                 spec['ref'] = None

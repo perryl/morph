@@ -309,6 +309,7 @@ class BranchAndMergePlugin(cliapp.Plugin):
                 cached_repo = lrc.get_updated_repo(chunk_url)
 
                 gd = sb.clone_cached_repo(cached_repo, chunk_ref)
+                gd.set_config('morph.chunk-name', chunk_name)
                 system_branch_ref = gd.disambiguate_ref(sb.system_branch_name)
                 sha1 = gd.resolve_ref_to_commit(chunk_ref)
 
