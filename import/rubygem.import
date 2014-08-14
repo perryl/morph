@@ -1,0 +1,309 @@
+#!/usr/bin/env ruby
+#
+# Create a chunk morphology to integrate a RubyGem in Baserock
+#
+# Copyright (C) 2014  Codethink Limited
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+require 'bundler'
+require 'optparse'
+require 'yaml'
+
+BASEROCK_RUBY_VERSION = '2.0.0'
+
+IGNORED_GROUPS = [:compat_testing, :test]
+
+# Ignoring the :test group isn't enough for these Gems, they are often in the
+# :development group too and thus we need to explicitly ignore them.
+TEST_GEMS = [
+    'rspec',
+    'rspec_junit_formatter',
+    'rspec-core',
+    'rspec-expectations',
+    'rspec-mocks',
+    'simplecov',
+]
+
+IGNORED_GEMS = TEST_GEMS
+
+def spec_is_from_current_source_tree(spec)
+    spec.source.instance_of? Bundler::Source::Path and
+        spec.source.path.fnmatch?('.')
+end
+
+# Good testcases for this code:
+#   qu:
+#     http://opensoul.org/2012/05/30/releasing-multiple-gems-from-one-repository/
+#     'qu-mongodb' shouldn't pull in any rails deps
+#   rails:
+#     'activesupport' doesn't depend on any other rails components, make
+#     sure the script gets this right. This is a different codepath to 'qu'.
+
+class Dsl < Bundler::Dsl
+    # The Bundler::Dsl class parses the Gemfile. We override a couple of
+    # methods to get extra information.
+
+    def to_definition(lockfile, unlock)
+        # Overridden so that our subclassed Definition is used.
+        puts "Dsl::to_definition #{lockfile}"
+        @sources << rubygems_source unless @sources.include?(rubygems_source)
+        Definition.new(lockfile, @dependencies, @sources, unlock, @ruby_version)
+    end
+
+    # HO ! You should be able to *ignore* the Gems that you don't want
+    # by overriding this method!
+    # Actually, the 'gemfile' method is probably the one!
+    def gem(*args)
+        puts "    Dsl::gem #{args}"
+        super
+    end
+end
+
+class Resolver < Bundler::Resolver
+    # The Bundler::Resolver calculates the dependency graph. We override the
+    # `activate_gem` method to allow skipping gems from the current source tree
+    # that aren't the one specified on the commandline, to allow us to build
+    # a separate dependency graph for each gem in a repo.
+    #
+    # FIXME: lots of copy and paste from the base class needed to make this
+    # work. It would be great if there was a way to achieve this without
+    # subclassing Bundler::Resolver.
+
+    def self.resolve(requirements, index, source_requirements = {}, base = [], target_gem_name)
+      base = Bundler::SpecSet.new(base) unless base.is_a?(Bundler::SpecSet)
+      resolver = new(target_gem_name, index, source_requirements, base)
+      result = resolver.start(requirements)
+      Bundler::SpecSet.new(result)
+    end
+
+    def initialize(target_gem_name, *args)
+        @target_gem_name = target_gem_name
+        super *args
+    end
+
+    def activate_gem(reqs, activated, requirement, current)
+        # Overridden so that we can ignore gems which come from the source repo
+        # in which we are working, but are not the current gem we care about.
+        # This is necessary because a single repo can produce multiple gems,
+        # each with their own requirements. Bundler constructs the union of all
+        # their requirements, but in order to construct everything from the
+        # original source repos (avoiding the use of premade gems) we need to
+        # separate them out so that we have a chance of constructing a build
+        # graph that isn't one giant circle.
+        #
+        # Problem IS that here the source has already been resolved, and it's
+        # been resolved WRONGLY for activesupport ... it should be '.' !
+        puts "active_gem: #{current} source #{current.source}"
+        if spec_is_from_current_source_tree(current) and current.name != @target_gem_name
+            STDERR.puts "Ignoring #{current.name}: #{@target_gem_name} was requested"
+        else
+            super
+        end
+    end
+end
+
+class Definition < Bundler::Definition
+    # The Bundler::Definition class holds the dependency info we need.
+
+    def self.build(gemfile, lockfile, unlock)
+        # Overridden so that our subclassed Dsl is used.
+        puts "Definition::build #{gemfile} #{lockfile}"
+        unlock ||= {}
+        gemfile = Pathname.new(gemfile).expand_path
+
+        unless gemfile.file?
+            raise GemfileNotFound, "#{gemfile} not found"
+        end
+
+        Dsl.evaluate(gemfile, lockfile, unlock)
+    end
+
+    def requested_dependencies
+        # Overridden to remove more stuff from the list: excluding certain
+        # groups using Bundler.settings.without is a good first step, but some
+        # test tools seem to be in the generic :development group and thus
+        # need to be explicitly removed from the list.
+        result = super.reject { |d| IGNORED_GEMS.member? d.name }
+        removed = dependencies - result
+        STDERR.puts "Removed dependencies: #{removed.collect {|d| d.name}}"
+
+        # Now would be a good time to remove the Gems which come from current
+        # directory but aren't the one that was requested on the commandline .
+        # EXCEPT! Since we haven't resolved them we don't yet have all of them
+        # available! For example in 'rails' there are nested Gems in the source
+        # tree which won't be discovered until the resolve is complete! By
+        # which time, it's too late ...
+        dependencies.each do |dep|
+            puts "dep #{dep} source #{dep.source}"
+        end
+
+        result
+    end
+
+    def resolve_build_dependencies_for_gem(gem_name)
+        # The term "build dependencies" is my own. RubyGems seem to mostly care
+        # about "needed at runtime" (:runtime) vs. "useful during development"
+        # (:development). We actually want "needed at runtime or during `rake
+        # install`" but we have to work this out for ourselves.
+
+        # Note you can set ENV['DEBUG_RESOLVER'] for more debug info.
+
+        # FIXME: the remote update, would be nice to avoid it if possible!
+        @target_gem_name = gem_name
+        resolve_remotely!
+    end
+
+    def resolve
+        # Overridden so that the custom Resolver class is used ... ugly.
+      @resolve ||= begin
+        if Bundler.settings[:frozen] || (!@unlocking && nothing_changed?)
+          puts "Resolve: return @locked_specs #{@locked_specs} length #{@locked_specs.length}"
+          @locked_specs
+        else
+          last_resolve = converge_locked_specs
+
+          # Record the specs available in each gem's source, so that those
+          # specs will be available later when the resolver knows where to
+          # look for that gemspec (or its dependencies)
+          source_requirements = {}
+          dependencies.each do |dep|
+            next unless dep.source
+            source_requirements[dep.name] = dep.source.specs
+          end
+
+          # Run a resolve against the locally available gems
+          last_resolve.merge Resolver.resolve(expanded_dependencies, index, source_requirements, last_resolve, @target_gem_name)
+        end
+      end
+    end
+end
+
+def parse_options(arguments)
+    # No options so far ..
+    opts = OptionParser.new
+
+    opts.banner = "Usage: rubygem.import SOURCE_DIR GEM_NAME"
+    opts.separator ""
+    opts.separator "This tool reads the Gemfile and optionally the " +
+                   "Gemfile.lock from a Ruby project "
+    opts.separator "source tree in SOURCE_DIR. It outputs a chunk " +
+                   "morphology for GEM_NAME on stdout."
+    opts.separator ""
+    opts.separator "It is intended for use with the `baserock-import` tool."
+
+    parsed_arguments = opts.parse!(arguments)
+
+    if parsed_arguments.length != 2 then
+        STDERR.puts opts.help
+        exit 1
+    end
+
+    parsed_arguments
+end
+
+def load_definition()
+    # Load and parse the Gemfile and, if found, the Gemfile.lock file.
+    definition = Definition.build(
+        'Gemfile', 'Gemfile.lock', update=false)
+rescue Bundler::GemfileNotFound
+    STDERR.puts "Did not find a Gemfile in #{dir_name}."
+    exit 1
+end
+
+def get_spec_for_gem(specs, gem_name)
+    found = specs[gem_name]
+    if found.empty?
+        raise Exception,
+            "No Gemspecs found matching '#{gem_name}'"
+    elsif found.length != 1
+        raise Exception,
+            "Unsure which Gem to use for #{dep}, got #{found}"
+    end
+    found[0]
+end
+
+def chunk_name_for_gemspec(spec)
+    # Chunk names are the Gem's "full name" (name + version number), so that we
+    # don't break in the rare but possible case that two different versions of
+    # the same Gem are required for something to work. It'd be nicer to only
+    # use the full_name if we detect such a conflict.
+    spec.full_name
+end
+
+def generate_chunk_morph_for_gem(spec)
+    description = 'Automatically generated by rubygem.import'
+
+    bin_dir = "\"$DESTDIR/$PREFIX/bin\""
+    gem_dir = "\"$DESTDIR/$PREFIX/lib/ruby/gems/#{BASEROCK_RUBY_VERSION}\""
+
+    # There's more splitting to be done, but putting the docs in the
+    # correct artifact is the single biggest win for enabling smaller
+    # system images.
+    split_rules = [
+        {
+            'artifact' => "#{spec.full_name}-doc",
+            'include' => [
+                "usr/lib/ruby/gems/#{BASEROCK_RUBY_VERSION}/doc/.*"
+            ]
+        }
+    ]
+
+    # FIXME: these should build from source instead!
+    install_commands = [
+        "mkdir -p #{gem_dir}",
+        "gem install --install-dir #{gem_dir} --bindir #{bin_dir} " +
+             "--ignore-dependencies --local #{spec.full_name}.gem"
+    ]
+
+    {
+        'name' => chunk_name_for_gemspec(spec),
+        'kind' => 'chunk',
+        'description' => description,
+        'build-system' => 'manual',
+        ##'gem-url' => "http://rubygems.org/downloads/#{spec.full_name}.gem",
+        'products' => split_rules,
+        'install-commands' => install_commands
+    }
+end
+
+def write_morph(file, morph)
+    file.write(YAML.dump(morph))
+end
+
+def run
+    source_dir_name, gem_name = parse_options(ARGV)
+
+    Dir.chdir(source_dir_name)
+
+    definition = load_definition()
+
+    specset = definition.resolve_build_dependencies_for_gem(gem_name)
+
+    spec = get_spec_for_gem(specset, gem_name)
+
+    if not spec_is_from_current_source_tree(spec)
+        STDERR.puts "Specified gem '#{spec.name}' doesn't live in the " +
+            "source in '#{source_dir_name}'"
+        exit 1
+    end
+
+    morph = generate_chunk_morph_for_gem(spec)
+
+    morph['x-rubygem-dependencies'] = specset.collect { |d| d.name }.sort!
+
+    write_morph(STDOUT, morph)
+end
+
+run
