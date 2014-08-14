@@ -209,6 +209,27 @@ Morph always builds from committed changes, but it's not always convenient
 to commit and push changes, so `morph build` can create temporary build
 branches when necessary.
 
+### What gets included in temporary build branches ###
+
+    SCENARIO morph builds the branches of edited chunks you checked-out
+    GIVEN    a workspace
+    AND      a git server
+    WHEN     the user checks out the system branch called master
+    AND      the user edits the chunk test-chunk in branch master
+
+If we make an uncommitted change to an edited chunk, then a temporary
+build branch is made to include that change.
+
+    WHEN the user makes changes to test-chunk in branch master
+    AND  the user builds systems/test-system.morph of the master branch
+    THEN the changes to test-chunk in branch master are included in the temporary build branch
+
+### When branches are created ###
+
+It's convenient to have Temporary Build Branches, but we don't always
+need them, and they get in the way when we don't need them, so we need
+to be careful about when to make them.
+
     SCENARIO morph makes temporary build branches for uncommitted changes when necessary
     GIVEN    a workspace
     AND      a git server
@@ -360,16 +381,27 @@ Nor do we need temporary build branches for distributed builds.
     AND   no temporary build branches were pushed to the morphs repository
     AND   no temporary build branches were pushed to the test-chunk repository
 
+
+### Temporary Build Branch implementations ###
+
     IMPLEMENTS WHEN the user makes changes to test-chunk in branch (\S+)
     chunkdir="$(slashify_colons "test:test-chunk")"
     cd "$DATADIR/workspace/$MATCH_1/$chunkdir"
     sed -i -e 's/Hello/Goodbye/g' test-bin
 
+    IMPLEMENTS THEN the changes to test-chunk in branch (\S+) are included in the temporary build branch
+    build_ref_prefix=baserock/builds/
+    chunkdir="$(slashify_colons "test:test-chunk")"
+    cd "$DATADIR/workspace/$MATCH_1/$chunkdir"
+    eval "$(git for-each-ref --count=1 --shell --sort=committerdate \
+            --format='git cat-file -p %(refname):test-bin | diff test-bin -' \
+            "$build_ref_prefix")"
+
     IMPLEMENTS WHEN the user commits changes to (\S+) in branch (\S+)
     chunkdir="$(slashify_colons "test:$MATCH_1")"
     cd "$DATADIR/workspace/$MATCH_2/$chunkdir"
     git commit -a -m 'Commit local changes'
-    
+
 
 Status of system branch checkout
 --------------------------------
