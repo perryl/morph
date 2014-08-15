@@ -301,7 +301,7 @@ def run
 
     morph = generate_chunk_morph_for_gem(spec)
 
-    morph['x-rubygem-dependencies'] = specset.collect { |d| d.name }.sort!
+    morph['x-rubygem-dependencies'] = specset.collect { |d| d.full_name }.sort!
 
     write_morph(STDOUT, morph)
 end
