@@ -1,0 +1,145 @@
+#!/usr/bin/python
+#
+# Create a Baserock .lorry file for a given RubyGem
+#
+# Copyright (C) 2014  Codethink Limited
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+
+import requests
+import requests_cache
+
+import json
+import os
+import sys
+
+
+known_source_uris = {
+    'actionmailer': 'https://github.com/rails/rails',
+    'actionpack': 'https://github.com/rails/rails',
+    'actionview': 'https://github.com/rails/rails',
+    'activemodel': 'https://github.com/rails/rails',
+    'activerecord': 'https://github.com/rails/rails',
+    'activesupport': 'https://github.com/rails/rails',
+    'rails': 'https://github.com/rails/rails',
+}
+
+
+class RubyGemsWebServiceClient(object):
+    def __init__(self):
+        # Save hammering the rubygems.org API: 'requests' API calls are
+        # transparently cached in an SQLite database, instead.
+        requests_cache.install_cache('rubygems_api_cache')
+
+    def _request(self, url):
+        r = requests.get(url)
+        if r.ok:
+            return json.loads(r.text)
+        else:
+            raise Exception('Request to %s failed: %s' % (r.url, r.reason))
+
+    def get_gem_info(self, gem_name):
+        info = self._request(
+            'http://rubygems.org/api/v1/gems/%s.json' % gem_name)
+
+        if info['name'] != gem_name:
+            # Sanity check
+            raise Exception('Received info for Gem "%s", requested "%s"' %
+                            info['name'], gem_name)
+
+        return info
+
+
+class RubyGemLorryGenerator(object):
+    def find_upstream_repo_for_gem(self, gem_name, gem_info):
+        source_code_uri = gem_info['source_code_uri']
+        if source_code_uri is not None:
+            return source_code_uri
+
+        if gem_name in known_source_uris:
+            known_uri = known_source_uris[gem_name]
+            if source_code_uri is not None and known_uri != source_code_uri:
+                raise Exception(
+                    '%s: Hardcoded source URI %s doesn\'t match spec URI %s' %
+                    (gem_name, known_uri, source_code_uri))
+            return known_uri
+
+        homepage_uri = gem_info['homepage_uri']
+        if homepage_uri is not None:
+            netloc = urlparse.urlsplit(homepage_uri)[1]
+            if netloc == 'github.com':
+                return homepage_uri
+
+        # Further possible leads on locating source code.
+        # http://ruby-toolbox.com/projects/$gemname -> sometimes contains an
+        #   upstream link, even if the gem info does not.
+        # https://github.com/search?q=$gemname -> often the first result is
+        #   the correct one, but you can never know.
+
+        raise Exception('Did not manage to automatically find the upstream '
+                        'source URL for Gem %s.' % gem_name)
+
+    def project_name_from_repo(self, repo_url):
+        if repo_url.endswith('/tree/master'):
+            repo_url = repo_url[:-len('/tree/master')]
+        if repo_url.endswith('/'):
+            repo_url = repo_url[:-1]
+        if repo_url.endswith('.git'):
+            repo_url = repo_url[:-len('.git')]
+        return os.path.basename(repo_url)
+
+    def generate_lorry_for_gem(self, gem_name):
+        rubygems_client = RubyGemsWebServiceClient()
+
+        gem_info = rubygems_client.get_gem_info(gem_name)
+
+        gem_source_url = self.find_upstream_repo_for_gem(gem_name, gem_info)
+
+        project_name = self.project_name_from_repo(gem_source_url)
+
+        # One repo may produce multiple Gems. It's up to the caller to merge
+        # multiple .lorry files that get generated for the same repo.
+
+        lorry = {
+            project_name: {
+                'type': 'git',
+                'url': gem_source_url,
+                'x-rubygem-products': gem_name
+            }
+        }
+
+        return lorry
+
+
+def write_lorry(stream, lorry):
+    json.dump(lorry, stream, indent=4)
+
+
+def main():
+    if len(sys.argv) != 2:
+        sys.stderr.write(
+            'Please call me with the name of a RubyGem as an argument.\n')
+        sys.exit(1)
+
+    gem_name = sys.argv[1]
+
+    lorry_generator = RubyGemLorryGenerator()
+    lorry = lorry_generator.generate_lorry_for_gem(gem_name)
+
+    write_lorry(sys.stdout, lorry)
+
+
+if __name__ == '__main__':
+    main()
