@@ -25,6 +25,14 @@ BASEROCK_RUBY_VERSION = '2.0.0'
 
 IGNORED_GROUPS = [:compat_testing, :test]
 
+# Users of traditional distros seem to find it useful to override the versions
+# of these Gems that come bundled with the MRI Ruby intepreter with newer
+# versions from rubygems.org. In Baserock it should be just as easy to update
+# MRI. We should avoid building components from two places.
+BUNDLED_GEMS = [
+    'rake',
+]
+
 # Ignoring the :test group isn't enough for these Gems, they are often in the
 # :development group too and thus we need to explicitly ignore them.
 TEST_GEMS = [
@@ -36,7 +44,7 @@ TEST_GEMS = [
     'simplecov',
 ]
 
-IGNORED_GEMS = TEST_GEMS
+IGNORED_GEMS = BUNDLED_GEMS + TEST_GEMS
 
 def spec_is_from_current_source_tree(spec)
     spec.source.instance_of? Bundler::Source::Path and
@@ -52,69 +60,70 @@ end
 #     sure the script gets this right. This is a different codepath to 'qu'.
 
 class Dsl < Bundler::Dsl
-    # The Bundler::Dsl class parses the Gemfile. We override a couple of
-    # methods to get extra information.
+    # The Bundler::Dsl class parses the Gemfile. We override it so that we can
+    # extend the class of the Bundler::Definition instance that is created, and
+    # so we can filter the results down to a specific Gem from the repo rather
+    # than the top-level one.
 
-    def to_definition(lockfile, unlock)
-        # Overridden so that our subclassed Definition is used.
+    def self.evaluate(gemfile, lockfile, unlock, target_gem_name)
+      builder = new
+      builder.eval_gemfile(gemfile)
+      builder.to_definition(lockfile, unlock, target_gem_name)
+    end
+
+    def to_definition(lockfile, unlock, target_gem_name)
         @sources << rubygems_source unless @sources.include?(rubygems_source)
-        Definition.new(lockfile, @dependencies, @sources, unlock, @ruby_version)
-    end
 
-    # HO ! You should be able to *ignore* the Gems that you don't want
-    # by overriding this method!
-    # Actually, the 'gemfile' method is probably the one!
-    def gem(*args)
-        super
-    end
-end
+        # Find the local Bundler::Source object, remove everything from that
+        # source except the Gem we actually care about. This is necessary
+        # because Bundler is designed for people who want to develop or deploy
+        # all Gems from a given repo, but in this case we only care about *one*
+        # Gem from the repo, which may not be the top level one.
 
-class Resolver < Bundler::Resolver
-    # The Bundler::Resolver calculates the dependency graph. We override the
-    # `activate_gem` method to allow skipping gems from the current source tree
-    # that aren't the one specified on the commandline, to allow us to build
-    # a separate dependency graph for each gem in a repo.
-    #
-    # FIXME: lots of copy and paste from the base class needed to make this
-    # work. It would be great if there was a way to achieve this without
-    # subclassing Bundler::Resolver.
-
-    def self.resolve(requirements, index, source_requirements = {}, base = [], target_gem_name)
-      base = Bundler::SpecSet.new(base) unless base.is_a?(Bundler::SpecSet)
-      resolver = new(target_gem_name, index, source_requirements, base)
-      result = resolver.start(requirements)
-      Bundler::SpecSet.new(result)
-    end
-
-    def initialize(target_gem_name, *args)
-        @target_gem_name = target_gem_name
-        super *args
-    end
-
-    def activate_gem(reqs, activated, requirement, current)
-        # Overridden so that we can ignore gems which come from the source repo
-        # in which we are working, but are not the current gem we care about.
-        # This is necessary because a single repo can produce multiple gems,
-        # each with their own requirements. Bundler constructs the union of all
-        # their requirements, but in order to construct everything from the
-        # original source repos (avoiding the use of premade gems) we need to
-        # separate them out so that we have a chance of constructing a build
-        # graph that isn't one giant circle.
+        # Note that this doesn't solve all our problems!!!! For Rails, for
+        # example, the top-level Gemfile lists a bunch of stuff that isn't
+        # needed for all the Gems. For example some databases, which are not at
+        # all necessary for activesupport! And jquery-rails, which brings in
+        # railties, which brings in actionpack, which is just not needed!
         #
-        # Problem IS that here the source has already been resolved, and it's
-        # been resolved WRONGLY for activesupport ... it should be '.' !
-        if spec_is_from_current_source_tree(current) and current.name != @target_gem_name
-            STDERR.puts "Ignoring #{current.name}: #{@target_gem_name} was requested"
-        else
-            super
+        # To be honest, I have no idea what to do about this right now. Maybe
+        # a blacklist for certain nested Gems?
+        local_source = nil
+        new_deps = []
+        have_target = false
+        @dependencies.each do |dep|
+            if spec_is_from_current_source_tree(dep)
+                local_source = local_source || dep.source
+                if dep.name == target_gem_name
+                    new_deps << dep
+                    have_target = true
+                end
+            else
+                new_deps << dep
+            end
         end
+        if not local_source
+            raise Exception, "Did not find any local Gems defined"
+        end
+        if not have_target
+            target_dep = Bundler::Dependency.new(
+                target_gem_name, '>= 0',
+                {"type" => :runtime, "source" => local_source}
+            )
+            new_deps << target_dep
+            STDERR.puts "TARGET DEP: #{target_dep}  #{target_dep.source.inspect}"
+        end
+        @dependencies = new_deps
+        STDERR.puts "\n\nNEW DEPS: #{@dependencies}"
+
+        Definition.new(lockfile, @dependencies, @sources, unlock, @ruby_version)
     end
 end
 
 class Definition < Bundler::Definition
     # The Bundler::Definition class holds the dependency info we need.
 
-    def self.build(gemfile, lockfile, unlock)
+    def self.build(gemfile, lockfile, unlock, target_gem_name)
         # Overridden so that our subclassed Dsl is used.
         unlock ||= {}
         gemfile = Pathname.new(gemfile).expand_path
@@ -123,7 +132,7 @@ class Definition < Bundler::Definition
             raise GemfileNotFound, "#{gemfile} not found"
         end
 
-        Dsl.evaluate(gemfile, lockfile, unlock)
+        Dsl.evaluate(gemfile, lockfile, unlock, target_gem_name)
     end
 
     def requested_dependencies
@@ -135,20 +144,10 @@ class Definition < Bundler::Definition
         removed = dependencies - result
         STDERR.puts "Removed dependencies: #{removed.collect {|d| d.name}}"
 
-        # Now would be a good time to remove the Gems which come from current
-        # directory but aren't the one that was requested on the commandline .
-        # EXCEPT! Since we haven't resolved them we don't yet have all of them
-        # available! For example in 'rails' there are nested Gems in the source
-        # tree which won't be discovered until the resolve is complete! By
-        # which time, it's too late ...
-        #dependencies.each do |dep|
-        #    puts "dep #{dep} source #{dep.source}"
-        #end
-
         result
     end
 
-    def resolve_build_dependencies_for_gem(gem_name)
+    def resolve_build_dependencies()
         # The term "build dependencies" is my own. RubyGems seem to mostly care
         # about "needed at runtime" (:runtime) vs. "useful during development"
         # (:development). We actually want "needed at runtime or during `rake
@@ -156,32 +155,16 @@ class Definition < Bundler::Definition
 
         # Note you can set ENV['DEBUG_RESOLVER'] for more debug info.
 
-        # FIXME: the remote update, would be nice to avoid it if possible!
-        @target_gem_name = gem_name
-        resolve_remotely!
-    end
-
-    def resolve
-        # Overridden so that the custom Resolver class is used ... ugly.
-      @resolve ||= begin
-        if Bundler.settings[:frozen] || (!@unlocking && nothing_changed?)
-          @locked_specs
-        else
-          last_resolve = converge_locked_specs
-
-          # Record the specs available in each gem's source, so that those
-          # specs will be available later when the resolver knows where to
-          # look for that gemspec (or its dependencies)
-          source_requirements = {}
-          dependencies.each do |dep|
-            next unless dep.source
-            source_requirements[dep.name] = dep.source.specs
-          end
-
-          # Run a resolve against the locally available gems
-          last_resolve.merge Resolver.resolve(expanded_dependencies, index, source_requirements, last_resolve, @target_gem_name)
-        end
-      end
+        # Here we do the equivalent of resolve_remotely! and resolve_cached!
+        # combined. In the hope that they work OK together. Ideally we'd
+        # cache the specs after fetching them the first time so that on the
+        # next run we only needed to fetch the ones we didn't already have. Not
+        # sure the Bundler code makes this at all easy though. Probably
+        # extending Source::Rubygems would be the way forwards.
+        @remote = true
+        @sources.each { |s| s.remote! }
+        @sources.each { |s| s.cached! }
+        specs
     end
 end
 
@@ -208,10 +191,10 @@ def parse_options(arguments)
     parsed_arguments
 end
 
-def load_definition()
+def load_definition(target_gem_name)
     # Load and parse the Gemfile and, if found, the Gemfile.lock file.
     definition = Definition.build(
-        'Gemfile', 'Gemfile.lock', update=false)
+        'Gemfile', 'Gemfile.lock', update=false, target_gem_name)
 rescue Bundler::GemfileNotFound
     STDERR.puts "Did not find a Gemfile in #{dir_name}."
     exit 1
@@ -282,15 +265,18 @@ def run
 
     Dir.chdir(source_dir_name)
 
-    definition = load_definition()
+    definition = load_definition(gem_name)
 
-    specset = definition.resolve_build_dependencies_for_gem(gem_name)
+    specset = definition.resolve_build_dependencies()
 
     spec = get_spec_for_gem(specset, gem_name)
 
     if not spec_is_from_current_source_tree(spec)
         STDERR.puts "Specified gem '#{spec.name}' doesn't live in the " +
             "source in '#{source_dir_name}'"
+        STDERR.puts "SPEC: #{spec.inspect} #{spec.source}"
+        rails_spec = get_spec_for_gem(specset, 'rails')
+        STDERR.puts "Rails: #{rails_spec.inspect}"
         exit 1
     end
 
