@@ -19,8 +19,6 @@
 
 import cliapp
 import morphlib
-import yaml
-
 
 import contextlib
 import json
@@ -49,8 +47,6 @@ class LorrySet(object):
     If it were a list of entries with 'name' fields, the code would be neater.
 
     '''
-
-
     def __init__(self, lorries_path):
         self.path = lorries_path
 
@@ -104,7 +100,6 @@ class LorrySet(object):
                 # are equivalent ... right now HTTP vs. HTTPS will cause an
                 # error, for example!
                 matches = (value.rstrip('/') == new[field].rstrip('/'))
-                print (value.rstrip('/'), new[field].rstrip('/'))
             else:
                 matches = (value == new[field])
             if not matches:
@@ -151,20 +146,55 @@ class LorrySet(object):
             json.dump(lorry_entry, f, indent=4)
 
 
+# FIXME: this tool extends the morphology format to store
+# packaging-system-specific dependency information. Here is a hack to make that
+# work. Long term, we must either make 'dependency' field an official thing, or
+# communicate the dependency information in a separate way (which would be a
+# bit more code than this, I think).
+class MorphologyLoader(morphlib.morphloader.MorphologyLoader):
+    pass
+MorphologyLoader._static_defaults['chunk']['x-dependencies-rubygem'] = []
+
+
 class MorphologySet(morphlib.morphset.MorphologySet):
-    def load_all_morphologies(self, path):
-        fake_gitdir = morphlib.gitdir.GitDirectory(path)
+    def __init__(self, path):
+        super(MorphologySet, self).__init__()
+
+        self.path = path
+        self.loader = MorphologyLoader()
+
+        if os.path.exists(path):
+            self.load_all_morphologies()
+        else:
+            os.makedirs(path)
+
+    def load_all_morphologies(self):
+        fake_gitdir = morphlib.gitdir.GitDirectory(self.path)
         finder = morphlib.morphologyfinder.MorphologyFinder(fake_gitdir)
+        loader = MorphologyLoader()
         for filename in (f for f in finder.list_morphologies()
                          if not fake_gitdir.is_symlink(f)):
             text = finder.read_morphology(filename)
             morph = loader.load_from_string(text, filename=filename)
-            morph.repo_url = None # self.root_repository_url
-            morph.ref = None # self.system_branch_name
+            morph.repo_url = None  # self.root_repository_url
+            morph.ref = None  # self.system_branch_name
             self.add_morphology(morph)
 
     def get_morphology(self, filename):
         return self._get_morphology(None, None, filename)
+
+    def save_morphology(self, filename, morphology):
+        self.add_morphology(morphology)
+        self.loader.save_to_file(os.path.join(self.path, filename), morphology)
+
+
+class GitDirectory(morphlib.gitdir.GitDirectory):
+    def has_ref(self, ref):
+        try:
+            self._rev_parse(ref)
+            return True
+        except morphlib.gitdir.InvalidRefError:
+            return False
 
 
 class BaserockImportApplication(cliapp.Application):
@@ -190,12 +220,13 @@ class BaserockImportApplication(cliapp.Application):
             raise cliapp.AppException(
                 'Please pass the name of a RubyGem on the commandline.')
 
-        try:
-            self.import_package_and_all_dependencies('rubygem', args[0])
-        except:
-            import pdb
-            print sys.exc_info()
-            pdb.post_mortem(sys.exc_traceback)
+        #try:
+        self.import_package_and_all_dependencies('rubygem', args[0])
+        #except:
+            #import pdb, traceback
+            #print sys.format_exc
+            #print traceback.print_tb(sys.exc_traceback)
+            #pdb.post_mortem(sys.exc_traceback)
 
     def import_package_and_all_dependencies(self, kind, goal_name,
                                             goal_version='master'):
@@ -227,7 +258,7 @@ class BaserockImportApplication(cliapp.Application):
 
     def generate_lorry_for_package(self, kind, name):
         tool = '%s.to_lorry' % kind
-        debug('Calling %s to generate lorry for %s', tool, name)
+        self.status('Calling %s to generate lorry for %s', tool, name)
         lorry_text = cliapp.runcmd([os.path.abspath(tool), name])
         lorry = json.loads(lorry_text)
         return lorry
@@ -264,6 +295,7 @@ class BaserockImportApplication(cliapp.Application):
         # But for now, this hack is fine!
         if os.path.exists(repopath):
             self.status('Updating repo %s', url)
+
             # FIXME: doesn't update the source right now, to save time.
             #cliapp.runcmd(['git', 'remote', 'update', 'origin'],
             #              cwd=repopath)
@@ -271,19 +303,36 @@ class BaserockImportApplication(cliapp.Application):
             self.status('Cloning repo %s', url)
             cliapp.runcmd(['git', 'clone', url, repopath])
 
-        return repopath
+        repo = GitDirectory(repopath)
+        return repo
 
-    def checkout_source_version(self, source_repo, version):
+    def checkout_source_version(self, source_repo, name, version):
         # FIXME: we need to be a bit smarter than this. Right now we assume
         # that 'version' is a valid Git ref.
-        cliapp.runcmd(['git', 'checkout', version], cwd=source_repo)
 
-    def generate_chunk_morph_for_package(self, kind, source_repo, name):
+        possible_names = [
+            version,
+            'v%s' % version,
+            '%s-%s' % (name, version)
+        ]
+
+        for tag_name in possible_names:
+            if source_repo.has_ref(tag_name):
+                source_repo.checkout(tag_name)
+                break
+        else:
+            raise cliapp.AppException('Could not find ref for %s version %s.' %
+                                      (name, version))
+
+    def generate_chunk_morph_for_package(self, kind, source_repo, name,
+                                         filename):
         tool = '%s.to_chunk' % kind
-        debug('Calling %s to generate chunk morph for %s', kind, name)
-        text = cliapp.runcmd([os.path.abspath(tool), source_repo, name])
-        morphology = yaml.load(text)
-        return morphology
+        self.status('Calling %s to generate chunk morph for %s', tool, name)
+        text = cliapp.runcmd([os.path.abspath(tool), source_repo.dirname,
+                              name])
+
+        loader = MorphologyLoader()
+        return loader.load_from_string(text, filename)
 
     def find_or_create_chunk_morph(self, morph_set, kind, name, version,
                                    source_repo):
@@ -291,10 +340,10 @@ class BaserockImportApplication(cliapp.Application):
         morphology = morph_set.get_morphology(morphology_filename)
 
         if morphology is None:
-            self.checkout_source_version(source_repo, version)
+            self.checkout_source_version(source_repo, name, version)
             morphology = self.generate_chunk_morph_for_package(
-                kind, source_repo, name)
-            morph_set.save_morphology(morphology_filename)
+                kind, source_repo, name, morphology_filename)
+            morph_set.save_morphology(morphology_filename, morphology)
 
         return morphology
 
