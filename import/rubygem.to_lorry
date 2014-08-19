@@ -24,9 +24,11 @@ import requests_cache
 import json
 import os
 import sys
+import urlparse
 
 
 known_source_uris = {
+    'ohai': 'http://github.com/opscode/ohai',
     'actionmailer': 'https://github.com/rails/rails',
     'actionpack': 'https://github.com/rails/rails',
     'actionview': 'https://github.com/rails/rails',
@@ -116,7 +118,7 @@ class RubyGemLorryGenerator(object):
             project_name: {
                 'type': 'git',
                 'url': gem_source_url,
-                'x-rubygem-products': gem_name
+                'x-products-rubygem': [gem_name]
             }
         }
 
