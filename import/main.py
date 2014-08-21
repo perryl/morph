@@ -197,6 +197,10 @@ class GitDirectory(morphlib.gitdir.GitDirectory):
             return False
 
 
+class BaserockImportException(cliapp.AppException):
+    pass
+
+
 class BaserockImportApplication(cliapp.Application):
     def add_settings(self):
         self.settings.string(['lorries-dir'],
@@ -230,28 +234,75 @@ class BaserockImportApplication(cliapp.Application):
 
     def import_package_and_all_dependencies(self, kind, goal_name,
                                             goal_version='master'):
+        class QueueItem(object):
+            '''A package in the processing queue.
+
+            In order to provide helpful errors, this item keeps track of what
+            packages depend on it, and hence of why it was added to the queue.
+
+            '''
+            def __init__(self, name, version):
+                self.name = name
+                self.version = version
+                self.required_by = []
+
+            def __str__(self):
+                if len(self.required_by) > 0:
+                    required_msg = ', '.join(self.required_by)
+                    required_msg = ', required by: ' + required_msg
+                else:
+                    required_msg = ''
+                return '%s-%s%s' % (name, version, required_msg)
+
+            def add_required_by(self, item):
+                self.required_by.append('%s-%s' % (item.name, item.version))
+
+            def match(self, name, version):
+                return (self.name==name and self.version==version)
+
+        def find(iterable, match):
+            return next((x for x in iterable if match(x)), None)
+
+        def enqueue_dependencies(deps, to_process, processed):
+            for dep_name, dep_version in deps.iteritems():
+                processed_queue_item = find(
+                    processed, lambda i: i.match(dep_name, dep_version))
+                if processed_queue_item is None:
+                    queue_item = find(
+                        to_process, lambda i: i.match(dep_name, dep_version))
+                    if queue_item is None:
+                        queue_item = QueueItem(dep_name, dep_version)
+                        to_process.append(queue_item)
+                    queue_item.add_required_by(current_item)
+                else:
+                    processed_queue_item.add_required_by(current_item)
+
         lorry_set = LorrySet(self.settings['lorries-dir'])
         morph_set = MorphologySet(self.settings['definitions-dir'])
 
-        to_process = set([(goal_name, goal_version)])
-        processed = set()
+        to_process = [QueueItem(goal_name, goal_version)]
+        processed = []
 
         while len(to_process) > 0:
-            name, version = to_process.pop()
+            current_item = to_process.pop()
+            name = current_item.name
+            version = current_item.version
 
-            lorry = self.find_or_create_lorry_file(lorry_set, kind, name)
+            try:
+                lorry = self.find_or_create_lorry_file(lorry_set, kind, name)
 
-            source_repo = self.fetch_or_update_source(lorry)
+                source_repo = self.fetch_or_update_source(lorry)
 
-            chunk_morph = self.find_or_create_chunk_morph(
-                morph_set, kind, name, version, source_repo)
+                chunk_morph = self.find_or_create_chunk_morph(
+                    morph_set, kind, name, version, source_repo)
 
-            processed.add(name)
+                processed.append(current_item)
 
-            deps = chunk_morph['x-dependencies-%s' % kind]
-            for dep_name, dep_version in deps.iteritems():
-                if dep_name not in processed:
-                    to_process.add((dep_name, dep_version))
+                deps = chunk_morph['x-dependencies-%s' % kind]
+                enqueue_dependencies(deps, to_process, processed)
+            except BaserockImportException:
+                sys.stderr.write('Error processing package %s\n' % current_item)
+                raise
 
         # Now: solve the dependencies and generate the bootstrap set!
         # generate the stratum!
@@ -321,8 +372,8 @@ class BaserockImportApplication(cliapp.Application):
                 source_repo.checkout(tag_name)
                 break
         else:
-            raise cliapp.AppException('Could not find ref for %s version %s.' %
-                                      (name, version))
+            raise BaserockImportException(
+                'Could not find ref for %s version %s.' % (name, version))
 
     def generate_chunk_morph_for_package(self, kind, source_repo, name,
                                          filename):
