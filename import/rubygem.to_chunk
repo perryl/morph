@@ -18,6 +18,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 require 'bundler'
+require 'logger'
 require 'optparse'
 require 'yaml'
 
@@ -88,6 +89,11 @@ class Dsl < Bundler::Dsl
         #
         # To be honest, I have no idea what to do about this right now. Maybe
         # a blacklist for certain nested Gems?
+        #
+        # One possible solution is to ignore everything the Gemfile says except
+        # for the target gemspec. So ditch @dependencies altogether except for
+        # the one Gem we want. Will need to test this with the whole dependency
+        # graph of Chef and see if it works ....
         local_source = nil
         new_deps = []
         have_target = false
@@ -168,124 +174,142 @@ class Definition < Bundler::Definition
     end
 end
 
-def parse_options(arguments)
-    # No options so far ..
-    opts = OptionParser.new
+class RubyGemChunkMorphologyGenerator
+    def initialize_logging
+        # Log information was passed in from the main import process, probably
+        log_file = ENV['BASEROCK_IMPORT_LOG'] or '/dev/null'
 
-    opts.banner = "Usage: rubygem.import SOURCE_DIR GEM_NAME"
-    opts.separator ""
-    opts.separator "This tool reads the Gemfile and optionally the " +
-                   "Gemfile.lock from a Ruby project "
-    opts.separator "source tree in SOURCE_DIR. It outputs a chunk " +
-                   "morphology for GEM_NAME on stdout."
-    opts.separator ""
-    opts.separator "It is intended for use with the `baserock-import` tool."
+        @logger = Logger.new(log_file)
 
-    parsed_arguments = opts.parse!(arguments)
+        case ENV['BASEROCK_IMPORT_LOG_LEVEL']
+            when 'debug' then @logger.level = Logger::DEBUG
+            when 'warning' then @logger.level = Logger::WARN
+            when 'error' then @logger.level = Logger::ERROR
+            when 'critical', 'fatal' then @logger.level = Logger::FATAL
+            else @logger.level = Logger::INFO
+        end
+    end
 
-    if parsed_arguments.length != 2 then
-        STDERR.puts opts.help
+
+    def parse_options(arguments)
+        # No options so far ..
+        opts = OptionParser.new
+
+        opts.banner = "Usage: rubygem.import SOURCE_DIR GEM_NAME"
+        opts.separator ""
+        opts.separator "This tool reads the Gemfile and optionally the " +
+                       "Gemfile.lock from a Ruby project "
+        opts.separator "source tree in SOURCE_DIR. It outputs a chunk " +
+                       "morphology for GEM_NAME on stdout."
+        opts.separator ""
+        opts.separator "It is intended for use with the `baserock-import` tool."
+
+        parsed_arguments = opts.parse!(arguments)
+
+        if parsed_arguments.length != 2 then
+            STDERR.puts opts.help
+            exit 1
+        end
+
+        parsed_arguments
+    end
+
+    def load_definition(target_gem_name)
+        # Load and parse the Gemfile and, if found, the Gemfile.lock file.
+        definition = Definition.build(
+            'Gemfile', 'Gemfile.lock', update=false, target_gem_name)
+    rescue Bundler::GemfileNotFound
+        STDERR.puts "Did not find a Gemfile in #{dir_name}."
         exit 1
     end
 
-    parsed_arguments
-end
-
-def load_definition(target_gem_name)
-    # Load and parse the Gemfile and, if found, the Gemfile.lock file.
-    definition = Definition.build(
-        'Gemfile', 'Gemfile.lock', update=false, target_gem_name)
-rescue Bundler::GemfileNotFound
-    STDERR.puts "Did not find a Gemfile in #{dir_name}."
-    exit 1
-end
-
-def get_spec_for_gem(specs, gem_name)
-    found = specs[gem_name]
-    if found.empty?
-        raise Exception,
-            "No Gemspecs found matching '#{gem_name}'"
-    elsif found.length != 1
-        raise Exception,
-            "Unsure which Gem to use for #{dep}, got #{found}"
+    def get_spec_for_gem(specs, gem_name)
+        found = specs[gem_name]
+        if found.empty?
+            raise Exception,
+                "No Gemspecs found matching '#{gem_name}'"
+        elsif found.length != 1
+            raise Exception,
+                "Unsure which Gem to use for #{dep}, got #{found}"
+        end
+        found[0]
     end
-    found[0]
-end
 
-def chunk_name_for_gemspec(spec)
-    # Chunk names are the Gem's "full name" (name + version number), so that we
-    # don't break in the rare but possible case that two different versions of
-    # the same Gem are required for something to work. It'd be nicer to only
-    # use the full_name if we detect such a conflict.
-    spec.full_name
-end
+    def chunk_name_for_gemspec(spec)
+        # Chunk names are the Gem's "full name" (name + version number), so
+        # that we don't break in the rare but possible case that two different
+        # versions of the same Gem are required for something to work. It'd be
+        # nicer to only use the full_name if we detect such a conflict.
+        spec.full_name
+    end
 
-def generate_chunk_morph_for_gem(spec)
-    description = 'Automatically generated by rubygem.import'
+    def generate_chunk_morph_for_gem(spec)
+        description = 'Automatically generated by rubygem.import'
 
-    bin_dir = "\"$DESTDIR/$PREFIX/bin\""
-    gem_dir = "\"$DESTDIR/$PREFIX/lib/ruby/gems/#{BASEROCK_RUBY_VERSION}\""
+        bin_dir = "\"$DESTDIR/$PREFIX/bin\""
+        gem_dir = "\"$DESTDIR/$PREFIX/lib/ruby/gems/#{BASEROCK_RUBY_VERSION}\""
 
-    # There's more splitting to be done, but putting the docs in the
-    # correct artifact is the single biggest win for enabling smaller
-    # system images.
-    split_rules = [
+        # There's more splitting to be done, but putting the docs in the
+        # correct artifact is the single biggest win for enabling smaller
+        # system images.
+        split_rules = [
+            {
+                'artifact' => "#{spec.full_name}-doc",
+                'include' => [
+                    "usr/lib/ruby/gems/#{BASEROCK_RUBY_VERSION}/doc/.*"
+                ]
+            }
+        ]
+
+        # FIXME: these should build from source instead!
+        install_commands = [
+            "mkdir -p #{gem_dir}",
+            "gem install --install-dir #{gem_dir} --bindir #{bin_dir} " +
+                "--ignore-dependencies --local #{spec.full_name}.gem"
+        ]
+
         {
-            'artifact' => "#{spec.full_name}-doc",
-            'include' => [
-                "usr/lib/ruby/gems/#{BASEROCK_RUBY_VERSION}/doc/.*"
-            ]
+            'name' => chunk_name_for_gemspec(spec),
+            'kind' => 'chunk',
+            'description' => description,
+            'build-system' => 'manual',
+            ##'gem-url' => "http://rubygems.org/downloads/#{spec.full_name}.gem",
+            'products' => split_rules,
+            'install-commands' => install_commands
         }
-    ]
-
-    # FIXME: these should build from source instead!
-    install_commands = [
-        "mkdir -p #{gem_dir}",
-        "gem install --install-dir #{gem_dir} --bindir #{bin_dir} " +
-             "--ignore-dependencies --local #{spec.full_name}.gem"
-    ]
-
-    {
-        'name' => chunk_name_for_gemspec(spec),
-        'kind' => 'chunk',
-        'description' => description,
-        'build-system' => 'manual',
-        ##'gem-url' => "http://rubygems.org/downloads/#{spec.full_name}.gem",
-        'products' => split_rules,
-        'install-commands' => install_commands
-    }
-end
-
-def write_morph(file, morph)
-    file.write(YAML.dump(morph))
-end
-
-def run
-    source_dir_name, gem_name = parse_options(ARGV)
-
-    Dir.chdir(source_dir_name)
-
-    definition = load_definition(gem_name)
-
-    specset = definition.resolve_build_dependencies()
-
-    spec = get_spec_for_gem(specset, gem_name)
-
-    if not spec_is_from_current_source_tree(spec)
-        STDERR.puts "Specified gem '#{spec.name}' doesn't live in the " +
-            "source in '#{source_dir_name}'"
-        STDERR.puts "SPEC: #{spec.inspect} #{spec.source}"
-        rails_spec = get_spec_for_gem(specset, 'rails')
-        STDERR.puts "Rails: #{rails_spec.inspect}"
-        exit 1
     end
 
-    morph = generate_chunk_morph_for_gem(spec)
+    def write_morph(file, morph)
+        file.write(YAML.dump(morph))
+    end
 
-    deps = Hash[specset.collect { |d| [d.name, d.version.to_s] }]
-    morph['x-dependencies-rubygem'] = deps
+    def run
+        source_dir_name, gem_name = parse_options(ARGV)
 
-    write_morph(STDOUT, morph)
+        Dir.chdir(source_dir_name)
+
+        definition = load_definition(gem_name)
+
+        specset = definition.resolve_build_dependencies()
+
+        spec = get_spec_for_gem(specset, gem_name)
+
+        if not spec_is_from_current_source_tree(spec)
+            STDERR.puts "Specified gem '#{spec.name}' doesn't live in the " +
+                "source in '#{source_dir_name}'"
+            STDERR.puts "SPEC: #{spec.inspect} #{spec.source}"
+            rails_spec = get_spec_for_gem(specset, 'rails')
+            STDERR.puts "Rails: #{rails_spec.inspect}"
+            exit 1
+        end
+
+        morph = generate_chunk_morph_for_gem(spec)
+
+        deps = Hash[specset.collect { |d| [d.name, d.version.to_s] }]
+        morph['x-dependencies-rubygem'] = deps
+
+        write_morph(STDOUT, morph)
+    end
 end
 
-run
+RubyGemChunkMorphologyGenerator.new.run

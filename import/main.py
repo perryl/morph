@@ -216,8 +216,38 @@ class BaserockImportApplication(cliapp.Application):
                              metavar='PATH',
                              default=os.path.abspath('./checkouts'))
 
+    def setup_logging_for_import_plugins(self):
+        log = self.settings['log']
+
+        if log == '/dev/stdout':
+            # The plugins output results on /dev/stdout, logs would interfere
+            debug('Redirecting import plugin logs to /dev/stderr')
+            log = '/dev/stderr'
+
+        os.environ['BASEROCK_IMPORT_LOG'] = log
+        os.environ['BASEROCK_IMPORT_LOG_LEVEL'] = self.settings['log-level']
+
+    def process_args(self, *args):
+        self.setup_logging_for_import_plugins()
+        super(BaserockImportApplication, self).process_args(*args)
+
     def status(self, msg, *args):
         print msg % args
+
+    def run_import_plugin(self, command, **kwargs):
+        log = self.settings['log']
+
+        if log == '/dev/stdout':
+            # The plugins output results on /dev/stdout, logs would interfere
+            debug('Redirecting import plugin logs to /dev/stderr')
+            log = '/dev/stderr'
+
+        extra_env = kwargs.get('extra_env', {})
+        extra_env['BASEROCK_IMPORT_LOG'] = log
+        extra_env['BASEROCK_IMPORT_LOG_LEVEL'] = self.settings['log-level']
+        kwargs['extra_env'] = extra_env
+
+        #cliapp.runcmd(
 
     def cmd_rubygem(self, args):
         if len(args) != 1:
