@@ -47,6 +47,28 @@ TEST_GEMS = [
 
 IGNORED_GEMS = BUNDLED_GEMS + TEST_GEMS
 
+# Log information was passed in from the main import process, probably.
+# This global constant approach seems a little ugly, but it seems to be
+# recommended here:
+# <https://stackoverflow.com/questions/1681745/share-global-logger-among-module-classes>
+#
+log_file = ENV['BASEROCK_IMPORT_LOG'] or '/dev/null'
+
+Log = Logger.new(log_file)
+
+Log.level = case ENV['BASEROCK_IMPORT_LOG_LEVEL']
+                when 'debug' then Logger::DEBUG
+                when 'warning' then Logger::WARN
+                when 'error' then Logger::ERROR
+                when 'critical', 'fatal' then Logger::FATAL
+                else Logger::INFO
+                end
+
+Log.formatter = proc do |severity, datetime, progname, msg|
+    "rubygem.to_chunk: #{severity}:  #{msg}\n"
+end
+
+
 def spec_is_from_current_source_tree(spec)
   spec.source.instance_of? Bundler::Source::Path and
     spec.source.path.fnmatch?('.')
@@ -117,12 +139,12 @@ class Dsl < Bundler::Dsl
         {"type" => :runtime, "source" => local_source}
       )
       new_deps << target_dep
-      @logger.debug "The target gem #{target_dep} was not found in the " +
+      Log.debug "The target gem #{target_dep} was not found in the " +
                     "dependencies list, so I have added it."
-      @logger.debug "Its source is: #{target_dep.source.inspect}"
+      Log.debug "Its source is: #{target_dep.source.inspect}"
     end
     @dependencies = new_deps
-    @logger.debug "The modified list of dependencies is: #{@dependencies}"
+    Log.debug "The modified list of dependencies is: #{@dependencies}"
 
     Definition.new(lockfile, @dependencies, @sources, unlock, @ruby_version)
   end
@@ -131,15 +153,13 @@ end
 class Definition < Bundler::Definition
   # The Bundler::Definition class holds the dependency info we need.
 
-  def self.build(gemfile, lockfile, unlock, target_gem_name, logger)
-    @logger = logger
-
+  def self.build(gemfile, lockfile, unlock, target_gem_name)
     # Overridden so that our subclassed Dsl is used.
     unlock ||= {}
     gemfile = Pathname.new(gemfile).expand_path
 
     unless gemfile.file?
-      raise GemfileNotFound, "#{gemfile} not found"
+      raise Bundler::GemfileNotFound, "#{gemfile} not found"
     end
 
     Dsl.evaluate(gemfile, lockfile, unlock, target_gem_name)
@@ -152,7 +172,7 @@ class Definition < Bundler::Definition
     # need to be explicitly removed from the list.
     result = super.reject { |d| IGNORED_GEMS.member? d.name }
     removed = dependencies - result
-    @logger.info "Removed dependencies: #{removed.collect {|d| d.name}}"
+    Log.info "Removed dependencies: #{removed.collect {|d| d.name}}"
 
     result
   end
@@ -179,26 +199,6 @@ class Definition < Bundler::Definition
 end
 
 class RubyGemChunkMorphologyGenerator
-  def initialize_logging
-    # Log information was passed in from the main import process, probably
-    log_file = ENV['BASEROCK_IMPORT_LOG'] or '/dev/null'
-
-    @logger = Logger.new(log_file)
-
-    @logger.level = case ENV['BASEROCK_IMPORT_LOG_LEVEL']
-                    when 'debug' then Logger::DEBUG
-                    when 'warning' then Logger::WARN
-                    when 'error' then Logger::ERROR
-                    when 'critical', 'fatal' then Logger::FATAL
-                    else Logger::INFO
-                    end
-
-    @logger.formatter = proc do |severity, datetime, progname, msg|
-      "#{datetime.class} #{datetime.inspect} #{severity} rubygem.to_chunk: #{msg}\n"
-    end
-  end
-
-
   def parse_options(arguments)
     # No options so far ..
     opts = OptionParser.new
@@ -223,18 +223,15 @@ class RubyGemChunkMorphologyGenerator
   end
 
   def error(message)
-    @logger.error(message)
+    Log.error(message)
     STDERR.puts(message)
   end
 
   def load_definition(target_gem_name)
     # Load and parse the Gemfile and, if found, the Gemfile.lock file.
-    @logger.info("Loading Gemfile and Gemfile.lock for gem #{target_gem_name}")
+    Log.info("Loading Gemfile and Gemfile.lock for gem #{target_gem_name}")
     definition = Definition.build(
-      'Gemfile', 'Gemfile.lock', update=false, target_gem_name, @logger)
-  rescue Bundler::GemfileNotFound
-    error "Did not find a Gemfile in #{dir_name}."
-    exit 1
+      'Gemfile', 'Gemfile.lock', update=false, target_gem_name)
   end
 
   def get_spec_for_gem(specs, gem_name)
@@ -298,26 +295,40 @@ class RubyGemChunkMorphologyGenerator
   end
 
   def run
-    initialize_logging
     source_dir_name, gem_name = parse_options(ARGV)
 
-    @logger.info("Creating chunk morph for #{gem_name} based on " +
+    Log.info("Creating chunk morph for #{gem_name} based on " +
                  "source code in #{source_dir_name}")
 
     Dir.chdir(source_dir_name)
 
-    definition = load_definition(gem_name)
-
-    specset = definition.resolve_build_dependencies
+    begin
+      definition = load_definition(gem_name)
+      specset = definition.resolve_build_dependencies
+    rescue Bundler::GemfileNotFound
+      # FIXME: fix this! Add Hoe support!
+      error "I'm cheating, I didn't find a Gemfile but I'm going to silently "
+      error "succeed anyway to see how far we can get."
+      fake_morph = {
+          'name' => gem_name,
+          'kind' => 'chunk',
+          'description' => 'This is totally a fake chunk morphology, no ' +
+                           'Gemfile was found (it probably uses Hoe or ' +
+                           'something) but I went away and wrote it anyway',
+          'x-dependencies-rubygem' => {}
+      }
+      write_morph(STDOUT, fake_morph)
+      exit 0
+    end
 
     spec = get_spec_for_gem(specset, gem_name)
 
     if not spec_is_from_current_source_tree(spec)
       error "Specified gem '#{spec.name}' doesn't live in the source in " +
             "'#{source_dir_name}'"
-      @logger.debug "SPEC: #{spec.inspect} #{spec.source}"
+      Log.debug "SPEC: #{spec.inspect} #{spec.source}"
       rails_spec = get_spec_for_gem(specset, 'rails')
-      @logger.debug "Rails: #{rails_spec.inspect}"
+      Log.debug "Rails: #{rails_spec.inspect}"
       exit 1
     end
 

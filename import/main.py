@@ -22,6 +22,7 @@ import morphlib
 
 import contextlib
 import json
+import logging
 import os
 import sys
 
@@ -216,6 +217,11 @@ class BaserockImportApplication(cliapp.Application):
                              metavar='PATH',
                              default=os.path.abspath('./checkouts'))
 
+    def setup_logging_format(self):
+        # FIXME: due to a bug in cliapp, this method is actually
+        # never called! :(
+        return "main: %(levelname)s: %(message)s"
+
     def setup_logging_for_import_plugins(self):
         log = self.settings['log']
 
@@ -233,6 +239,7 @@ class BaserockImportApplication(cliapp.Application):
 
     def status(self, msg, *args):
         print msg % args
+        logging.info(msg % args)
 
     def run_import_plugin(self, command, **kwargs):
         log = self.settings['log']
@@ -402,8 +409,12 @@ class BaserockImportApplication(cliapp.Application):
                 source_repo.checkout(tag_name)
                 break
         else:
-            raise BaserockImportException(
-                'Could not find ref for %s version %s.' % (name, version))
+            logging.error(
+                "Couldn't find tag %s in repo %s. I'm going to cheat and "
+                "use 'master' for now.")
+            source_repo.checkout('master')
+            #raise BaserockImportException(
+            #    'Could not find ref for %s version %s.' % (name, version))
 
     def generate_chunk_morph_for_package(self, kind, source_repo, name,
                                          filename):

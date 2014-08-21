@@ -28,6 +28,7 @@ import urlparse
 
 
 known_source_uris = {
+    'mixlib-shellout': 'http://github.com/opscode/mixlib-shellout',
     'ohai': 'http://github.com/opscode/ohai',
     'actionmailer': 'https://github.com/rails/rails',
     'actionpack': 'https://github.com/rails/rails',
