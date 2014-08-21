@@ -117,10 +117,12 @@ class Dsl < Bundler::Dsl
         {"type" => :runtime, "source" => local_source}
       )
       new_deps << target_dep
-      STDERR.puts "TARGET DEP: #{target_dep}  #{target_dep.source.inspect}"
+      @logger.debug "The target gem #{target_dep} was not found in the " +
+                    "dependencies list, so I have added it."
+      @logger.debug "Its source is: #{target_dep.source.inspect}"
     end
     @dependencies = new_deps
-    STDERR.puts "\n\nNEW DEPS: #{@dependencies}"
+    @logger.debug "The modified list of dependencies is: #{@dependencies}"
 
     Definition.new(lockfile, @dependencies, @sources, unlock, @ruby_version)
   end
@@ -129,7 +131,9 @@ end
 class Definition < Bundler::Definition
   # The Bundler::Definition class holds the dependency info we need.
 
-  def self.build(gemfile, lockfile, unlock, target_gem_name)
+  def self.build(gemfile, lockfile, unlock, target_gem_name, logger)
+    @logger = logger
+
     # Overridden so that our subclassed Dsl is used.
     unlock ||= {}
     gemfile = Pathname.new(gemfile).expand_path
@@ -148,7 +152,7 @@ class Definition < Bundler::Definition
     # need to be explicitly removed from the list.
     result = super.reject { |d| IGNORED_GEMS.member? d.name }
     removed = dependencies - result
-    STDERR.puts "Removed dependencies: #{removed.collect {|d| d.name}}"
+    @logger.info "Removed dependencies: #{removed.collect {|d| d.name}}"
 
     result
   end
@@ -188,6 +192,10 @@ class RubyGemChunkMorphologyGenerator
                     when 'critical', 'fatal' then Logger::FATAL
                     else Logger::INFO
                     end
+
+    @logger.formatter = proc do |severity, datetime, progname, msg|
+      "#{datetime.class} #{datetime.inspect} #{severity} rubygem.to_chunk: #{msg}\n"
+    end
   end
 
 
@@ -214,12 +222,18 @@ class RubyGemChunkMorphologyGenerator
     parsed_arguments
   end
 
+  def error(message)
+    @logger.error(message)
+    STDERR.puts(message)
+  end
+
   def load_definition(target_gem_name)
     # Load and parse the Gemfile and, if found, the Gemfile.lock file.
+    @logger.info("Loading Gemfile and Gemfile.lock for gem #{target_gem_name}")
     definition = Definition.build(
-      'Gemfile', 'Gemfile.lock', update=false, target_gem_name)
+      'Gemfile', 'Gemfile.lock', update=false, target_gem_name, @logger)
   rescue Bundler::GemfileNotFound
-    STDERR.puts "Did not find a Gemfile in #{dir_name}."
+    error "Did not find a Gemfile in #{dir_name}."
     exit 1
   end
 
@@ -284,7 +298,11 @@ class RubyGemChunkMorphologyGenerator
   end
 
   def run
+    initialize_logging
     source_dir_name, gem_name = parse_options(ARGV)
+
+    @logger.info("Creating chunk morph for #{gem_name} based on " +
+                 "source code in #{source_dir_name}")
 
     Dir.chdir(source_dir_name)
 
@@ -295,11 +313,11 @@ class RubyGemChunkMorphologyGenerator
     spec = get_spec_for_gem(specset, gem_name)
 
     if not spec_is_from_current_source_tree(spec)
-      STDERR.puts "Specified gem '#{spec.name}' doesn't live in the " +
-        "source in '#{source_dir_name}'"
-      STDERR.puts "SPEC: #{spec.inspect} #{spec.source}"
+      error "Specified gem '#{spec.name}' doesn't live in the source in " +
+            "'#{source_dir_name}'"
+      @logger.debug "SPEC: #{spec.inspect} #{spec.source}"
       rails_spec = get_spec_for_gem(specset, 'rails')
-      STDERR.puts "Rails: #{rails_spec.inspect}"
+      @logger.debug "Rails: #{rails_spec.inspect}"
       exit 1
     end
 
