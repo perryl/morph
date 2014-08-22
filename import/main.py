@@ -330,8 +330,12 @@ class BaserockImportApplication(cliapp.Application):
 
                 source_repo = self.fetch_or_update_source(lorry)
 
-                chunk_morph = self.find_or_create_chunk_morph(
-                    morph_set, kind, name, version, source_repo)
+                try:
+                    chunk_morph = self.find_or_create_chunk_morph(
+                        morph_set, kind, name, version, source_repo)
+                except BaserockImportException as e:
+                    logging.warning('Ignoring error %s and continuing!', e)
+                    continue
 
                 processed.append(current_item)
 
@@ -420,8 +424,11 @@ class BaserockImportApplication(cliapp.Application):
                                          filename):
         tool = '%s.to_chunk' % kind
         self.status('Calling %s to generate chunk morph for %s', tool, name)
-        text = cliapp.runcmd([os.path.abspath(tool), source_repo.dirname,
-                              name])
+        try:
+            text = cliapp.runcmd(
+                [os.path.abspath(tool), source_repo.dirname, name])
+        except cliapp.AppException as e:
+            raise BaserockImportException(e.message)
 
         loader = MorphologyLoader()
         return loader.load_from_string(text, filename)

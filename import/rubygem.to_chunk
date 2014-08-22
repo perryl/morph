@@ -22,40 +22,40 @@ require 'logger'
 require 'optparse'
 require 'yaml'
 
-# Welcome! This is a tool which tries to autodetect the build instructions and
-# the build and runtime dependencies necessary for a Ruby package, by
-# inspecting its source tree.
-#
-# Almost all Ruby packages are packaged as Gems. Some applications are not, but
-# will depend on Gems to run.
-#
-# The process of producing a Gem from a source repository is referred to as
-# "building" by this tool.
-
 BASEROCK_RUBY_VERSION = '2.0.0'
 
-IGNORED_GROUPS = [:compat_testing, :test]
+# I'm no longer convinced about 'ignoring' Gems. My thinking is that it is
+# much easier to add a missing dependency than it is to detect and remove
+# unneeded dependencies. Therefore, a whilelist is perhaps the way forwards
+# instead.
 
+BUILD_DEPENDENCY_WHITELIST = [
+  'hoe',
+  # rake is bundled with Ruby, so it is not included in the whitelist.
+]
+
+#IGNORED_GROUPS = [:compat_testing, :test]
+#
 # Users of traditional distros seem to find it useful to override the versions
 # of these Gems that come bundled with the MRI Ruby intepreter with newer
 # versions from rubygems.org. In Baserock it should be just as easy to update
 # MRI. We should avoid building components from two places.
-BUNDLED_GEMS = [
-  'rake',
-]
+#BUNDLED_GEMS = [
+#  'rake',
+#]
 
 # Ignoring the :test group isn't enough for these Gems, they are often in the
 # :development group too and thus we need to explicitly ignore them.
-TEST_GEMS = [
-  'rspec',
-  'rspec_junit_formatter',
-  'rspec-core',
-  'rspec-expectations',
-  'rspec-mocks',
-  'simplecov',
-]
-
-IGNORED_GEMS = BUNDLED_GEMS + TEST_GEMS
+#TEST_GEMS = [
+#  'rspec',
+#  'rspec_junit_formatter',
+#  'rspec-core',
+#  'rspec-expectations',
+#  'rspec-mocks',
+#  'simplecov',
+#]
+#
+#IGNORED_GEMS = BUNDLED_GEMS + TEST_GEMS
 
 # Log information was passed in from the main import process, probably.
 # This global constant approach seems a little ugly, but it seems to be
@@ -84,14 +84,6 @@ def spec_is_from_current_source_tree(spec)
     spec.source.path.fnmatch?('.')
 end
 
-# Good testcases for this code:
-#   qu:
-#   http://opensoul.org/2012/05/30/releasing-multiple-gems-from-one-repository/
-#   'qu-mongodb' shouldn't pull in any rails deps
-#   rails:
-#   'activesupport' doesn't depend on any other rails components, make
-#   sure the script gets this right. This is a different codepath to 'qu'.
-
 class Dsl < Bundler::Dsl
   # The Bundler::Dsl class parses the Gemfile. We override it so that we can
   # extend the class of the Bundler::Definition instance that is created, and
@@ -107,9 +99,9 @@ class Dsl < Bundler::Dsl
   def to_definition(lockfile, unlock, target_gem_name)
     @sources << rubygems_source unless @sources.include?(rubygems_source)
 
-    @dependencies = filter_dependencies_for_target_gem(@dependencies,
-                                                       target_gem_name)
-    Log.debug "The modified list of dependencies is: #{@dependencies}"
+    #@dependencies = filter_dependencies_for_target_gem(@dependencies,
+    #                                                   target_gem_name)
+    #Log.debug "The modified list of dependencies is: #{@dependencies}"
 
     Definition.new(lockfile, @dependencies, @sources, unlock, @ruby_version)
   end
@@ -194,11 +186,12 @@ class Definition < Bundler::Definition
     # groups using Bundler.settings.without is a good first step, but some
     # test tools seem to be in the generic :development group and thus
     # need to be explicitly removed from the list.
-    result = super.reject { |d| IGNORED_GEMS.member? d.name }
-    removed = dependencies - result
-    Log.info "Removed dependencies: #{removed.collect {|d| d.name}}"
+    #result = super.reject { |d| IGNORED_GEMS.member? d.name }
+    #removed = dependencies - result
+    #Log.info "Removed dependencies: #{removed.collect {|d| d.name}}"
 
-    result
+    #result
+    super
   end
 
   def resolve_build_dependencies
@@ -250,6 +243,24 @@ class RubyGemChunkMorphologyGenerator
     Log.error(message)
     STDERR.puts(message)
   end
+
+  def load_local_gemspecs(source_dir_name)
+    # Look for .gemspec files in the source repo.
+    #
+    # If there is no .gemspec, but you set 'name' and 'version' then
+    # inside Bundler::Source::Path.load_spec_files this call will create a
+    # fake gemspec matching that name and version. That's probably not useful.
+    source = Bundler::Source::Path.new({
+      'path' => source_dir_name,
+    })
+
+    Log.info "Loaded #{source.specs.count} specs from source dir."
+    source.specs.each do |spec|
+      Log.debug "  * #{spec.inspect}"
+    end
+
+    return source
+  def
 
   def load_definition(target_gem_name)
     # Load and parse the Gemfile and, if found, the Gemfile.lock file.
@@ -322,39 +333,30 @@ class RubyGemChunkMorphologyGenerator
     source_dir_name, gem_name = parse_options(ARGV)
 
     Log.info("Creating chunk morph for #{gem_name} based on " +
-                 "source code in #{source_dir_name}")
+             "source code in #{source_dir_name}")
+
+    local_source = load_local_gemspecs(source_dir_name)
 
     Dir.chdir(source_dir_name)
 
     begin
       definition = load_definition(gem_name)
-      specset = definition.resolve_build_dependencies
     rescue Bundler::GemfileNotFound
-      # FIXME: fix this! Add Hoe support!
-      error "I'm cheating, I didn't find a Gemfile but I'm going to silently "
-      error "succeed anyway to see how far we can get."
-      fake_morph = {
-          'name' => gem_name,
-          'kind' => 'chunk',
-          'description' => 'This is totally a fake chunk morphology, no ' +
-                           'Gemfile was found (it probably uses Hoe or ' +
-                           'something) but I went away and wrote it anyway',
-          'x-dependencies-rubygem' => {}
-      }
-      write_morph(STDOUT, fake_morph)
-      exit 0
+      definition = Definition.new(nil, [], [], false)
     end
+
+    specset = definition.resolve_build_dependencies
 
     spec = get_spec_for_gem(specset, gem_name)
 
-    if not spec_is_from_current_source_tree(spec)
-      error "Specified gem '#{spec.name}' doesn't live in the source in " +
-            "'#{source_dir_name}'"
-      Log.debug "SPEC: #{spec.inspect} #{spec.source}"
-      rails_spec = get_spec_for_gem(specset, 'rails')
-      Log.debug "Rails: #{rails_spec.inspect}"
-      exit 1
-    end
+    #if not spec_is_from_current_source_tree(spec)
+    #  error "Specified gem '#{spec.name}' doesn't live in the source in " +
+    #        "'#{source_dir_name}'"
+    #  Log.debug "SPEC: #{spec.inspect} #{spec.source}"
+    #  rails_spec = get_spec_for_gem(specset, 'rails')
+    #  Log.debug "Rails: #{rails_spec.inspect}"
+    #  exit 1
+    #end
 
     morph = generate_chunk_morph_for_gem(spec)
 
