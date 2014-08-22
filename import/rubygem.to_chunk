@@ -22,6 +22,16 @@ require 'logger'
 require 'optparse'
 require 'yaml'
 
+# Welcome! This is a tool which tries to autodetect the build instructions and
+# the build and runtime dependencies necessary for a Ruby package, by
+# inspecting its source tree.
+#
+# Almost all Ruby packages are packaged as Gems. Some applications are not, but
+# will depend on Gems to run.
+#
+# The process of producing a Gem from a source repository is referred to as
+# "building" by this tool.
+
 BASEROCK_RUBY_VERSION = '2.0.0'
 
 IGNORED_GROUPS = [:compat_testing, :test]
@@ -65,7 +75,7 @@ Log.level = case ENV['BASEROCK_IMPORT_LOG_LEVEL']
                 end
 
 Log.formatter = proc do |severity, datetime, progname, msg|
-    "rubygem.to_chunk: #{severity}:  #{msg}\n"
+    "rubygem.to_chunk: #{severity}: #{msg}\n"
 end
 
 
@@ -97,6 +107,14 @@ class Dsl < Bundler::Dsl
   def to_definition(lockfile, unlock, target_gem_name)
     @sources << rubygems_source unless @sources.include?(rubygems_source)
 
+    @dependencies = filter_dependencies_for_target_gem(@dependencies,
+                                                       target_gem_name)
+    Log.debug "The modified list of dependencies is: #{@dependencies}"
+
+    Definition.new(lockfile, @dependencies, @sources, unlock, @ruby_version)
+  end
+
+  def filter_dependencies_for_target_gem(dependencies, target_gem_name)
     # Find the local Bundler::Source object, remove everything from that
     # source except the Gem we actually care about. This is necessary
     # because Bundler is designed for people who want to develop or deploy
@@ -119,7 +137,8 @@ class Dsl < Bundler::Dsl
     local_source = nil
     new_deps = []
     have_target = false
-    @dependencies.each do |dep|
+    dependencies.each do |dep|
+      Log.debug "  - #{dep} #{dep.source} #{dep.groups}"
       if spec_is_from_current_source_tree(dep)
         local_source = local_source || dep.source
         if dep.name == target_gem_name
@@ -130,9 +149,17 @@ class Dsl < Bundler::Dsl
         new_deps << dep
       end
     end
+
     if not local_source
-      raise Exception, "Did not find any local Gems defined"
+      # While Bundler recommends using 'gemspec' in the Gemfile[1] it's not
+      # required, and some Gems are old enough to not have a .gemspec anyway.
+      # In this case the code will fail later on at get_spec_for_gem(), right
+      # now :) We need to manually search for Gemspecs.
+      Log.info "No gemspecs were included in the Gemfile, so the full " +
+               "list of specified dependencies will be used."
+      return dependencies
     end
+
     if not have_target
       target_dep = Bundler::Dependency.new(
         target_gem_name, '>= 0',
@@ -143,10 +170,7 @@ class Dsl < Bundler::Dsl
                     "dependencies list, so I have added it."
       Log.debug "Its source is: #{target_dep.source.inspect}"
     end
-    @dependencies = new_deps
-    Log.debug "The modified list of dependencies is: #{@dependencies}"
-
-    Definition.new(lockfile, @dependencies, @sources, unlock, @ruby_version)
+    new_deps
   end
 end
 
