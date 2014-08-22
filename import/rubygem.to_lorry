@@ -28,6 +28,24 @@ import urlparse
 
 
 known_source_uris = {
+    'method_source': 'https://github.com/banister/method_source',
+    'fog-brightbox': 'https://github.com/brightbox/fog-brightbox',
+    'json': 'https://github.com/flori/json',
+    'tins': 'https://github.com/flori/tins',
+    'pg': 'https://github.com/ged/ruby-pg',
+    'diff-lcs': 'https://github.com/halostatue/diff-lcs',
+    'sigar': 'https://github.com/hyperic/sigar',
+    'highline': 'https://github.com/JEG2/highline',
+    'erubis': 'https://github.com/kwatch/erubis',
+    'coveralls': 'https://github.com/lemurheavy/coveralls-ruby',
+    # URI is listed as https://github.com/net-ssh/net-sftp-gateway in the
+    # Gemspec for net-ssh-gateway, which is wrong. Email sent to the listed
+    # maintainers 22/08/2014.
+    'net-ssh-gateway': 'https://github.com/net-ssh/net-ssh-gateway',
+    'ast': 'https://github.com/openSUSE/ast',
+    'mixlib-authentication': 'https://github.com/opscode/mixlib-authentication',
+    'mixlib-cli': 'https://github.com/opscode/mixlib-cli',
+    'mixlib-log': 'https://github.com/opscode/mixlib-log',
     'mixlib-shellout': 'http://github.com/opscode/mixlib-shellout',
     'ohai': 'http://github.com/opscode/ohai',
     'actionmailer': 'https://github.com/rails/rails',
@@ -37,6 +55,16 @@ known_source_uris = {
     'activerecord': 'https://github.com/rails/rails',
     'activesupport': 'https://github.com/rails/rails',
     'rails': 'https://github.com/rails/rails',
+    'railties': 'https://github.com/rails/rails',
+    'rack-cache': 'https://github.com/rtomayko/rack-cache',
+    'brass': 'https://github.com/rubyworks/brass',
+    'indexer': 'https://github.com/rubyworks/indexer',
+    # Rubygems.org lists Mast's source code URI as
+    # http://github.com/proutils/mast/ which is invalid.
+    # 22/08/2014: I've emailed 'transfire@gmail.com' who is listed as
+    # maintainer to point this out.
+    'mast': 'https://github.com/rubyworks/mast',
+    'sprockets': 'https://github.com/sstephenson/sprockets',
 }
 
 
@@ -68,16 +96,20 @@ class RubyGemsWebServiceClient(object):
 class RubyGemLorryGenerator(object):
     def find_upstream_repo_for_gem(self, gem_name, gem_info):
         source_code_uri = gem_info['source_code_uri']
-        if source_code_uri is not None:
-            return source_code_uri
 
         if gem_name in known_source_uris:
             known_uri = known_source_uris[gem_name]
             if source_code_uri is not None and known_uri != source_code_uri:
-                raise Exception(
-                    '%s: Hardcoded source URI %s doesn\'t match spec URI %s' %
+                sys.stderr.write(
+                    '%s: Hardcoded source URI %s doesn\'t match spec URI %s\n' %
                     (gem_name, known_uri, source_code_uri))
             return known_uri
+
+        if source_code_uri is not None:
+            if source_code_uri.endswith('/tree'):
+                source_code_uri = source_code_uri[:-len('/tree')]
+
+            return source_code_uri
 
         homepage_uri = gem_info['homepage_uri']
         if homepage_uri is not None:
