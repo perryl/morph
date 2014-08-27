@@ -194,7 +194,7 @@ class Definition < Bundler::Definition
     super
   end
 
-  def resolve_build_dependencies
+  def resolve_dependencies
     # The term "build dependencies" is my own. RubyGems seem to mostly care
     # about "needed at runtime" (:runtime) vs. "useful during development"
     # (:development). We actually want "needed at runtime or during `rake
@@ -211,7 +211,18 @@ class Definition < Bundler::Definition
     @remote = true
     @sources.each { |s| s.remote! }
     @sources.each { |s| s.cached! }
-    specs
+
+    build_deps = specs_for([:development])
+    # FIXME: this list seems to always just contain 'bundler'.
+    # not what I want, I think. Any value achieves the same thing so
+    # I guess ':runtime' is not right. Maybe Bundler doesn't track
+    # runtime deps at all?
+    runtime_deps = specs_for([:runtime])
+    STDERR.puts "Build deps: "
+    build_deps.each { |s| STDERR.puts "  - #{s.name}" }
+    STDERR.puts "Runtime deps:"
+    runtime_deps.each { |s| STDERR.puts "  - #{s.name}" }
+    return [build_deps, runtime_deps]
   end
 end
 
@@ -250,8 +261,16 @@ class RubyGemChunkMorphologyGenerator
     # If there is no .gemspec, but you set 'name' and 'version' then
     # inside Bundler::Source::Path.load_spec_files this call will create a
     # fake gemspec matching that name and version. That's probably not useful.
+
+    # FIXME: Bundler complains that it can't find the Gemfile unless we chdir
+    # to the root directory of the repo first. There may be a way around this
+    # by overriding or fixing the Bundler::Source::Path class.
+    Dir.chdir(source_dir_name)
+    #dir = Pathname.new(source_dir_name).expand_path
+    dir = '.'
+
     source = Bundler::Source::Path.new({
-      'path' => source_dir_name,
+      'path' => dir,
     })
 
     Log.info "Loaded #{source.specs.count} specs from source dir."
@@ -259,8 +278,8 @@ class RubyGemChunkMorphologyGenerator
       Log.debug "  * #{spec.inspect}"
     end
 
-    return source
-  def
+    source
+  end
 
   def load_definition(target_gem_name)
     # Load and parse the Gemfile and, if found, the Gemfile.lock file.
@@ -337,7 +356,8 @@ class RubyGemChunkMorphologyGenerator
 
     local_source = load_local_gemspecs(source_dir_name)
 
-    Dir.chdir(source_dir_name)
+    # already done in load_local_gemspecs() ...
+    #Dir.chdir(source_dir_name)
 
     begin
       definition = load_definition(gem_name)
@@ -345,7 +365,7 @@ class RubyGemChunkMorphologyGenerator
       definition = Definition.new(nil, [], [], false)
     end
 
-    specset = definition.resolve_build_dependencies
+    build_specs, runtime_specs = definition.resolve_dependencies
 
     spec = get_spec_for_gem(specset, gem_name)
 
