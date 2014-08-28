@@ -32,11 +32,14 @@ class DeployPlugin(cliapp.Plugin):
         group_deploy = 'Deploy Options'
         self.app.settings.boolean(['upgrade'],
                                   'specify that you want to upgrade an '
-                                  'existing cluster of systems rather than do '
-                                  'an initial deployment',
+                                  'existing cluster. Deprecated: use the '
+                                  '`morph upgrade` command instead',
                                   group=group_deploy)
         self.app.add_subcommand(
             'deploy', self.deploy,
+            arg_synopsis='CLUSTER [DEPLOYMENT...] [SYSTEM.KEY=VALUE]')
+        self.app.add_subcommand(
+            'upgrade', self.upgrade,
             arg_synopsis='CLUSTER [DEPLOYMENT...] [SYSTEM.KEY=VALUE]')
 
     def disable(self):
@@ -300,8 +303,8 @@ class DeployPlugin(cliapp.Plugin):
 
         if cluster_morphology['kind'] != 'cluster':
             raise cliapp.AppException(
-                "Error: morph deploy is only supported for cluster"
-                " morphologies.")
+                "Error: morph deployment commands are only supported for "
+                "cluster morphologies.")
 
         # parse the rest of the args
         all_subsystems = set()
@@ -431,6 +434,25 @@ class DeployPlugin(cliapp.Plugin):
                     self.app.status_prefix = system_status_prefix
         finally:
             self.app.status_prefix = old_status_prefix
+
+    def upgrade(self, args):
+        '''Upgrade an existing set of instances using built images.
+
+        See `morph help deploy` for documentation.
+
+        '''
+
+        if not args:
+            raise cliapp.AppException(
+                'Too few arguments to upgrade command (see `morph help '
+                'deploy`)')
+
+        if self.app.settings['upgrade']:
+            raise cliapp.AppException(
+                'Running `morph upgrade --upgrade` does not make sense.')
+
+        self.app.settings['upgrade'] = True
+        self.deploy(args)
 
     def check_deploy(self, root_repo_dir, ref, deployment_type, location, env):
         # Run optional write check extension. These are separate from the write

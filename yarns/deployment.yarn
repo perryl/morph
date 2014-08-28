@@ -7,7 +7,7 @@ Morph Deployment Tests
     WHEN the user checks out the system branch called master
     AND the user attempts to deploy the system systems/test-system.morph in branch master
     THEN morph failed
-    AND the deploy error message includes the string "morph deploy is only supported for cluster morphologies"
+    AND the deploy error message includes the string "morph deployment commands are only supported for cluster morphologies"
     FINALLY the git server is shut down
 
     SCENARIO deploying a cluster morphology as a tarfile
