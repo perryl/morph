@@ -43,7 +43,7 @@ class DeployPlugin(cliapp.Plugin):
         pass
 
     def deploy(self, args):
-        '''Deploy a built system image.
+        '''Deploy a built system image or a set of images.
 
         Command line arguments:
 
