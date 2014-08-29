@@ -570,14 +570,23 @@ class DeployPlugin(cliapp.Plugin):
                 new_env = env.copy()
                 new_env['MORPH_LOG_FD'] = str(log_write_fd)
 
+                # We lack python3's pass_fds to close any of the fds
+                # we don't care about, such as the read end of the log,
+                # so we have to close it ourselves here.
+                def close_read_end():
+                    os.close(log_read_fd)
                 p = subprocess.Popen(
                     [ext_filename] + args, cwd=gd.dirname, env=new_env,
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    preexec_fn=close_read_end)
+                os.close(log_write_fd)
+                log_write_fd = -1
 
                 self._watch_extension_subprocess(name, kind, p, log_read_fd)
             finally:
                 os.close(log_read_fd)
-                os.close(log_write_fd)
+                if log_write_fd != -1:
+                    os.close(log_write_fd)
 
     def _watch_extension_subprocess(self, name, kind, p, log_read_fd):
         '''Follow stdout, stderr and log output of an extension subprocess.'''
