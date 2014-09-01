@@ -80,6 +80,12 @@ Log.formatter = proc do |severity, datetime, progname, msg|
     "rubygem.to_chunk: #{severity}: #{msg}\n"
 end
 
+class << Bundler
+  def default_gemfile
+    # This is a hack to make things not crash when there's no Gemfile
+    Pathname.new('.')
+  end
+end
 
 def spec_is_from_current_source_tree(spec)
   spec.source.instance_of? Bundler::Source::Path and
