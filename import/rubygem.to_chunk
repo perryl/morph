@@ -255,18 +255,13 @@ class RubyGemChunkMorphologyGenerator
     STDERR.puts(message)
   end
 
-  def load_local_gemspecs(source_dir_name)
+  def load_local_gemspecs()
     # Look for .gemspec files in the source repo.
     #
     # If there is no .gemspec, but you set 'name' and 'version' then
     # inside Bundler::Source::Path.load_spec_files this call will create a
     # fake gemspec matching that name and version. That's probably not useful.
 
-    # FIXME: Bundler complains that it can't find the Gemfile unless we chdir
-    # to the root directory of the repo first. There may be a way around this
-    # by overriding or fixing the Bundler::Source::Path class.
-    Dir.chdir(source_dir_name)
-    #dir = Pathname.new(source_dir_name).expand_path
     dir = '.'
 
     source = Bundler::Source::Path.new({
@@ -275,7 +270,7 @@ class RubyGemChunkMorphologyGenerator
 
     Log.info "Loaded #{source.specs.count} specs from source dir."
     source.specs.each do |spec|
-      Log.debug "  * #{spec.inspect}"
+      Log.debug "  * #{spec.inspect} #{spec.dependencies.inspect}"
     end
 
     source
@@ -289,13 +284,13 @@ class RubyGemChunkMorphologyGenerator
   end
 
   def get_spec_for_gem(specs, gem_name)
-    found = specs[gem_name]
+    found = specs[gem_name].select {|s| Gem::Platform.match(s.platform)}
     if found.empty?
       raise Exception,
         "No Gemspecs found matching '#{gem_name}'"
     elsif found.length != 1
       raise Exception,
-        "Unsure which Gem to use for #{dep}, got #{found}"
+        "Unsure which Gem to use for #{gem_name}, got #{found}"
     end
     found[0]
   end
@@ -344,6 +339,16 @@ class RubyGemChunkMorphologyGenerator
     }
   end
 
+  def build_deps_for_gem(spec)
+    deps = spec.dependencies.select do |d|
+      d.type == :development && BUILD_DEPENDENCY_WHITELIST.member?(d.name)
+    end
+  end
+
+  def runtime_deps_for_gem(spec)
+    spec.dependencies.select {|d| d.type == :runtime}
+  end
+
   def write_morph(file, morph)
     file.write(YAML.dump(morph))
   end
@@ -354,34 +359,57 @@ class RubyGemChunkMorphologyGenerator
     Log.info("Creating chunk morph for #{gem_name} based on " +
              "source code in #{source_dir_name}")
 
-    local_source = load_local_gemspecs(source_dir_name)
+    Dir.chdir(source_dir_name)
 
-    # already done in load_local_gemspecs() ...
-    #Dir.chdir(source_dir_name)
+    ## Find the .gemspec file in the project repo corresponding to the Gem
+    ## requested on the commandline.
+    #local_source = load_local_gemspecs
+    #local_specset = Bundler::SpecSet.new(local_source.local_specs)
+    #spec = get_spec_for_gem(local_specset, gem_name)
 
-    begin
-      definition = load_definition(gem_name)
-    rescue Bundler::GemfileNotFound
-      definition = Definition.new(nil, [], [], false)
+    # Instead of reading the real Gemfile, invent one that simply includes the
+    # chosen .gemspec. If present, the Gemfile.lock will be honoured.
+    fake_gemfile = Bundler::Dsl.new
+    fake_gemfile.source('https://rubygems.org')
+    fake_gemfile.gemspec({:name => gem_name})
+
+    definition = fake_gemfile.to_definition('Gemfile.lock', true)
+    resolved_specs = definition.resolve_remotely!
+
+    #build_specs, runtime_specs = definition.resolve_dependencies
+
+    spec = get_spec_for_gem(resolved_specs, gem_name)
+
+    if not spec_is_from_current_source_tree(spec)
+      error "Specified gem '#{spec.name}' doesn't live in the source in " +
+            "'#{source_dir_name}'"
+      Log.debug "SPEC: #{spec.inspect} #{spec.source}"
+      exit 1
     end
-
-    build_specs, runtime_specs = definition.resolve_dependencies
-
-    spec = get_spec_for_gem(specset, gem_name)
-
-    #if not spec_is_from_current_source_tree(spec)
-    #  error "Specified gem '#{spec.name}' doesn't live in the source in " +
-    #        "'#{source_dir_name}'"
-    #  Log.debug "SPEC: #{spec.inspect} #{spec.source}"
-    #  rails_spec = get_spec_for_gem(specset, 'rails')
-    #  Log.debug "Rails: #{rails_spec.inspect}"
-    #  exit 1
-    #end
 
     morph = generate_chunk_morph_for_gem(spec)
 
-    deps = Hash[specset.collect { |d| [d.name, d.version.to_s] }]
-    morph['x-dependencies-rubygem'] = deps
+    # One might think that you could use the Bundler::Dependency.groups
+    # field to filter but it doesn't seem to be useful. Instead we go back to
+    # the Gem::Specification of the target Gem and use the dependencies fild
+    # there. We look up each dependency in the resolved_specset to find out
+    # what version Bundler has chosen of it.
+
+    def format_deps_for_morphology(specset, dep_list)
+      info = dep_list.collect do |dep|
+        spec = specset[dep][0]
+        [spec.name, spec.version.to_s]
+      end
+      Hash[info]
+    end
+
+    build_deps = format_deps_for_morphology(
+      resolved_specs, build_deps_for_gem(spec))
+    runtime_deps = format_deps_for_morphology(
+      resolved_specs, runtime_deps_for_gem(spec))
+
+    morph['x-build-dependencies-rubygem'] = build_deps
+    morph['x-runtime-dependencies-rubygem'] = runtime_deps
 
     write_morph(STDOUT, morph)
   end
