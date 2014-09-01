@@ -29,27 +29,23 @@ import urlparse
 
 
 known_source_uris = {
-    'method_source': 'https://github.com/banister/method_source',
-    'fog-brightbox': 'https://github.com/brightbox/fog-brightbox',
-    'json': 'https://github.com/flori/json',
-    'tins': 'https://github.com/flori/tins',
-    'pg': 'https://github.com/ged/ruby-pg',
+    'ast': 'https://github.com/openSUSE/ast',
+    'brass': 'https://github.com/rubyworks/brass',
+    'coveralls': 'https://github.com/lemurheavy/coveralls-ruby',
     'diff-lcs': 'https://github.com/halostatue/diff-lcs',
-    'sigar': 'https://github.com/hyperic/sigar',
+    'erubis': 'https://github.com/kwatch/erubis',
+    'fog-brightbox': 'https://github.com/brightbox/fog-brightbox',
     'highline': 'https://github.com/JEG2/highline',
     'hoe': 'https://github.com/seattlerb/hoe',
-    'erubis': 'https://github.com/kwatch/erubis',
-    'coveralls': 'https://github.com/lemurheavy/coveralls-ruby',
-    # URI is listed as https://github.com/net-ssh/net-sftp-gateway in the
-    # Gemspec for net-ssh-gateway, which is wrong. Email sent to the listed
-    # maintainers 22/08/2014.
-    'net-ssh-gateway': 'https://github.com/net-ssh/net-ssh-gateway',
-    'ast': 'https://github.com/openSUSE/ast',
+    'indexer': 'https://github.com/rubyworks/indexer',
+    'json': 'https://github.com/flori/json',
+    'method_source': 'https://github.com/banister/method_source',
     'mixlib-authentication': 'https://github.com/opscode/mixlib-authentication',
     'mixlib-cli': 'https://github.com/opscode/mixlib-cli',
     'mixlib-log': 'https://github.com/opscode/mixlib-log',
     'mixlib-shellout': 'http://github.com/opscode/mixlib-shellout',
     'ohai': 'http://github.com/opscode/ohai',
+    'rack-cache': 'https://github.com/rtomayko/rack-cache',
     'actionmailer': 'https://github.com/rails/rails',
     'actionpack': 'https://github.com/rails/rails',
     'actionview': 'https://github.com/rails/rails',
@@ -58,15 +54,10 @@ known_source_uris = {
     'activesupport': 'https://github.com/rails/rails',
     'rails': 'https://github.com/rails/rails',
     'railties': 'https://github.com/rails/rails',
-    'rack-cache': 'https://github.com/rtomayko/rack-cache',
-    'brass': 'https://github.com/rubyworks/brass',
-    'indexer': 'https://github.com/rubyworks/indexer',
-    # Rubygems.org lists Mast's source code URI as
-    # http://github.com/proutils/mast/ which is invalid.
-    # 22/08/2014: I've emailed 'transfire@gmail.com' who is listed as
-    # maintainer to point this out.
-    'mast': 'https://github.com/rubyworks/mast',
+    'pg': 'https://github.com/ged/ruby-pg',
+    'sigar': 'https://github.com/hyperic/sigar',
     'sprockets': 'https://github.com/sstephenson/sprockets',
+    'tins': 'https://github.com/flori/tins',
 }
 
 
