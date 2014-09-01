@@ -62,7 +62,9 @@ BUILD_DEPENDENCY_WHITELIST = [
 # recommended here:
 # <https://stackoverflow.com/questions/1681745/share-global-logger-among-module-classes>
 #
-log_file = ENV['BASEROCK_IMPORT_LOG'] or '/dev/null'
+log_file = ENV['BASEROCK_IMPORT_LOG'] || '/dev/null'
+
+if log_file.length == 0 then log_file = '/dev/null' end
 
 Log = Logger.new(log_file)
 

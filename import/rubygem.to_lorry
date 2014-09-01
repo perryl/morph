@@ -156,12 +156,12 @@ class RubyGemLorryGenerator(object):
 
 
 def setup_logging():
-    stream = os.environ.get('BASEROCK_IMPORT_LOG', None)
+    stream_name = os.environ.get('BASEROCK_IMPORT_LOG', '')
     level = os.environ.get('BASEROCK_IMPORT_LOG_LEVEL', 'info')
 
     level_id = logging._levelNames.get(level.upper(), logging.INFO)
-    if stream is not None:
-        logging.basicConfig(stream=open(stream, 'a'), level=level_id)
+    if len(stream_name) > 0:
+        logging.basicConfig(stream=open(stream_name, 'a'), level=level_id)
 
 
 def write_lorry(stream, lorry):
