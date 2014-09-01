@@ -125,6 +125,7 @@ class LorrySet(object):
             existing[field] = new[field]
 
     def add(self, filename, lorry_entry):
+        logging.debug('Adding %s to lorryset', filename)
 
         filename = os.path.join(self.path, '%s.lorry' % filename)
 
@@ -154,7 +155,8 @@ class LorrySet(object):
 # bit more code than this, I think).
 class MorphologyLoader(morphlib.morphloader.MorphologyLoader):
     pass
-MorphologyLoader._static_defaults['chunk']['x-dependencies-rubygem'] = []
+MorphologyLoader._static_defaults['chunk']['x-build-dependencies-rubygem'] = []
+MorphologyLoader._static_defaults['chunk']['x-runtime-dependencies-rubygem'] = []
 
 
 class MorphologySet(morphlib.morphset.MorphologySet):
@@ -170,11 +172,25 @@ class MorphologySet(morphlib.morphset.MorphologySet):
             os.makedirs(path)
 
     def load_all_morphologies(self):
-        fake_gitdir = morphlib.gitdir.GitDirectory(self.path)
-        finder = morphlib.morphologyfinder.MorphologyFinder(fake_gitdir)
+        logging.info('Loading all .morph files under %s', self.path)
+        class FakeGitDir(morphlib.gitdir.GitDirectory):
+            '''Ugh
+
+            This is here because the default constructor will search up the
+            directory heirarchy until it finds a '.git' directory, but that
+            may be totally the wrong place for our purpose: we don't have a
+            Git directory at all.
+
+            '''
+            def __init__(self, path):
+                self.dirname = path
+                self._config = {}
+
+        gitdir = FakeGitDir(self.path)
+        finder = morphlib.morphologyfinder.MorphologyFinder(gitdir)
         loader = MorphologyLoader()
         for filename in (f for f in finder.list_morphologies()
-                         if not fake_gitdir.is_symlink(f)):
+                         if not gitdir.is_symlink(f)):
             text = finder.read_morphology(filename)
             morph = loader.load_from_string(text, filename=filename)
             morph.repo_url = None  # self.root_repository_url
@@ -320,6 +336,8 @@ class BaserockImportApplication(cliapp.Application):
         to_process = [QueueItem(goal_name, goal_version)]
         processed = []
 
+        ignored_errors = []
+
         while len(to_process) > 0:
             current_item = to_process.pop()
             name = current_item.name
@@ -334,16 +352,26 @@ class BaserockImportApplication(cliapp.Application):
                     chunk_morph = self.find_or_create_chunk_morph(
                         morph_set, kind, name, version, source_repo)
                 except BaserockImportException as e:
-                    logging.warning('Ignoring error %s and continuing!', e)
+                    logging.warning('Ignoring error %r and continuing!', e)
+                    ignored_errors.append(name)
                     continue
 
                 processed.append(current_item)
 
-                deps = chunk_morph['x-dependencies-%s' % kind]
-                enqueue_dependencies(deps, to_process, processed)
+                # We need to save this as a graph so we can produce a stratum
+                # ..
+                build_deps = chunk_morph['x-build-dependencies-%s' % kind]
+                runtime_deps = chunk_morph['x-runtime-dependencies-%s' % kind]
+
+                enqueue_dependencies(build_deps, to_process, processed)
+                enqueue_dependencies(runtime_deps, to_process, processed)
             except BaserockImportException:
                 sys.stderr.write('Error processing package %s\n' % current_item)
                 raise
+
+        if len(ignored_errors) > 0:
+            sys.stderr.write('Ignored errors in %i packages: %s\n' %
+                             (len(ignored_errors), ', '.join(ignored_errors)))
 
         # Now: solve the dependencies and generate the bootstrap set!
         # generate the stratum!
@@ -371,6 +399,10 @@ class BaserockImportApplication(cliapp.Application):
 
             lorry_filename = lorry.keys()[0]
 
+            if lorry_filename == '':
+                raise cliapp.AppException(
+                    'Invalid lorry data for %s: %s' % (name, lorry))
+
             lorry_set.add(lorry_filename, lorry)
 
         return lorry
@@ -396,6 +428,13 @@ class BaserockImportApplication(cliapp.Application):
             cliapp.runcmd(['git', 'clone', url, repopath])
 
         repo = GitDirectory(repopath)
+        if repo.dirname != repopath:
+            # Work around strange/unintentional behaviour in GitDirectory class
+            # when 'repopath' isn't actually a Git repo at all.
+            logging.error(
+                'Got git directory %s for %s!', repo.dirname, repopath)
+            raise cliapp.AppException(
+                '%s exists but is not the root of a Git repository' % repopath)
         return repo
 
     def checkout_source_version(self, source_repo, name, version):
@@ -415,7 +454,7 @@ class BaserockImportApplication(cliapp.Application):
         else:
             logging.error(
                 "Couldn't find tag %s in repo %s. I'm going to cheat and "
-                "use 'master' for now.")
+                "use 'master' for now.", tag_name, source_repo)
             source_repo.checkout('master')
             #raise BaserockImportException(
             #    'Could not find ref for %s version %s.' % (name, version))
