@@ -21,6 +21,7 @@
 import requests
 import requests_cache
 
+import logging
 import json
 import os
 import sys
@@ -36,6 +37,7 @@ known_source_uris = {
     'diff-lcs': 'https://github.com/halostatue/diff-lcs',
     'sigar': 'https://github.com/hyperic/sigar',
     'highline': 'https://github.com/JEG2/highline',
+    'hoe': 'https://github.com/seattlerb/hoe',
     'erubis': 'https://github.com/kwatch/erubis',
     'coveralls': 'https://github.com/lemurheavy/coveralls-ruby',
     # URI is listed as https://github.com/net-ssh/net-sftp-gateway in the
@@ -98,6 +100,7 @@ class RubyGemLorryGenerator(object):
         source_code_uri = gem_info['source_code_uri']
 
         if gem_name in known_source_uris:
+            logging.debug('Found %s in known_source_uris', gem_name)
             known_uri = known_source_uris[gem_name]
             if source_code_uri is not None and known_uri != source_code_uri:
                 sys.stderr.write(
@@ -105,14 +108,16 @@ class RubyGemLorryGenerator(object):
                     (gem_name, known_uri, source_code_uri))
             return known_uri
 
-        if source_code_uri is not None:
+        if source_code_uri is not None and len(source_code_uri) > 0:
+            logging.debug('Got source_code_uri %s', source_code_uri)
             if source_code_uri.endswith('/tree'):
                 source_code_uri = source_code_uri[:-len('/tree')]
 
             return source_code_uri
 
         homepage_uri = gem_info['homepage_uri']
-        if homepage_uri is not None:
+        if homepage_uri is not None and len(homepage_uri) > 0:
+            logging.debug('Got homepage_uri %s', source_code_uri)
             netloc = urlparse.urlsplit(homepage_uri)[1]
             if netloc == 'github.com':
                 return homepage_uri
@@ -141,6 +146,7 @@ class RubyGemLorryGenerator(object):
         gem_info = rubygems_client.get_gem_info(gem_name)
 
         gem_source_url = self.find_upstream_repo_for_gem(gem_name, gem_info)
+        logging.info('Got URL <%s> for %s', gem_source_url, gem_name)
 
         project_name = self.project_name_from_repo(gem_source_url)
 
@@ -158,6 +164,15 @@ class RubyGemLorryGenerator(object):
         return lorry
 
 
+def setup_logging():
+    stream = os.environ.get('BASEROCK_IMPORT_LOG', None)
+    level = os.environ.get('BASEROCK_IMPORT_LOG_LEVEL', 'info')
+
+    level_id = logging._levelNames.get(level.upper(), logging.INFO)
+    if stream is not None:
+        logging.basicConfig(stream=open(stream, 'a'), level=level_id)
+
+
 def write_lorry(stream, lorry):
     json.dump(lorry, stream, indent=4)
 
@@ -167,6 +182,8 @@ def main():
         sys.stderr.write(
             'Please call me with the name of a RubyGem as an argument.\n')
         sys.exit(1)
+
+    setup_logging()
 
     gem_name = sys.argv[1]
 
