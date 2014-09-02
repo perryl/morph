@@ -329,11 +329,14 @@ class RubyGemChunkMorphologyGenerator
       }
     ]
 
-    # FIXME: these should build from source instead!
+    build_commands = [
+      "gem build #{spec.name}.gemspec",
+    ]
+
     install_commands = [
       "mkdir -p #{gem_dir}",
       "gem install --install-dir #{gem_dir} --bindir #{bin_dir} " +
-        "--ignore-dependencies --local #{spec.full_name}.gem"
+        "--ignore-dependencies --local ./#{spec.full_name}.gem"
     ]
 
     {
@@ -343,7 +346,8 @@ class RubyGemChunkMorphologyGenerator
       'build-system' => 'manual',
       ##'gem-url' => "http://rubygems.org/downloads/#{spec.full_name}.gem",
       'products' => split_rules,
-      'install-commands' => install_commands
+      'build-commands' => build_commands,
+      'install-commands' => install_commands,
     }
   end
 
