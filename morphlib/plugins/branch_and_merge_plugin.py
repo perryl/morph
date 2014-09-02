@@ -125,6 +125,8 @@ class BranchAndMergePlugin(cliapp.Plugin):
             if not self.app.settings['no-git-update']:
                 gd.update_remotes()
 
+            self.app.status(
+                msg='Created system branch directory %s' % root_dir)
         except morphlib.sysbranchdir.SystemBranchDirectoryAlreadyExists as e:
             logging.error('Caught exception: %s' % str(e))
             raise
@@ -184,7 +186,6 @@ class BranchAndMergePlugin(cliapp.Plugin):
             if gd.has_fat():
                 gd.fat_init()
                 gd.fat_pull()
-
 
     def branch(self, args):
         '''Create a new system branch.
