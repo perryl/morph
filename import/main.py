@@ -19,6 +19,7 @@
 
 import cliapp
 import morphlib
+import networkx
 
 import contextlib
 import copy
@@ -180,6 +181,7 @@ class MorphologySet(morphlib.morphset.MorphologySet):
 
     def load_all_morphologies(self):
         logging.info('Loading all .morph files under %s', self.path)
+
         class FakeGitDir(morphlib.gitdir.GitDirectory):
             '''Ugh
 
@@ -204,8 +206,8 @@ class MorphologySet(morphlib.morphset.MorphologySet):
             morph.ref = None  # self.system_branch_name
             self.add_morphology(morph)
 
-    def get_morphology(self, filename):
-        return self._get_morphology(None, None, filename)
+    def get_morphology(self, repo_url, ref, filename):
+        return self._get_morphology(repo_url, ref, filename)
 
     def save_morphology(self, filename, morphology):
         self.add_morphology(morphology)
@@ -226,6 +228,41 @@ class GitDirectory(morphlib.gitdir.GitDirectory):
 
 class BaserockImportException(cliapp.AppException):
     pass
+
+
+class Package(object):
+    '''A package in the processing queue.
+
+    In order to provide helpful errors, this item keeps track of what
+    packages depend on it, and hence of why it was added to the queue.
+
+    '''
+    def __init__(self, name, version):
+        self.name = name
+        self.version = version
+        self.required_by = []
+        self.morphology = None
+        self.is_build_dep = False
+
+    def __str__(self):
+        if len(self.required_by) > 0:
+            required_msg = ', '.join(self.required_by)
+            required_msg = ', required by: ' + required_msg
+        else:
+            required_msg = ''
+        return '%s-%s%s' % (self.name, self.version, required_msg)
+
+    def add_required_by(self, item):
+        self.required_by.append('%s-%s' % (item.name, item.version))
+
+    def match(self, name, version):
+        return (self.name==name and self.version==version)
+
+    def set_morphology(self, morphology):
+        self.morphology = morphology
+
+    def set_is_build_dep(self, is_build_dep):
+        self.is_build_dep = is_build_dep
 
 
 class BaserockImportApplication(cliapp.Application):
@@ -295,56 +332,46 @@ class BaserockImportApplication(cliapp.Application):
             #print traceback.print_tb(sys.exc_traceback)
             #pdb.post_mortem(sys.exc_traceback)
 
-    def import_package_and_all_dependencies(self, kind, goal_name,
-                                            goal_version='master'):
-        class QueueItem(object):
-            '''A package in the processing queue.
-
-            In order to provide helpful errors, this item keeps track of what
-            packages depend on it, and hence of why it was added to the queue.
-
-            '''
-            def __init__(self, name, version):
-                self.name = name
-                self.version = version
-                self.required_by = []
-
-            def __str__(self):
-                if len(self.required_by) > 0:
-                    required_msg = ', '.join(self.required_by)
-                    required_msg = ', required by: ' + required_msg
-                else:
-                    required_msg = ''
-                return '%s-%s%s' % (name, version, required_msg)
-
-            def add_required_by(self, item):
-                self.required_by.append('%s-%s' % (item.name, item.version))
-
-            def match(self, name, version):
-                return (self.name==name and self.version==version)
+    def process_dependency_list(self, current_item, deps, to_process,
+                                processed, these_are_build_deps):
+        # All deps are added as nodes to the 'processed' graph. Runtime
+        # dependencies only need to appear in the stratum, but build
+        # dependencies have ordering constraints, so we add edges in
+        # the graph for build-dependencies too.
 
         def find(iterable, match):
             return next((x for x in iterable if match(x)), None)
 
-        def enqueue_dependencies(deps, to_process, processed):
-            for dep_name, dep_version in deps.iteritems():
-                processed_queue_item = find(
-                    processed, lambda i: i.match(dep_name, dep_version))
-                if processed_queue_item is None:
-                    queue_item = find(
-                        to_process, lambda i: i.match(dep_name, dep_version))
-                    if queue_item is None:
-                        queue_item = QueueItem(dep_name, dep_version)
-                        to_process.append(queue_item)
-                    queue_item.add_required_by(current_item)
-                else:
-                    processed_queue_item.add_required_by(current_item)
+        for dep_name, dep_version in deps.iteritems():
+            dep_package = find(
+                processed, lambda i: i.match(dep_name, dep_version))
 
+            if dep_package is None:
+                # Not yet processed
+                queue_item = find(
+                    to_process, lambda i: i.match(dep_name, dep_version))
+                if queue_item is None:
+                    queue_item = Package(dep_name, dep_version)
+                    to_process.append(queue_item)
+                dep_package = queue_item
+
+            dep_package.add_required_by(current_item)
+
+            processed.add_node(current_item)
+
+            if these_are_build_deps or current_item.is_build_dep:
+                # A runtime dep of a build dep becomes a build dep
+                # itself.
+                dep_package.set_is_build_dep(True)
+                processed.add_edge(current_item, dep_package)
+
+    def import_package_and_all_dependencies(self, kind, goal_name,
+                                            goal_version='master'):
         lorry_set = LorrySet(self.settings['lorries-dir'])
         morph_set = MorphologySet(self.settings['definitions-dir'])
 
-        to_process = [QueueItem(goal_name, goal_version)]
-        processed = []
+        to_process = [Package(goal_name, goal_version)]
+        processed = networkx.DiGraph()
 
         ignored_errors = []
 
@@ -356,34 +383,41 @@ class BaserockImportApplication(cliapp.Application):
             try:
                 lorry = self.find_or_create_lorry_file(lorry_set, kind, name)
 
-                source_repo = self.fetch_or_update_source(lorry)
+                source_repo, url = self.fetch_or_update_source(lorry)
 
                 try:
+                    checked_out_version, ref = self.checkout_source_version(
+                        source_repo, name, version)
                     chunk_morph = self.find_or_create_chunk_morph(
-                        morph_set, kind, name, version, source_repo)
+                        morph_set, kind, name, checked_out_version,
+                        source_repo, url, ref)
                 except BaserockImportException as e:
-                    logging.warning('Ignoring error %r and continuing!', e)
-                    ignored_errors.append(name)
-                    continue
+                    #logging.warning('Ignoring error %r and continuing!', e)
+                    #ignored_errors.append(name)
+                    sys.stderr.write(
+                        "Couldn't auto-generate a chunk morphology for %s, "
+                        "please provide one manually and continue.\n" % name)
+                    raise
 
-                processed.append(current_item)
+                current_item.set_morphology(chunk_morph)
 
-                # We need to save this as a graph so we can produce a stratum
-                # ..
                 build_deps = chunk_morph['x-build-dependencies-%s' % kind]
                 runtime_deps = chunk_morph['x-runtime-dependencies-%s' % kind]
 
-                enqueue_dependencies(build_deps, to_process, processed)
-                enqueue_dependencies(runtime_deps, to_process, processed)
+                self.process_dependency_list(
+                    current_item, build_deps, to_process, processed, True)
+                self.process_dependency_list(
+                    current_item, runtime_deps, to_process, processed, False)
             except BaserockImportException:
-                sys.stderr.write('Error processing package %s\n' % current_item)
+                sys.stderr.write('Error processing package %s\n' %
+                                 current_item)
                 raise
 
         if len(ignored_errors) > 0:
             sys.stderr.write('Ignored errors in %i packages: %s\n' %
                              (len(ignored_errors), ', '.join(ignored_errors)))
 
-        stratum_morph = self.generate_stratum_morph(morph_set, goal_name)
+        stratum_morph = self.generate_stratum_morph(processed, goal_name)
 
     def generate_lorry_for_package(self, kind, name):
         tool = '%s.to_lorry' % kind
@@ -444,7 +478,7 @@ class BaserockImportApplication(cliapp.Application):
                 'Got git directory %s for %s!', repo.dirname, repopath)
             raise cliapp.AppException(
                 '%s exists but is not the root of a Git repository' % repopath)
-        return repo
+        return repo, url
 
     def checkout_source_version(self, source_repo, name, version):
         # FIXME: we need to be a bit smarter than this. Right now we assume
@@ -459,6 +493,7 @@ class BaserockImportApplication(cliapp.Application):
         for tag_name in possible_names:
             if source_repo.has_ref(tag_name):
                 source_repo.checkout(tag_name)
+                ref = tag_name
                 break
         else:
             #raise BaserockImportException(
@@ -467,9 +502,9 @@ class BaserockImportApplication(cliapp.Application):
                 "Couldn't find tag %s in repo %s. I'm going to cheat and "
                 "use 'master' for now.", tag_name, source_repo)
             source_repo.checkout('master')
-            version = 'master'
+            ref = version = 'master'
 
-        return version
+        return version, ref
 
     def generate_chunk_morph_for_package(self, kind, source_repo, name,
                                          filename):
@@ -485,36 +520,50 @@ class BaserockImportApplication(cliapp.Application):
         return loader.load_from_string(text, filename)
 
     def find_or_create_chunk_morph(self, morph_set, kind, name, version,
-                                   source_repo):
-        checked_out_version = self.checkout_source_version(source_repo, name,
-                                                           version)
-
-        morphology_filename = '%s-%s.morph' % (name, checked_out_version)
-        morphology = morph_set.get_morphology(morphology_filename)
+                                   source_repo, repo_url, named_ref):
+        morphology_filename = '%s-%s.morph' % (name, version)
+        sha1 = source_repo.resolve_ref_to_commit(named_ref)
+        morphology = morph_set.get_morphology(repo_url, sha1, morphology_filename)
 
         if morphology is None:
-            morphology = self.generate_chunk_morph_for_package(
-                kind, source_repo, name, morphology_filename)
-            morph_set.save_morphology(morphology_filename, morphology)
+            # Existing chunk morphologies loaded from disk don't contain the repo
+            # and ref information. That's stored in the stratum morph. So the
+            # first time we touch a chunk morph we need to set this info.
+            logging.debug("Didn't find morphology for %s|%s|%s", repo_url, sha1,
+                          morphology_filename)
+            morphology = morph_set.get_morphology(None, None, morphology_filename)
+
+            if morphology is None:
+                logging.debug("Didn't find morphology for None|None|%s",
+                              morphology_filename)
+                morphology = self.generate_chunk_morph_for_package(
+                    kind, source_repo, name, morphology_filename)
+                morph_set.save_morphology(morphology_filename, morphology)
+
+            morphology.repo_url = repo_url
+            morphology.ref = sha1
+            morphology.named_ref = named_ref
 
         return morphology
 
-    def generate_stratum_morph(self, morph_set, goal_name):
-        # This assumes that morph_set contains only chunk morphs, and that they
-        # should all be part of the stratum.
+    def generate_stratum_morph(self, graph, goal_name):
+        chunk_packages = networkx.topological_sort(graph)
         chunk_entries = []
 
-        for m in morph_set.morphologies:
-            print m['name']
+        for package in chunk_packages:
+            m = package.morphology
+            if m is None:
+                raise cliapp.AppException('No morphology for %s' % package)
             entry = {
                 'name': m['name'],
                 'repo': m.repo_url,
                 'ref': m.ref,
                 'morph': m.filename,
-                'build-depends': m['x-build-dependencies-rubygem'],
+                'build-depends': m['x-build-dependencies-rubygem'].keys(),
             }
             chunk_entries.append(entry)
 
+        stratum_name = goal_name
         stratum = {
             'name': stratum_name,
             'kind': 'stratum',
@@ -527,11 +576,13 @@ class BaserockImportApplication(cliapp.Application):
 
         # Hard part is: generate graph of dependencies and sort it 
 
-        filename = '%s.morph'
-        morphology = morph_set.loader.load_from_string(
-            json.dumps(stratum), filename=filename)
+        filename = '%s.morph' % goal_name
 
-        morph_set.loader.save_to_file(filename, morphology)
+        loader = morphlib.morphloader.MorphologyLoader()
+        morphology = loader.load_from_string(json.dumps(stratum),
+                                             filename=filename)
+
+        loader.save_to_file(filename, morphology)
 
 
 app = BaserockImportApplication(progname='import')
