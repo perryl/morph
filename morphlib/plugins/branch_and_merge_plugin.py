@@ -121,7 +121,9 @@ class BranchAndMergePlugin(cliapp.Plugin):
             yield (sb, gd)
 
             gd.update_submodules(self.app)
-            gd.update_remotes()
+
+            if not self.app.settings['no-git-update']:
+                gd.update_remotes()
 
         except morphlib.sysbranchdir.SystemBranchDirectoryAlreadyExists as e:
             logging.error('Caught exception: %s' % str(e))
