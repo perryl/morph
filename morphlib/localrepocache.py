@@ -213,6 +213,7 @@ class LocalRepoCache(object):
         target = self._mkdtemp(self._cachedir)
 
         try:
+            self._app.status(msg='Cloning git repository %s into cache' % reponame)
             self._git(['clone', '--mirror', '-n', repourl, target],
                       echo_stderr=self._app.settings['verbose'])
         except cliapp.AppException, e:
@@ -251,4 +252,3 @@ class LocalRepoCache(object):
         else:
             cached_repo = self.get_repo(reponame)
         return cached_repo
-
