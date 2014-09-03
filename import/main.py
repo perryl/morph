@@ -57,6 +57,7 @@ class LorrySet(object):
             self.data = self.parse_all_lorries()
         else:
             os.makedirs(lorries_path)
+            self.data = {}
 
     def all_lorry_files(self):
         for dirpath, dirnames, filenames in os.walk(self.path):
