@@ -334,6 +334,23 @@ class RubyGemChunkMorphologyGenerator
     # way for the default commands to know what .gemspec file they should
     # be building. It doesn't help that the .gemspec may be in a subdirectory
     # (as in Rails, for example).
+    #
+    # Note that `gem help build` says the following:
+    #
+    #   The best way to build a gem is to use a Rakefile and the
+    #   Gem::PackageTask which ships with RubyGems.
+    #
+    # It's often possible to run `rake gem`, but this may require Hoe,
+    # rake-compiler, Jeweler or other assistance tools to be present at Gem
+    # construction time. It seems that many Ruby projects that use these tools
+    # also maintain an up-to-date generated .gemspec file, which means that we
+    # can get away with using `gem build` just fine in many cases.
+    #
+    # Were we to use `setup.rb install` or `rake install`, programs that loaded
+    # with the 'rubygems' library would complain that required Gems were not
+    # installed. We must have the Gem metadata available, and `gem build; gem
+    # install` seems the easiest way to achieve that.
+
     build_commands = [
       "gem build #{spec.name}.gemspec",
     ]
