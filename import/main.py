@@ -385,7 +385,7 @@ class BaserockImportApplication(cliapp.Application):
         to_process = [Package(goal_name, goal_version)]
         processed = networkx.DiGraph()
 
-        ignored_errors = []
+        errors = {}
 
         while len(to_process) > 0:
             current_item = to_process.pop()
@@ -404,18 +404,14 @@ class BaserockImportApplication(cliapp.Application):
                     chunk_morph = self.find_or_create_chunk_morph(
                         morph_set, goal_name, kind, name, checked_out_version,
                         source_repo, url, ref)
+
+                    current_item.set_morphology(chunk_morph)
+
+                    build_deps = chunk_morph['x-build-dependencies-%s' % kind]
+                    runtime_deps = chunk_morph['x-runtime-dependencies-%s' % kind]
                 except BaserockImportException as e:
-                    #logging.warning('Ignoring error %r and continuing!', e)
-                    #ignored_errors.append(name)
-                    sys.stderr.write(
-                        "Couldn't auto-generate a chunk morphology for %s, "
-                        "please provide one manually and continue.\n" % name)
-                    raise
-
-                current_item.set_morphology(chunk_morph)
-
-                build_deps = chunk_morph['x-build-dependencies-%s' % kind]
-                runtime_deps = chunk_morph['x-runtime-dependencies-%s' % kind]
+                    errors[current_item] = e
+                    build_deps = runtime_deps = {}
 
                 processed.add_node(current_item)
 
@@ -428,11 +424,15 @@ class BaserockImportApplication(cliapp.Application):
                                  current_item)
                 raise
 
-        if len(ignored_errors) > 0:
-            sys.stderr.write('Ignored errors in %i packages: %s\n' %
-                             (len(ignored_errors), ', '.join(ignored_errors)))
-
-        self.maybe_generate_stratum_morph(processed, goal_name)
+        if len(errors) > 0:
+            self.status(
+                'Errors encountered, not generating a stratum morphology. You '
+                'may want to manually create chunk morphologies for the '
+                'following items, then rerun the script.')
+            for package, exception in errors.iteritems():
+                self.status('%s: %s', package, exception)
+        else:
+            self.generate_stratum_morph_if_none_exists(processed, goal_name)
 
     def generate_lorry_for_package(self, kind, name):
         tool = '%s.to_lorry' % kind
@@ -561,7 +561,7 @@ class BaserockImportApplication(cliapp.Application):
 
         return morphology
 
-    def maybe_generate_stratum_morph(self, graph, goal_name):
+    def generate_stratum_morph_if_none_exists(self, graph, goal_name):
         filename = os.path.join(
             self.settings['definitions-dir'], 'strata', '%s.morph' % goal_name)
 
