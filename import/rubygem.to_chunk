@@ -329,6 +329,11 @@ class RubyGemChunkMorphologyGenerator
       }
     ]
 
+    # It'd be rather tricky to include these build instructions as a
+    # BuildSystem implementation in Morph. The problem is that there's no
+    # way for the default commands to know what .gemspec file they should
+    # be building. It doesn't help that the .gemspec may be in a subdirectory
+    # (as in Rails, for example).
     build_commands = [
       "gem build #{spec.name}.gemspec",
     ]
@@ -344,7 +349,6 @@ class RubyGemChunkMorphologyGenerator
       'kind' => 'chunk',
       'description' => description,
       'build-system' => 'manual',
-      ##'gem-url' => "http://rubygems.org/downloads/#{spec.full_name}.gem",
       'products' => split_rules,
       'build-commands' => build_commands,
       'install-commands' => install_commands,
