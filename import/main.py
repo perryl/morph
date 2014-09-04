@@ -397,47 +397,46 @@ class BaserockImportApplication(cliapp.Application):
 
                 source_repo, url = self.fetch_or_update_source(lorry)
 
-                try:
-                    checked_out_version, ref = self.checkout_source_version(
-                        source_repo, name, version)
-                    current_item.set_version_in_use(checked_out_version)
-                    chunk_morph = self.find_or_create_chunk_morph(
-                        morph_set, goal_name, kind, name, checked_out_version,
-                        source_repo, url, ref)
+                checked_out_version, ref = self.checkout_source_version(
+                    source_repo, name, version)
+                current_item.set_version_in_use(checked_out_version)
+                chunk_morph = self.find_or_create_chunk_morph(
+                    morph_set, goal_name, kind, name, checked_out_version,
+                    source_repo, url, ref)
 
-                    current_item.set_morphology(chunk_morph)
+                current_item.set_morphology(chunk_morph)
 
-                    build_deps = chunk_morph['x-build-dependencies-%s' % kind]
-                    runtime_deps = chunk_morph['x-runtime-dependencies-%s' % kind]
-                except BaserockImportException as e:
-                    errors[current_item] = e
-                    build_deps = runtime_deps = {}
+                build_deps = chunk_morph['x-build-dependencies-%s' % kind]
+                runtime_deps = chunk_morph['x-runtime-dependencies-%s' % kind]
+            except BaserockImportException as e:
+                self.status('%s', e)
+                errors[current_item] = e
+                build_deps = runtime_deps = {}
 
-                processed.add_node(current_item)
+            processed.add_node(current_item)
 
-                self.process_dependency_list(
-                    current_item, build_deps, to_process, processed, True)
-                self.process_dependency_list(
-                    current_item, runtime_deps, to_process, processed, False)
-            except BaserockImportException:
-                sys.stderr.write('Error processing package %s\n' %
-                                 current_item)
-                raise
+            self.process_dependency_list(
+                current_item, build_deps, to_process, processed, True)
+            self.process_dependency_list(
+                current_item, runtime_deps, to_process, processed, False)
 
         if len(errors) > 0:
             self.status(
-                'Errors encountered, not generating a stratum morphology. You '
-                'may want to manually create chunk morphologies for the '
+                '\nErrors encountered, not generating a stratum morphology. '
+                'You may want to manually create chunk morphologies for the '
                 'following items, then rerun the script.')
             for package, exception in errors.iteritems():
-                self.status('%s: %s', package, exception)
+                self.status('\n%s: %s', package.name, exception)
         else:
             self.generate_stratum_morph_if_none_exists(processed, goal_name)
 
     def generate_lorry_for_package(self, kind, name):
         tool = '%s.to_lorry' % kind
         self.status('Calling %s to generate lorry for %s', tool, name)
-        lorry_text = cliapp.runcmd([os.path.abspath(tool), name])
+        try:
+            lorry_text = cliapp.runcmd([os.path.abspath(tool), name])
+        except cliapp.AppException as e:
+            raise BaserockImportException(e.msg.rstrip())
         lorry = json.loads(lorry_text)
         return lorry
 
@@ -483,7 +482,10 @@ class BaserockImportApplication(cliapp.Application):
             #              cwd=repopath)
         else:
             self.status('Cloning repo %s', url)
-            cliapp.runcmd(['git', 'clone', url, repopath])
+            try:
+                cliapp.runcmd(['git', 'clone', '--quiet', url, repopath])
+            except cliapp.AppException as e:
+                raise BaserockImportException(e.msg.rstrip())
 
         repo = GitDirectory(repopath)
         if repo.dirname != repopath:
@@ -529,7 +531,7 @@ class BaserockImportApplication(cliapp.Application):
             text = cliapp.runcmd(
                 [os.path.abspath(tool), source_repo.dirname, name])
         except cliapp.AppException as e:
-            raise BaserockImportException(e.message)
+            raise BaserockImportException(e.msg.rstrip())
 
         loader = MorphologyLoader()
         return loader.load_from_string(text, filename)

@@ -29,6 +29,9 @@ import sys
 import urlparse
 
 
+class GenerateLorryException(Exception):
+    pass
+
 class RubyGemsWebServiceClient(object):
     def __init__(self):
         # Save hammering the rubygems.org API: 'requests' API calls are
@@ -40,7 +43,8 @@ class RubyGemsWebServiceClient(object):
         if r.ok:
             return json.loads(r.text)
         else:
-            raise Exception('Request to %s failed: %s' % (r.url, r.reason))
+            raise GenerateLorryException(
+                'Request to %s failed: %s' % (r.url, r.reason))
 
     def get_gem_info(self, gem_name):
         info = self._request(
@@ -48,8 +52,9 @@ class RubyGemsWebServiceClient(object):
 
         if info['name'] != gem_name:
             # Sanity check
-            raise Exception('Received info for Gem "%s", requested "%s"' %
-                            info['name'], gem_name)
+            raise GenerateLorryException(
+                 'Received info for Gem "%s", requested "%s"' % info['name'],
+                  gem_name)
 
         return info
 
@@ -96,7 +101,7 @@ class RubyGemLorryGenerator(object):
         # https://github.com/search?q=$gemname -> often the first result is
         #   the correct one, but you can never know.
 
-        raise Exception(
+        raise GenerateLorryException(
             "Did not manage to find the upstream source URL for Gem '%s'. "
             "Please manually create a .lorry file, or add the Gem to "
             "known-source-uris in rubygems.yaml." % gem_name)
@@ -164,4 +169,9 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except GenerateLorryException as e:
+        sys.stderr.write(e.message)
+        sys.stderr.write('\n')
+        sys.exit(1)
