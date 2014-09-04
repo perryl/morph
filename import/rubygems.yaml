@@ -1,0 +1,35 @@
+---
+
+# The following Gems don't provide a source_code_uri in their Gem metadata.
+# Ideally ... they would do.
+known-source-uris:
+  ast: https://github.com/openSUSE/ast
+  brass: https://github.com/rubyworks/brass
+  coveralls: https://github.com/lemurheavy/coveralls-ruby
+  diff-lcs: https://github.com/halostatue/diff-lcs
+  erubis: https://github.com/kwatch/erubis
+  fog-brightbox: https://github.com/brightbox/fog-brightbox
+  highline: https://github.com/JEG2/highline
+  hoe: https://github.com/seattlerb/hoe
+  indexer: https://github.com/rubyworks/indexer
+  json: https://github.com/flori/json
+  method_source: https://github.com/banister/method_source
+  mixlib-authentication: https://github.com/opscode/mixlib-authentication
+  mixlib-cli: https://github.com/opscode/mixlib-cli
+  mixlib-log: https://github.com/opscode/mixlib-log
+  mixlib-shellout: http://github.com/opscode/mixlib-shellout
+  ohai: http://github.com/opscode/ohai
+  rack-cache: https://github.com/rtomayko/rack-cache
+  actionmailer: https://github.com/rails/rails
+  actionpack: https://github.com/rails/rails
+  actionview: https://github.com/rails/rails
+  activejob: https://github.com/rails/rails
+  activemodel: https://github.com/rails/rails
+  activerecord: https://github.com/rails/rails
+  activesupport: https://github.com/rails/rails
+  rails: https://github.com/rails/rails
+  railties: https://github.com/rails/rails
+  pg: https://github.com/ged/ruby-pg
+  sigar: https://github.com/hyperic/sigar
+  sprockets: https://github.com/sstephenson/sprockets
+  tins: https://github.com/flori/tins
