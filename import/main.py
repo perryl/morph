@@ -289,10 +289,10 @@ class BaserockImportApplication(cliapp.Application):
                              metavar='PATH',
                              default=os.path.abspath('./checkouts'))
 
-    def setup_logging_format(self):
-        # FIXME: due to a bug in cliapp, this method is actually
-        # never called! :(
-        return "main: %(levelname)s: %(message)s"
+    def setup_logging_formatter_for_file(self):
+        # You need recent cliapp for this to work, with commit "Split logging
+        # setup into further overrideable methods".
+        return logging.Formatter("main: %(levelname)s: %(message)s")
 
     def setup_logging_for_import_plugins(self):
         log = self.settings['log']
