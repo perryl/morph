@@ -661,7 +661,7 @@ class MorphologyLoader(object):
 
     def _deny_unknown_fields(self, allowed, morphology):
         for field in morphology:
-            if field not in allowed:
+            if field not in allowed and not field.startswith('x-'):
                 raise InvalidFieldError(field, morphology.filename)
 
     def set_defaults(self, morphology):
