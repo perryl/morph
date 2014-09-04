@@ -289,6 +289,10 @@ class BaserockImportApplication(cliapp.Application):
                              metavar='PATH',
                              default=os.path.abspath('./checkouts'))
 
+    def setup(self):
+        self.add_subcommand('rubygem', self.import_rubygem,
+                            arg_synopsis='GEM_NAME')
+
     def setup_logging_formatter_for_file(self):
         # You need recent cliapp for this to work, with commit "Split logging
         # setup into further overrideable methods".
@@ -305,9 +309,14 @@ class BaserockImportApplication(cliapp.Application):
         os.environ['BASEROCK_IMPORT_LOG'] = log
         os.environ['BASEROCK_IMPORT_LOG_LEVEL'] = self.settings['log-level']
 
-    def process_args(self, *args):
+    def process_args(self, args):
+        if len(args) == 0:
+            # Cliapp default is to just say "ERROR: must give subcommand" if
+            # no args are passed, I prefer this.
+            args = ['help']
+
         self.setup_logging_for_import_plugins()
-        super(BaserockImportApplication, self).process_args(*args)
+        super(BaserockImportApplication, self).process_args(args)
 
     def status(self, msg, *args):
         print msg % args
@@ -328,18 +337,13 @@ class BaserockImportApplication(cliapp.Application):
 
         #cliapp.runcmd(
 
-    def cmd_rubygem(self, args):
+    def import_rubygem(self, args):
+        '''Import a RubyGem.'''
         if len(args) != 1:
             raise cliapp.AppException(
                 'Please pass the name of a RubyGem on the commandline.')
 
-        #try:
         self.import_package_and_all_dependencies('rubygem', args[0])
-        #except:
-            #import pdb, traceback
-            #print sys.format_exc
-            #print traceback.print_tb(sys.exc_traceback)
-            #pdb.post_mortem(sys.exc_traceback)
 
     def process_dependency_list(self, current_item, deps, to_process,
                                 processed, these_are_build_deps):
