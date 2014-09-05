@@ -1,0 +1,49 @@
+help: |
+    Create a Docker image from a Morph deployment.
+
+    To deploy locally, use the following URL scheme in the 'location' field:
+
+        docker:///REPOSITORY
+
+    This will try to connect to the Docker daemon using the Unix domain socket
+    at unix://var/run/docker.sock. It will create a new image with the name
+    REPOSITORY. The name can contain the '/' character.
+
+    If an image with that name already exists, the name will be transferred to
+    the new image, but the old image can still be accessed using its image ID.
+
+    FIXME: VERSION_LABEL ?
+
+    It is possible to deploy to a remote system. The Docker daemon does not
+    provide a way of securing its interface, so you should NOT configure it to
+    listen on a public port. This write extension can set up an SSH tunnel to
+    access a local-only TCP port on the Docker host machine. Use the following
+    URL scheme in this case:
+
+        docker+ssh://[USER@]HOST:PORT/REPOSITORY
+
+    Where:
+
+        * USER is your username on the remote Docker server
+        * HOST is the hostname of the remote Docker server
+        * PORT is the local-only TCP port on which Docker is listening (2375 in
+          the above example)
+        * REPOSITORY is the name of the image to create.
+
+    Alternately, you could set up an SSH tunnel manually with something like:
+
+        /usr/bin/ssh -T -p 22 -L 127.0.0.1:57714:host:2375 user@host
+
+    And then deploy to a location like this. Note 57714 is a random port number.
+
+        docker://127.0.0.1:57714/REPOSITORY
+
+    Docker will usually need custom configuration to make it listen on a
+    local-only TCP port. If you start the Docker daemon manually, you can do:
+
+        docker --daemon --host='tcp://127.0.0.1:2375"
+
+    The following instructions describe setting up a TCP socket for Docker on a
+    systemd-based host:
+
+    https://coreos.com/docs/launching-containers/building/customizing-docker/

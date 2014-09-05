@@ -15,19 +15,22 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
-'''A Morph deployment write extension for deploying to Docker hosts'''
+'''A Morph deployment write extension for deploying to Docker hosts
+
+See docker.write.help for more information.
+
+'''
 
 
-# From https://github.com/dotcloud/docker-py
 import docker
-
-#import paramiko
-
+import paramiko
 
 import cliapp
 import logging
 import os
 import Queue
+import socket
+import SocketServer
 import tarfile
 import threading
 import time
@@ -84,11 +87,9 @@ class ChunkedTarfileAdapter(object):
         This should be used from the main thread of the program.
 
         '''
-        f = open('/tmp/fuckyou.tar', 'w')
         while True:
             try:
                 data_chunk = self.queue.get(block=True, timeout=0.1)
-                f.write(data_chunk)
                 yield data_chunk
                 self.bytes_sent += len(data_chunk)
             except Queue.Empty:
@@ -96,7 +97,6 @@ class ChunkedTarfileAdapter(object):
 
             if self.queue.empty() and self.eof:
                 logging.debug('All data queued for transfer!')
-                f.close()
                 break
             elif self.exception is not None:
                 # We may have received an abort() from the writing thread,
@@ -158,61 +158,74 @@ class ChunkedTarfileAdapter(object):
 
 
 class DockerWriteExtension(morphlib.writeexts.WriteExtension):
-
-    '''Create a Docker image or container from a Morph deployment.
-
-    THIS IS A PROTOTYPE!!!
-
-    This extension assumes you are accessing a remote Docker service. It uses
-    the Docker remote API. The Docker remote API cannot be exposed over TCP
-    directly in a secure way, so instead you should set the Docker daemon on
-    the server listening on a local-only TCP socket. Morph will then use SSH
-    to forward this port securely while the write extention runs.
-
-    Docker doesn't listen on a TCP socket by default. Run the Docker service
-    as follows (2375 is an arbitrary number):
-
-        docker -d -H='tcp://127.0.0.1:2375"
-
-    The location command line argument is a network location that should be
-    accessible over SSH, followed by the name of the image to be created.
-
-        docker+ssh://[USER@]HOST:PORT/IMAGE
-
-    Where
-
-        * USER is your username on the remote Docker server
-        * HOST is the hostname of the remote Docker server
-        * PORT is the local-only TCP port on which Docker is listening (2375 in
-          the above example)
-        * IMAGE is the name of the image to create.
-
-    Docker image names commonly containly follow the form 'owner/name'. If
-    a VERSION_LABEL setting is supplied, this will be used to tag the image.
-
-    See also:
-        http://blog.tutum.co/2013/11/21/remote-and-secure-use-of-docker-api-with-python-part-1/
-        http://coreos.com/docs/launching-containers/building/customizing-docker/
-
-    '''
-
     def process_args(self, args):
         if len(args) != 2:
             raise cliapp.AppException('Wrong number of command line args')
 
         temp_root, location = args
 
-        if not location.startswith('docker+ssh://'):
+        if location.startswith('docker://'):
+            socket = 'unix://var/run/docker.sock'
+            image_name = self.parse_docker_location(location)
+            docker_client = self.create_docker_client_for_socket(socket)
+        elif location.startswith('docker+ssh://'):
+            user, host, port, image_name = self.parse_docker_ssh_location(location)
+            docker_client = self.create_docker_client_with_remote_ssh_tunnel(
+                user, host, port)
+        else:
             raise cliapp.AppException(
-                'Sorry, currently this extension only supports remote '
-                'access to Docker using a port forwarded by SSH.')
+                'Sorry, currently this extension only supports docker:// '
+                'and docker+ssh:// URIs.')
 
-        user, host, port, image_name = self.parse_location(location)
+        docker_client.ping()
 
+        self.do_import(docker_client, temp_root, image_name)
+
+        self.status(
+            msg='Docker image %(image_name)s has been created',
+            image_name=image_name)
+
+    def parse_docker_location(self, location):
+        '''Parse the location argument to get relevant data.'''
+
+        x = urlparse.urlparse(location)
+        return x.path[1:]
+
+    def parse_docker_ssh_location(self, location):
+        '''Parse the location argument to get relevant data.'''
+
+        x = urlparse.urlparse(location)
+        return x.username, x.hostname, x.port, x.path[1:]
+
+    def create_docker_client_for_socket(self, socket):
+        self.status(msg='Connecting to Docker service at %s' % socket)
+        return docker.Client(base_url=socket, timeout=10)
+
+    def setup_ssh_tunnel(self, user, host, port):
+        client = paramiko.SSHClient()
+        client.load_system_host_keys()
+
+        client.connect(host, username=user)
+        transport = client.get_transport()
+        transport.request_port_forward('127.0.0.1', port)
+
+        local_bind_port = port
+        return local_bind_port, None #tunnel_thread
+
+    def create_docker_client_with_remote_ssh_tunnel(self, user, host, port):
         self.status(msg='Connecting to Docker service at %s:%s' % (host, port))
-        docker_client = self.create_docker_client_with_remote_ssh_tunnel(
-            user, host, port)
 
+        try:
+            local_bind_port, tunnel_thread = self.setup_ssh_tunnel(user, host, port)
+        except socket.error as e:
+            raise cliapp.AppException('Failed to create SSH tunnel: %s' % e)
+
+        docker_client = docker.Client(
+            base_url='http://127.0.0.1:%d' % local_bind_port)
+
+        return docker_client
+
+    def do_import(self, docker_client, temp_root, image_name):
         # FIXME: hack! The docker-py library should let us put in a fileobj and
         # have it handle buffering automatically ... I.E. this hack should be
         # sent upstream as an improvement, instead. Still, it's kind of cool
@@ -254,47 +267,11 @@ class DockerWriteExtension(morphlib.writeexts.WriteExtension):
 
         tar_stream.show_status()
         logging.debug('Transfer complete! Response %s', response)
-        print response
 
-        self.status(
-            msg='Docker image %(image_name)s has been created',
-            image_name=image_name)
-
-    def parse_location(self, location):
-        '''Parse the location argument to get relevant data.'''
-
-        x = urlparse.urlparse(location)
-        return x.username, x.hostname, x.port, x.path[1:]
-
-    def create_docker_client_with_remote_ssh_tunnel(self, user, host, port):
-        # Taken from: https://gist.github.com/hamiltont/10950399
-        # Local bind port is randomly chosen.
-
-        #tunnel = bgtunnel.open(
-        #    ssh_user=user,
-        #    ssh_address=host,
-        #    host_port=port,
-        #    expect_hello=False,
-        #    # Block for 5 seconds then fail
-        #    timeout=5,
-        #    # Work around 'TypeError: must be encoded string without NULL
-        #    # bytes, not str'. This is due to a bug in bgtunnel where it
-        #    # fetches the SSH path as a Unicode string, then passes it to
-        #    # shlex.split() which returns something horrid. Should be
-        #    # fixed and the patch sent upstream.
-        #    ssh_path=str('/usr/bin/ssh'))
-
-        #docker_client = docker.Client(
-        #    base_url='http://127.0.0.1:%d' % tunnel.bind_port)
-
-        # FIXME: bgtunnel seems broken, do this manually for now in a separate
-        # terminal:
-        #   /usr/bin/ssh -T -p 22 -L 127.0.0.1:57714:127.0.0.1:2375 sam@droopy
-
-        docker_client = docker.Client(
-            base_url='http://127.0.0.1:57714')
-
-        return docker_client
+        if response.status_code != 200:
+            raise cliapp.AppException(
+                'Request to Docker daemon failed: %s (code %i)' %
+                (response.reason, response))
 
     def stream_system_as_tar(self, fs_root, chunked_stream):
         def make_relative(tarinfo):
