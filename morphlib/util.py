@@ -439,6 +439,7 @@ def get_host_architecture(): # pragma: no cover
         'i686': 'x86_32',
         'armv7l': 'armv7l',
         'armv7b': 'armv7b',
+        'armv6l': 'armv6l',
         'ppc64': 'ppc64'
     }
 
@@ -447,6 +448,8 @@ def get_host_architecture(): # pragma: no cover
 
     if machine == 'armv7l' and has_hardware_fp():
         return 'armv7lhf'
+    if machine == 'armv6l' and has_hardware_fp():
+        return 'armv6lhf'
 
     return table[machine]
 

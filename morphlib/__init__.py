@@ -39,7 +39,7 @@ __version__ = gitversion.version
 
 # List of architectures that Morph supports
 valid_archs = ['armv7l', 'armv7lhf', 'armv7b', 'testarch',
-               'x86_32', 'x86_64', 'ppc64']
+               'x86_32', 'x86_64', 'ppc64', 'armv6lhf']
 
 class Error(cliapp.AppException):
 
