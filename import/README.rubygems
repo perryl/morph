@@ -1,0 +1,34 @@
+Here is some information I have learned while importing RubyGem packages into
+Baserock.
+
+First, beware that RubyGem .gemspec files are actually normal Ruby programs,
+and are executed when read. A Bundler Gemfile is also a Ruby program, and could
+run arbitrary code when read.
+
+The Standard Case
+-----------------
+
+Most Ruby projects provide one or more .gemspec files, which describe the
+runtime and development dependencies of the Gem.
+
+Using the .gemspec file and the `gem build` command it is possible to create
+the .gem file. It can then be installed with `gem install`.
+
+Note that use of `gem build` is discouraged by its own help file in favour
+of using Rake, but there is much less standardisation among Rakefiles and they
+may introduce requirements on Hoe, rake-compiler, Jeweler or other tools.
+
+The 'development' dependencies includes everything useful to test, document,
+and create a Gem of the project. All we want to do is create a Gem, which I'll
+refer to as 'building'.
+
+
+Gem with no .gemspec
+--------------------
+
+Some Gems choose not to include a .gemspec, like [Nokigori]. In the case of
+Nokigori, and others, [Hoe] is used, which adds Rake tasks that create the Gem.
+The `gem build` command cannot not be used in these cases.
+
+[Nokigori]: https://github.com/sparklemotion/nokogiri/blob/master/Y_U_NO_GEMSPEC.md
+[Hoe]: http://www.zenspider.com/projects/hoe.html

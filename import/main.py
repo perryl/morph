@@ -422,9 +422,9 @@ class BaserockImportApplication(cliapp.Application):
 
         if len(errors) > 0:
             self.status(
-                '\nErrors encountered, not generating a stratum morphology. '
-                'You may want to manually create chunk morphologies for the '
-                'following items, then rerun the script.')
+                '\nErrors encountered, not generating a stratum morphology.')
+            self.status(
+                'See the README files for guidance.')
             for package, exception in errors.iteritems():
                 self.status('\n%s: %s', package.name, exception)
         else:
