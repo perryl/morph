@@ -132,7 +132,7 @@ class RubyGemLorryGenerator(object):
             project_name: {
                 'type': 'git',
                 'url': gem_source_url,
-                'x-products-rubygem': [gem_name]
+                'x-products-rubygems': [gem_name]
             }
         }
 

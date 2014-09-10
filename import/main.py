@@ -164,8 +164,8 @@ class LorrySet(object):
 # bit more code than this, I think).
 class MorphologyLoader(morphlib.morphloader.MorphologyLoader):
     pass
-MorphologyLoader._static_defaults['chunk']['x-build-dependencies-rubygem'] = []
-MorphologyLoader._static_defaults['chunk']['x-runtime-dependencies-rubygem'] = []
+MorphologyLoader._static_defaults['chunk']['x-build-dependencies-rubygems'] = []
+MorphologyLoader._static_defaults['chunk']['x-runtime-dependencies-rubygems'] = []
 
 
 class MorphologySet(morphlib.morphset.MorphologySet):
@@ -290,7 +290,7 @@ class BaserockImportApplication(cliapp.Application):
                              default=os.path.abspath('./checkouts'))
 
     def setup(self):
-        self.add_subcommand('rubygem', self.import_rubygem,
+        self.add_subcommand('rubygems', self.import_rubygems,
                             arg_synopsis='GEM_NAME')
 
     def setup_logging_formatter_for_file(self):
@@ -337,13 +337,13 @@ class BaserockImportApplication(cliapp.Application):
 
         #cliapp.runcmd(
 
-    def import_rubygem(self, args):
-        '''Import a RubyGem.'''
+    def import_rubygems(self, args):
+        '''Import one or more RubyGems.'''
         if len(args) != 1:
             raise cliapp.AppException(
                 'Please pass the name of a RubyGem on the commandline.')
 
-        self.import_package_and_all_dependencies('rubygem', args[0])
+        self.import_package_and_all_dependencies('rubygems', args[0])
 
     def process_dependency_list(self, current_item, deps, to_process,
                                 processed, these_are_build_deps):
@@ -588,7 +588,7 @@ class BaserockImportApplication(cliapp.Application):
 
             build_depends = [
                 format_build_dep(name, version) for name, version in
-                m['x-build-dependencies-rubygem'].iteritems()
+                m['x-build-dependencies-rubygems'].iteritems()
             ]
 
             entry = {
