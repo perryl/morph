@@ -292,7 +292,7 @@ def run_extension(filename, args):
         report_logger=report_extension_logger,
     )
 
-    returncode = ext.run(os.path.abspath(filename), args, '.', {})
+    returncode = ext.run(os.path.abspath(filename), args, '.', os.environ)
 
     if returncode == 0:
         ext_logger.info('succeeded')
