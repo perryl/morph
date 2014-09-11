@@ -28,9 +28,12 @@ import os
 import sys
 import urlparse
 
+import importer_base
+
 
 class GenerateLorryException(Exception):
     pass
+
 
 class RubyGemsWebServiceClient(object):
     def __init__(self):
@@ -59,8 +62,10 @@ class RubyGemsWebServiceClient(object):
         return info
 
 
-class RubyGemLorryGenerator(object):
+class RubyGemLorryGenerator(importer_base.ImportExtension):
     def __init__(self):
+        super(importer_base.ImportExtension, self).__init__()
+
         with open('rubygems.yaml', 'r') as f:
             local_data = yaml.load(f.read())
 
@@ -68,6 +73,16 @@ class RubyGemLorryGenerator(object):
 
         logging.debug(
             "Loaded %i known source URIs from local metadata.", len(self.known_source_uris))
+
+    def process_args(self, args):
+        if len(args) != 1:
+            raise cliapp.AppException(
+                'Please call me with the name of a RubyGem as an argument.\n')
+
+        gem_name = args[0]
+
+        lorry = self.generate_lorry_for_gem(gem_name)
+        self.write_lorry(sys.stdout, lorry)
 
     def find_upstream_repo_for_gem(self, gem_name, gem_info):
         source_code_uri = gem_info['source_code_uri']
@@ -138,56 +153,11 @@ class RubyGemLorryGenerator(object):
 
         return lorry
 
-
-def setup_logging():
-    '''Direct all logging output to MORPH_LOG_FD, if set.
-
-    This file descriptor is read by Morph and written into its own log
-    file.
-
-    This overrides cliapp's usual configurable logging setup.
-
-    '''
-    log_write_fd = int(os.environ.get('MORPH_LOG_FD', 0))
-
-    if log_write_fd == 0:
-        return
-
-    formatter = logging.Formatter('%(message)s')
-
-    handler = logging.StreamHandler(os.fdopen(log_write_fd, 'w'))
-    handler.setFormatter(formatter)
-
-    logger = logging.getLogger()
-    logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG)
-
-
-def write_lorry(stream, lorry):
-    json.dump(lorry, stream, indent=4)
-    stream.write('\n')
-
-
-def main():
-    if len(sys.argv) != 2:
-        sys.stderr.write(
-            'Please call me with the name of a RubyGem as an argument.\n')
-        sys.exit(1)
-
-    setup_logging()
-
-    gem_name = sys.argv[1]
-
-    lorry_generator = RubyGemLorryGenerator()
-    lorry = lorry_generator.generate_lorry_for_gem(gem_name)
-
-    write_lorry(sys.stdout, lorry)
+    def write_lorry(self, stream, lorry):
+        json.dump(lorry, stream, indent=4)
+        # Needed so the morphlib.extensions code will pick up the last line.
+        stream.write('\n')
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except GenerateLorryException as e:
-        sys.stderr.write(e.message)
-        sys.stderr.write('\n')
-        sys.exit(1)
+    RubyGemLorryGenerator().run()
