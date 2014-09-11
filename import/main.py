@@ -164,8 +164,8 @@ class LorrySet(object):
 # bit more code than this, I think).
 class MorphologyLoader(morphlib.morphloader.MorphologyLoader):
     pass
-MorphologyLoader._static_defaults['chunk']['x-build-dependencies-rubygems'] = []
-MorphologyLoader._static_defaults['chunk']['x-runtime-dependencies-rubygems'] = []
+MorphologyLoader._static_defaults['chunk']['x-build-dependencies-rubygems'] = {}
+MorphologyLoader._static_defaults['chunk']['x-runtime-dependencies-rubygems'] = {}
 
 
 class MorphologySet(morphlib.morphset.MorphologySet):
@@ -379,6 +379,17 @@ class BaserockImportApplication(cliapp.Application):
                 dep_package.set_is_build_dep(True)
                 processed.add_edge(dep_package, current_item)
 
+    def get_dependencies_from_morphology(self, morphology, field_name):
+        # We need to validate this field because it doesn't go through the
+        # normal MorphologyFactory validation, being an extension.
+        value = morphology[field_name]
+        if not hasattr(value, 'iteritems'):
+            value_type = type(value).__name__
+            raise cliapp.AppException(
+                "Morphology for %s has invalid '%s': should be a dict, but "
+                "got a %s." % (morphology['name'], field_name, value_type))
+        return value
+
     def import_package_and_all_dependencies(self, kind, goal_name,
                                             goal_version='master'):
         start_time = time.time()
@@ -418,8 +429,10 @@ class BaserockImportApplication(cliapp.Application):
 
                 current_item.set_morphology(chunk_morph)
 
-                build_deps = chunk_morph['x-build-dependencies-%s' % kind]
-                runtime_deps = chunk_morph['x-runtime-dependencies-%s' % kind]
+                build_deps = self.get_dependencies_from_morphology(
+                    chunk_morph, 'x-build-dependencies-%s' % kind)
+                runtime_deps = self.get_dependencies_from_morphology(
+                    chunk_morph, 'x-runtime-dependencies-%s' % kind)
             except BaserockImportException as e:
                 self.status('%s', e)
                 errors[current_item] = e
