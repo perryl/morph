@@ -247,6 +247,12 @@ class Package(object):
         self.is_build_dep = False
         self.version_in_use = version
 
+    def __cmp__(self, other):
+        return cmp(self.name, other.name)
+
+    def __repr__(self):
+        return '<Package %s-%s>' % (self.name, self.version)
+
     def __str__(self):
         if len(self.required_by) > 0:
             required_msg = ', '.join(self.required_by)
@@ -591,7 +597,8 @@ class BaserockImportApplication(cliapp.Application):
 
         self.status(msg='Generating stratum morph for %s' % goal_name)
 
-        chunk_packages = networkx.topological_sort(graph)
+        order = reversed(sorted(graph.nodes()))
+        chunk_packages = networkx.topological_sort(graph, nbunch=order)
         chunk_entries = []
 
         for package in chunk_packages:
