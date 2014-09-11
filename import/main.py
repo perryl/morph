@@ -157,23 +157,12 @@ class LorrySet(object):
             json.dump(lorry_entry, f, indent=4)
 
 
-# FIXME: this tool extends the morphology format to store
-# packaging-system-specific dependency information. Here is a hack to make that
-# work. Long term, we must either make 'dependency' field an official thing, or
-# communicate the dependency information in a separate way (which would be a
-# bit more code than this, I think).
-class MorphologyLoader(morphlib.morphloader.MorphologyLoader):
-    pass
-MorphologyLoader._static_defaults['chunk']['x-build-dependencies-rubygems'] = {}
-MorphologyLoader._static_defaults['chunk']['x-runtime-dependencies-rubygems'] = {}
-
-
 class MorphologySet(morphlib.morphset.MorphologySet):
     def __init__(self, path):
         super(MorphologySet, self).__init__()
 
         self.path = path
-        self.loader = MorphologyLoader()
+        self.loader = morphlib.morphloader.MorphologyLoader()
 
         if os.path.exists(path):
             self.load_all_morphologies()
@@ -198,11 +187,10 @@ class MorphologySet(morphlib.morphset.MorphologySet):
 
         gitdir = FakeGitDir(self.path)
         finder = morphlib.morphologyfinder.MorphologyFinder(gitdir)
-        loader = MorphologyLoader()
         for filename in (f for f in finder.list_morphologies()
                          if not gitdir.is_symlink(f)):
             text = finder.read_morphology(filename)
-            morph = loader.load_from_string(text, filename=filename)
+            morph = self.loader.load_from_string(text, filename=filename)
             morph.repo_url = None  # self.root_repository_url
             morph.ref = None  # self.system_branch_name
             self.add_morphology(morph)
@@ -382,12 +370,13 @@ class BaserockImportApplication(cliapp.Application):
     def get_dependencies_from_morphology(self, morphology, field_name):
         # We need to validate this field because it doesn't go through the
         # normal MorphologyFactory validation, being an extension.
-        value = morphology[field_name]
+        value = morphology.get(field_name, {})
         if not hasattr(value, 'iteritems'):
             value_type = type(value).__name__
             raise cliapp.AppException(
                 "Morphology for %s has invalid '%s': should be a dict, but "
                 "got a %s." % (morphology['name'], field_name, value_type))
+
         return value
 
     def import_package_and_all_dependencies(self, kind, goal_name,
@@ -568,7 +557,7 @@ class BaserockImportApplication(cliapp.Application):
         except cliapp.AppException as e:
             raise BaserockImportException(e.msg.rstrip())
 
-        loader = MorphologyLoader()
+        loader = morphlib.morphloader.MorphologyLoader()
         return loader.load_from_string(text, filename)
 
     def find_or_create_chunk_morph(self, morph_set, goal_name, kind, name,
