@@ -1,5 +1,11 @@
 ---
 
+# The :development dependency set is way too broad for our needs: for most Gems,
+# it includes test tools and development aids that aren't necessary for just
+# building the Gem. It's hard to even get a stratum if we include all these
+# tools because of the number of circular dependencies. Instead, only those
+# tools which are known to be required at Gem build time are listed as
+# build-dependencies, and any other :development dependencies are ignored.
 build-dependency-whitelist:
   - hoe
   # rake is bundled with Ruby, so it is not included in the whitelist.
