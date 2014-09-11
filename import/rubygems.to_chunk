@@ -145,7 +145,7 @@ class RubyGemChunkMorphologyGenerator
       {
         'artifact' => "#{spec.full_name}-doc",
         'include' => [
-          "usr/lib/ruby/gems/#{BASEROCK_RUBY_VERSION}/doc/.*"
+          "usr/lib/ruby/gems/\d[\w.]*/doc/.*"
         ]
       }
     ]
@@ -171,6 +171,24 @@ class RubyGemChunkMorphologyGenerator
     # with the 'rubygems' library would complain that required Gems were not
     # installed. We must have the Gem metadata available, and `gem build; gem
     # install` seems the easiest way to achieve that.
+
+    # There's more splitting to be done, but putting the docs in the
+    # correct artifact is the single biggest win for enabling smaller
+    # system images.
+    #
+    # Adding this to Morph's default ruleset is painful, because:
+    #   - Changing the default split rules triggers a rebuild of everything.
+    #   - The whole split rule code needs reworking to prevent overlaps and to
+    #     make it possible to extend rules without creating overlaps. It's
+    #     otherwise impossible to reason about.
+    split_rules = [
+      {
+        'artifact' => "#{spec.full_name}-doc",
+        'include' => [
+          "usr/lib/ruby/gems/\d[\w.]*/doc/.*"
+        ]
+      }
+    ]
 
     build_commands = [
       "gem build #{spec.name}.gemspec",
