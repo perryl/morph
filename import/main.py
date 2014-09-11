@@ -26,7 +26,6 @@ import copy
 import json
 import logging
 import os
-import sys
 import time
 
 from logging import debug
@@ -561,17 +560,20 @@ class BaserockImportApplication(cliapp.Application):
 
     def find_or_create_chunk_morph(self, morph_set, goal_name, kind, name,
                                    version, source_repo, repo_url, named_ref):
-        morphology_filename = 'strata/%s/%s-%s.morph' % (goal_name, name, version)
+        morphology_filename = 'strata/%s/%s-%s.morph' % (
+            goal_name, name, version)
         sha1 = source_repo.resolve_ref_to_commit(named_ref)
-        morphology = morph_set.get_morphology(repo_url, sha1, morphology_filename)
+        morphology = morph_set.get_morphology(
+            repo_url, sha1, morphology_filename)
 
         if morphology is None:
             # Existing chunk morphologies loaded from disk don't contain the repo
             # and ref information. That's stored in the stratum morph. So the
             # first time we touch a chunk morph we need to set this info.
-            logging.debug("Didn't find morphology for %s|%s|%s", repo_url, sha1,
-                          morphology_filename)
-            morphology = morph_set.get_morphology(None, None, morphology_filename)
+            logging.debug("Didn't find morphology for %s|%s|%s", repo_url,
+                          sha1, morphology_filename)
+            morphology = morph_set.get_morphology(
+                None, None, morphology_filename)
 
             if morphology is None:
                 logging.debug("Didn't find morphology for None|None|%s",
