@@ -27,6 +27,7 @@ import json
 import logging
 import os
 import sys
+import time
 
 from logging import debug
 
@@ -375,6 +376,12 @@ class BaserockImportApplication(cliapp.Application):
 
     def import_package_and_all_dependencies(self, kind, goal_name,
                                             goal_version='master'):
+        start_time = time.time()
+        start_displaytime = time.strftime('%x %X %Z', time.localtime())
+
+        logging.info('Import of %s %s started %s', kind, goal_name,
+                     start_displaytime)
+
         lorry_set = LorrySet(self.settings['lorries-dir'])
         morph_set = MorphologySet(self.settings['definitions-dir'])
 
@@ -421,14 +428,20 @@ class BaserockImportApplication(cliapp.Application):
                 current_item, runtime_deps, to_process, processed, False)
 
         if len(errors) > 0:
+            for package, exception in errors.iteritems():
+                self.status('\n%s: %s', package.name, exception)
             self.status(
                 '\nErrors encountered, not generating a stratum morphology.')
             self.status(
                 'See the README files for guidance.')
-            for package, exception in errors.iteritems():
-                self.status('\n%s: %s', package.name, exception)
         else:
             self.generate_stratum_morph_if_none_exists(processed, goal_name)
+
+        duration = time.time() - start_time
+        end_displaytime = time.strftime('%x %X %Z', time.localtime())
+
+        logging.info('Import of %s %s ended %s (took %i seconds)', kind,
+                     goal_name, end_displaytime, duration)
 
     def generate_lorry_for_package(self, kind, name):
         tool = '%s.to_lorry' % kind
