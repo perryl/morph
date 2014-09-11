@@ -22,11 +22,6 @@ require 'logger'
 require 'optparse'
 require 'yaml'
 
-BUILD_DEPENDENCY_WHITELIST = [
-  'hoe',
-  # rake is bundled with Ruby, so it is not included in the whitelist.
-]
-
 # Log information was passed in from the main import process, probably.
 # This global constant approach seems a little ugly, but it seems to be
 # recommended here:
@@ -63,6 +58,11 @@ def spec_is_from_current_source_tree(spec)
 end
 
 class RubyGemChunkMorphologyGenerator
+  def initialize
+    local_data = YAML.load_file("rubygems.yaml")
+    @build_dependency_whitelist = local_data['build-dependency-whitelist']
+  end
+
   def parse_options(arguments)
     # No options so far ..
     opts = OptionParser.new
@@ -213,7 +213,7 @@ class RubyGemChunkMorphologyGenerator
 
   def build_deps_for_gem(spec)
     deps = spec.dependencies.select do |d|
-      d.type == :development && BUILD_DEPENDENCY_WHITELIST.member?(d.name)
+      d.type == :development && @build_dependency_whitelist.member?(d.name)
     end
   end
 

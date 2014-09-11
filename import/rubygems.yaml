@@ -1,5 +1,9 @@
 ---
 
+build-dependency-whitelist:
+  - hoe
+  # rake is bundled with Ruby, so it is not included in the whitelist.
+
 # The following Gems don't provide a source_code_uri in their Gem metadata.
 # Ideally ... they would do.
 known-source-uris:
