@@ -474,6 +474,10 @@ class BaserockImportApplication(cliapp.Application):
                     'Invalid lorry data for %s: %s' % (name, lorry))
 
             lorry_set.add(lorry_filename, lorry)
+        else:
+            lorry_filename = lorry.keys()[0]
+            logging.info(
+                'Found existing lorry file for %s: %s', name, lorry_filename)
 
         return lorry
 
