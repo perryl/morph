@@ -27,23 +27,16 @@ require 'yaml'
 # recommended here:
 # <https://stackoverflow.com/questions/1681745/share-global-logger-among-module-classes>
 #
-log_file = ENV['BASEROCK_IMPORT_LOG'] || '/dev/null'
-
-if log_file.length == 0 then log_file = '/dev/null' end
-
-Log = Logger.new(log_file)
-
-Log.level = case ENV['BASEROCK_IMPORT_LOG_LEVEL']
-                when 'debug' then Logger::DEBUG
-                when 'warning' then Logger::WARN
-                when 'error' then Logger::ERROR
-                when 'critical', 'fatal' then Logger::FATAL
-                else Logger::INFO
-                end
-
-Log.formatter = proc do |severity, datetime, progname, msg|
-    "rubygems.to_chunk: #{severity}: #{msg}\n"
+log_fd = Integer(ENV['MORPH_LOG_FD'])
+if log_fd
+  log_stream = IO.new(log_fd, 'w')
+  Log = Logger.new(log_stream)
+  Log.level = Logger::DEBUG
+  Log.formatter = proc { |severity, datetime, progname, msg| "#{msg}\n" }
+else
+  Log = Logger.new('/dev/null')
 end
+
 
 class << Bundler
   def default_gemfile

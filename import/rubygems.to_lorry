@@ -140,16 +140,32 @@ class RubyGemLorryGenerator(object):
 
 
 def setup_logging():
-    stream_name = os.environ.get('BASEROCK_IMPORT_LOG', '')
-    level = os.environ.get('BASEROCK_IMPORT_LOG_LEVEL', 'info')
+    '''Direct all logging output to MORPH_LOG_FD, if set.
 
-    level_id = logging._levelNames.get(level.upper(), logging.INFO)
-    if len(stream_name) > 0:
-        logging.basicConfig(stream=open(stream_name, 'a'), level=level_id)
+    This file descriptor is read by Morph and written into its own log
+    file.
+
+    This overrides cliapp's usual configurable logging setup.
+
+    '''
+    log_write_fd = int(os.environ.get('MORPH_LOG_FD', 0))
+
+    if log_write_fd == 0:
+        return
+
+    formatter = logging.Formatter('%(message)s')
+
+    handler = logging.StreamHandler(os.fdopen(log_write_fd, 'w'))
+    handler.setFormatter(formatter)
+
+    logger = logging.getLogger()
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
 
 
 def write_lorry(stream, lorry):
     json.dump(lorry, stream, indent=4)
+    stream.write('\n')
 
 
 def main():

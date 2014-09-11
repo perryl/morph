@@ -26,6 +26,7 @@ import copy
 import json
 import logging
 import os
+import sys
 import time
 
 from logging import debug
@@ -268,6 +269,43 @@ def find(iterable, match):
     return next((x for x in iterable if match(x)), None)
 
 
+def run_extension(filename, args):
+    output = []
+    errors = []
+
+    ext_logger = logging.getLogger(filename)
+
+    def report_extension_stdout(line):
+        output.append(line)
+
+    def report_extension_stderr(line):
+        errors.append(line)
+        sys.stderr.write('%s\n' % line)
+
+    def report_extension_logger(line):
+        ext_logger.debug(line)
+
+    error_list = []
+    ext = morphlib.extensions.ExtensionSubprocess(
+        report_stdout=report_extension_stdout,
+        report_stderr=report_extension_stderr,
+        report_logger=report_extension_logger,
+    )
+
+    returncode = ext.run(os.path.abspath(filename), args, '.', {})
+
+    if returncode == 0:
+        ext_logger.info('succeeded')
+    else:
+        for line in errors:
+            ext_logger.error(line)
+        message = '%s failed with code %s: %s' % (
+            filename, returncode, '\n'.join(errors))
+        raise BaserockImportException(message)
+
+    return '\n'.join(output)
+
+
 class BaserockImportApplication(cliapp.Application):
     def add_settings(self):
         self.settings.string(['lorries-dir'],
@@ -288,20 +326,12 @@ class BaserockImportApplication(cliapp.Application):
                             arg_synopsis='GEM_NAME')
 
     def setup_logging_formatter_for_file(self):
+        root_logger = logging.getLogger()
+        root_logger.name = 'main'
+
         # You need recent cliapp for this to work, with commit "Split logging
         # setup into further overrideable methods".
-        return logging.Formatter("main: %(levelname)s: %(message)s")
-
-    def setup_logging_for_import_plugins(self):
-        log = self.settings['log']
-
-        if log == '/dev/stdout':
-            # The plugins output results on /dev/stdout, logs would interfere
-            debug('Redirecting import plugin logs to /dev/stderr')
-            log = '/dev/stderr'
-
-        os.environ['BASEROCK_IMPORT_LOG'] = log
-        os.environ['BASEROCK_IMPORT_LOG_LEVEL'] = self.settings['log-level']
+        return logging.Formatter("%(name)s: %(levelname)s: %(message)s")
 
     def process_args(self, args):
         if len(args) == 0:
@@ -309,7 +339,6 @@ class BaserockImportApplication(cliapp.Application):
             # no args are passed, I prefer this.
             args = ['help']
 
-        self.setup_logging_for_import_plugins()
         super(BaserockImportApplication, self).process_args(args)
 
     def status(self, msg, *args):
@@ -384,8 +413,8 @@ class BaserockImportApplication(cliapp.Application):
         start_time = time.time()
         start_displaytime = time.strftime('%x %X %Z', time.localtime())
 
-        logging.info('Import of %s %s started %s', kind, goal_name,
-                     start_displaytime)
+        logging.info('%s: Import of %s %s started', start_displaytime, kind,
+                     goal_name)
 
         lorry_set = LorrySet(self.settings['lorries-dir'])
         morph_set = MorphologySet(self.settings['definitions-dir'])
@@ -423,7 +452,8 @@ class BaserockImportApplication(cliapp.Application):
                 runtime_deps = self.get_dependencies_from_morphology(
                     chunk_morph, 'x-runtime-dependencies-%s' % kind)
             except BaserockImportException as e:
-                self.status('%s', e)
+                # Don't print the exception on stdout; the error messages will
+                # have gone to stderr already.
                 errors[current_item] = e
                 build_deps = runtime_deps = {}
 
@@ -447,16 +477,14 @@ class BaserockImportApplication(cliapp.Application):
         duration = time.time() - start_time
         end_displaytime = time.strftime('%x %X %Z', time.localtime())
 
-        logging.info('Import of %s %s ended %s (took %i seconds)', kind,
-                     goal_name, end_displaytime, duration)
+        logging.info('%s: Import of %s %s ended (took %i seconds)',
+                     end_displaytime, kind, goal_name, duration)
+
 
     def generate_lorry_for_package(self, kind, name):
         tool = '%s.to_lorry' % kind
         self.status('Calling %s to generate lorry for %s', tool, name)
-        try:
-            lorry_text = cliapp.runcmd([os.path.abspath(tool), name])
-        except cliapp.AppException as e:
-            raise BaserockImportException(e.msg.rstrip())
+        lorry_text = run_extension(tool, [name])
         lorry = json.loads(lorry_text)
         return lorry
 
@@ -551,12 +579,7 @@ class BaserockImportApplication(cliapp.Application):
                                          filename):
         tool = '%s.to_chunk' % kind
         self.status('Calling %s to generate chunk morph for %s', tool, name)
-        try:
-            text = cliapp.runcmd(
-                [os.path.abspath(tool), source_repo.dirname, name])
-        except cliapp.AppException as e:
-            raise BaserockImportException(e.msg.rstrip())
-
+        text = run_extension(tool, [source_repo.dirname, name])
         loader = morphlib.morphloader.MorphologyLoader()
         return loader.load_from_string(text, filename)
 
