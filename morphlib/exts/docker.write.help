@@ -32,7 +32,7 @@ help: |
 
     Alternately, you could set up an SSH tunnel manually with something like:
 
-        /usr/bin/ssh -T -p 22 -L 127.0.0.1:57714:host:2375 user@host
+        /usr/bin/ssh -T -p 22 -L 127.0.0.1:57714:127.0.0.1:2375 user@host
 
     And then deploy to a location like this. Note 57714 is a random port number.
 
