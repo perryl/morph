@@ -197,11 +197,7 @@ class DockerWriteExtension(morphlib.writeexts.WriteExtension):
 
         docker_client.ping()
 
-        try:
-            self.do_import(docker_client, temp_root, image_name)
-        except Exception as e:
-            import pdb, sys
-            pdb.post_mortem(sys.exc_traceback)
+        self.do_import(docker_client, temp_root, image_name)
 
         self.status(
             msg='Docker image %(image_name)s has been created',
