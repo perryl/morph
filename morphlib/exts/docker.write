@@ -195,10 +195,12 @@ class DockerWriteExtension(morphlib.writeexts.WriteExtension):
         '''Parse the location argument to get relevant data.'''
 
         x = urlparse.urlparse(location)
+        if x.hostname is None:
+            raise cliapp.AppException("Missing host in URL '%s'" % location)
         return x.username, x.hostname, x.port, x.path[1:]
 
     def create_docker_client_for_socket(self, socket):
-        self.status(msg='Connecting to Docker service at %s' % socket)
+        self.status(msg='Connecting to local Docker service at %s' % socket)
         return docker.Client(base_url=socket, timeout=10)
 
     def setup_ssh_tunnel(self, user, host, port):
@@ -213,11 +215,11 @@ class DockerWriteExtension(morphlib.writeexts.WriteExtension):
         return local_bind_port, None #tunnel_thread
 
     def create_docker_client_with_remote_ssh_tunnel(self, user, host, port):
-        self.status(msg='Connecting to Docker service at %s:%s' % (host, port))
+        self.status(msg='Connecting to remote Docker service at %s:%s' % (host, port))
 
         try:
             local_bind_port, tunnel_thread = self.setup_ssh_tunnel(user, host, port)
-        except socket.error as e:
+        except (socket.error, paramiko.SSHException) as e:
             raise cliapp.AppException('Failed to create SSH tunnel: %s' % e)
 
         docker_client = docker.Client(
@@ -251,7 +253,7 @@ class DockerWriteExtension(morphlib.writeexts.WriteExtension):
         if response.status_code != 200:
             raise cliapp.AppException(
                 'Request to Docker daemon failed: %s (code %i)' %
-                (response.reason, response))
+                (response.reason, response.status_code))
 
     def stream_system_as_tar(self, fs_root, chunked_stream):
         def make_relative(tarinfo):
