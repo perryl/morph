@@ -162,20 +162,34 @@ class DockerWriteExtension(morphlib.writeexts.WriteExtension):
         if len(args) != 2:
             raise cliapp.AppException('Wrong number of command line args')
 
-        temp_root, location = args
+        temp_root, location_string = args
 
-        if location.startswith('docker://'):
-            socket = 'http+unix://var/run/docker.sock'
-            image_name = self.parse_docker_location(location)
-            docker_client = self.create_docker_client_for_socket(socket)
-        elif location.startswith('docker+ssh://'):
-            user, host, port, image_name = self.parse_docker_ssh_location(location)
-            docker_client = self.create_docker_client_with_remote_ssh_tunnel(
-                user, host, port)
+        location = urlparse.urlparse(location_string)
+        if location.scheme == 'docker':
+            if len(location.netloc) == 0:
+                # The extension may need to allow the user to specify a
+                # different path for the Docker daemon's socket. That could
+                # be done through an environment variable, or via a config
+                # file. It's can't really be encoded in the 'location' URL.
+                socket = 'http+unix://var/run/docker.sock'
+                docker_client = self.open_local_unix_socket(socket)
+            else:
+                # Note that access to the Docker daemon's socket == root access
+                # to the host. Thus, this socket should only ever be a
+                # local-only TCP socket. It might be worth refusing to connect
+                # if host != '127.0.0.1' to make this clear.
+                docker_client = self.open_tcp_socket(location.netloc)
+        elif location.scheme == 'docker+ssh':
+            if len(location.netloc) == 0:
+                raise cliapp.AppException("Missing host in URL '%s'" %
+                        location_string)
+            docker_client = self.open_tcp_socket_with_ssh_tunnel(
+                    location.username, location.hostname, location.port)
         else:
             raise cliapp.AppException(
-                'Sorry, currently this extension only supports docker:// '
-                'and docker+ssh:// URIs.')
+                "Sorry, currently this extension only supports docker:// "
+                "and docker+ssh:// URIs. Got '%s://'." % location.scheme)
+        image_name = location.path[1:]
 
         docker_client.ping()
 
@@ -189,23 +203,13 @@ class DockerWriteExtension(morphlib.writeexts.WriteExtension):
             msg='Docker image %(image_name)s has been created',
             image_name=image_name)
 
-    def parse_docker_location(self, location):
-        '''Parse the location argument to get relevant data.'''
-
-        x = urlparse.urlparse(location)
-        return x.path[1:]
-
-    def parse_docker_ssh_location(self, location):
-        '''Parse the location argument to get relevant data.'''
-
-        x = urlparse.urlparse(location)
-        if x.hostname is None:
-            raise cliapp.AppException("Missing host in URL '%s'" % location)
-        return x.username, x.hostname, x.port, x.path[1:]
-
-    def create_docker_client_for_socket(self, socket):
+    def open_local_unix_socket(self, socket):
         self.status(msg='Connecting to local Docker service at %s' % socket)
-        return docker.Client(base_url=socket, timeout=10)
+        return docker.Client(base_url=socket)
+
+    def open_tcp_socket(self, netloc):
+        self.status(msg='Connecting to Docker service at %s' % netloc)
+        return docker.Client(base_url='http://%s' % netloc)
 
     def setup_ssh_tunnel(self, user, host, port):
         client = paramiko.SSHClient()
@@ -218,7 +222,7 @@ class DockerWriteExtension(morphlib.writeexts.WriteExtension):
         local_bind_port = port
         return local_bind_port, None #tunnel_thread
 
-    def create_docker_client_with_remote_ssh_tunnel(self, user, host, port):
+    def open_tcp_socket_with_ssh_tunnel(self, user, host, port=2375):
         self.status(msg='Connecting to remote Docker service at %s:%s' % (host, port))
 
         try:
