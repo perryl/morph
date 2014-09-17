@@ -165,7 +165,7 @@ class DockerWriteExtension(morphlib.writeexts.WriteExtension):
         temp_root, location = args
 
         if location.startswith('docker://'):
-            socket = 'unix://var/run/docker.sock'
+            socket = 'http+unix://var/run/docker.sock'
             image_name = self.parse_docker_location(location)
             docker_client = self.create_docker_client_for_socket(socket)
         elif location.startswith('docker+ssh://'):
@@ -226,15 +226,6 @@ class DockerWriteExtension(morphlib.writeexts.WriteExtension):
         return docker_client
 
     def do_import(self, docker_client, temp_root, image_name):
-        # FIXME: hack! The docker-py library should let us put in a fileobj and
-        # have it handle buffering automatically ... I.E. this hack should be
-        # sent upstream as an improvement, instead. Still, it's kind of cool
-        # that Python enables such easy workarounds!
-        #
-        # For reference, the Ruby client can already do this:
-        # https://github.com/swipely/docker-api/blob/master/lib/docker/image.rb
-        import_url = docker_client._url('/images/create')
-
         def display_transfer_status(message):
             self.status(msg=message)
 
@@ -245,21 +236,10 @@ class DockerWriteExtension(morphlib.writeexts.WriteExtension):
         tar_thread.start()
 
         try:
-            response = docker_client.post(
-                import_url,
-                data=tar_stream,
-                params={
-                    'fromSrc': '-',
-                    'repo': image_name
-                },
-                headers = {
-                    'Content-Type': 'application/tar',
-                    'Transfer-Encoding': 'chunked',
-                }
+            response = docker_client.import_image_from_stream(
+                src=tar_stream,
+                repository=image_name
             )
-            # At this point 'WARNING Connection pool is full, discarding
-            # connection: 127.0.0.1' shows up in the logs. I'm not sure why. It
-            # seems harmless so far.
         except BaseException as e:
             logging.debug('Received %r while sending image', e)
             tar_stream.abort(e)
