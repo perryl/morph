@@ -182,7 +182,8 @@ class DockerWriteExtension(morphlib.writeexts.WriteExtension):
                 # to the host. Thus, this socket should only ever be a
                 # local-only TCP socket. It might be worth refusing to connect
                 # if host != '127.0.0.1' to make this clear.
-                docker_client = self.open_tcp_socket(location.netloc)
+                docker_client = self.open_tcp_socket(
+                    location.username, location.hostname, location.port)
         elif location.scheme == 'docker+ssh':
             if len(location.netloc) == 0:
                 raise cliapp.AppException("Missing host in URL '%s'" %
@@ -207,10 +208,15 @@ class DockerWriteExtension(morphlib.writeexts.WriteExtension):
         self.status(msg='Connecting to local Docker service at %s' % socket)
         return docker.Client(base_url=socket, timeout=CONNECTION_TIMEOUT)
 
-    def open_tcp_socket(self, netloc):
-        self.status(msg='Connecting to Docker service at tcp://%s' % netloc)
-        return docker.Client(base_url='tcp://%s' % netloc,
-                             timeout=CONNECTION_TIMEOUT)
+    def open_tcp_socket(self, user, host, port):
+        port = port or 2375
+        if user is None:
+            base_url = 'http://%s:%s' % (host, port)
+        else:
+            base_url = 'http://%s@%s:%s' % (user, host, port)
+
+        self.status(msg='Connecting to Docker service at %s' % base_url)
+        return docker.Client(base_url=base_url, timeout=CONNECTION_TIMEOUT)
 
     def setup_ssh_tunnel(self, user, host, port):
         client = paramiko.SSHClient()
@@ -223,7 +229,8 @@ class DockerWriteExtension(morphlib.writeexts.WriteExtension):
         local_bind_port = port
         return local_bind_port, None #tunnel_thread
 
-    def open_tcp_socket_with_ssh_tunnel(self, user, host, port=2375):
+    def open_tcp_socket_with_ssh_tunnel(self, user, host, port):
+        port = port or 2375
         self.status(msg='Connecting to remote Docker service at %s:%s' % (host, port))
 
         try:
