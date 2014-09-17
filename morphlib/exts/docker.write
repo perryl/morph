@@ -39,6 +39,10 @@ import urlparse
 import morphlib.writeexts
 
 
+# Seconds to wait before raising a connection error.
+CONNECTION_TIMEOUT = 10
+
+
 class ChunkedTarfileAdapter(object):
     '''File-like object which allows batched writes.
 
@@ -205,11 +209,12 @@ class DockerWriteExtension(morphlib.writeexts.WriteExtension):
 
     def open_local_unix_socket(self, socket):
         self.status(msg='Connecting to local Docker service at %s' % socket)
-        return docker.Client(base_url=socket)
+        return docker.Client(base_url=socket, timeout=CONNECTION_TIMEOUT)
 
     def open_tcp_socket(self, netloc):
-        self.status(msg='Connecting to Docker service at %s' % netloc)
-        return docker.Client(base_url='http://%s' % netloc)
+        self.status(msg='Connecting to Docker service at tcp://%s' % netloc)
+        return docker.Client(base_url='tcp://%s' % netloc,
+                             timeout=CONNECTION_TIMEOUT)
 
     def setup_ssh_tunnel(self, user, host, port):
         client = paramiko.SSHClient()
@@ -231,7 +236,8 @@ class DockerWriteExtension(morphlib.writeexts.WriteExtension):
             raise cliapp.AppException('Failed to create SSH tunnel: %s' % e)
 
         docker_client = docker.Client(
-            base_url='http://127.0.0.1:%d' % local_bind_port)
+            base_url='http://127.0.0.1:%d' % local_bind_port,
+            timeout=CONNECTION_TIMEOUT)
 
         return docker_client
 
