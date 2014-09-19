@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2013  Codethink Limited
+# Copyright (C) 2013 - 2014 Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,7 +28,8 @@ set -eu
 
 # get git version info
 cd "$SRCDIR"
-description="$(git describe --always --dirty=-unreproducible)"
+description="$(git describe --abbrev=40 --always \
+    --dirty=-unreproducible --match=DO-NOT-MATCH-ANY-TAGS)"
 commit="$(git rev-parse 'HEAD^{commit}')"
 tree="$(git rev-parse 'HEAD^{tree}')"
 ref="$(git rev-parse --symbolic-full-name 'HEAD')"
