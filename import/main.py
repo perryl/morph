@@ -174,7 +174,8 @@ class LorrySet(object):
         contents.update(entry)
 
         with morphlib.savefile.SaveFile(filename, 'w') as f:
-            json.dump(contents, f, indent=4, sort_keys=True)
+            json.dump(contents, f, indent=4, separators=(',', ': '),
+                      sort_keys=True)
 
 
 class MorphologySet(morphlib.morphset.MorphologySet):
