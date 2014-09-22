@@ -27,9 +27,9 @@ require 'yaml'
 # recommended here:
 # <https://stackoverflow.com/questions/1681745/share-global-logger-among-module-classes>
 #
-log_fd = Integer(ENV['MORPH_LOG_FD'])
+log_fd = ENV['MORPH_LOG_FD']
 if log_fd
-  log_stream = IO.new(log_fd, 'w')
+  log_stream = IO.new(Integer(log_fd), 'w')
   Log = Logger.new(log_stream)
   Log.level = Logger::DEBUG
   Log.formatter = proc { |severity, datetime, progname, msg| "#{msg}\n" }
