@@ -184,7 +184,7 @@ class RubyGemChunkMorphologyGenerator
       # control the build and deployment environment, and we obviously can't
       # provide the private key of the Gem's maintainer.
       configure_commands <<
-        "sed -e '/cert_chain\\w+=/d' -e '/signing_key\\w+=/d' -i " +
+        "sed -e '/cert_chain\\s*=/d' -e '/signing_key\\s*=/d' -i " +
         "#{spec.name}.gemspec"
     end
 

@@ -1,5 +1,7 @@
 ---
 
+lorry-prefix: ruby-gems/
+
 # The :development dependency set is way too broad for our needs: for most Gems,
 # it includes test tools and development aids that aren't necessary for just
 # building the Gem. It's hard to even get a stratum if we include all these

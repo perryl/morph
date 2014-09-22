@@ -162,8 +162,19 @@ class LorrySet(object):
         else:
             self.data[project_name] = info
 
+        self._add_lorry_entry_to_lorry_file(filename, lorry_entry)
+
+    def _add_lorry_entry_to_lorry_file(self, filename, entry):
+        if os.path.exists(filename):
+            with open(filename) as f:
+                contents = json.load(f)
+        else:
+            contents = {}
+
+        contents.update(entry)
+
         with morphlib.savefile.SaveFile(filename, 'w') as f:
-            json.dump(lorry_entry, f, indent=4)
+            json.dump(contents, f, indent=4, sort_keys=True)
 
 
 class MorphologySet(morphlib.morphset.MorphologySet):
@@ -507,6 +518,13 @@ class BaserockImportApplication(cliapp.Application):
                     'Expected generated lorry file with one entry.')
 
             lorry_filename = lorry.keys()[0]
+
+            if '/' in lorry_filename:
+                # We try to be a bit clever and guess that if there's a prefix
+                # in the name, e.g. 'ruby-gems/chef' then it should go in a
+                # mega-lorry file, such as ruby-gems.lorry.
+                parts = lorry_filename.split('/', 1)
+                lorry_filename = parts[0]
 
             if lorry_filename == '':
                 raise cliapp.AppException(

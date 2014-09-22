@@ -69,6 +69,7 @@ class RubyGemLorryGenerator(ImportExtension):
         with open('rubygems.yaml', 'r') as f:
             local_data = yaml.load(f.read())
 
+        self.lorry_prefix = local_data['lorry-prefix']
         self.known_source_uris = local_data['known-source-uris']
 
         logging.debug(
@@ -139,12 +140,13 @@ class RubyGemLorryGenerator(ImportExtension):
         logging.info('Got URL <%s> for %s', gem_source_url, gem_name)
 
         project_name = self.project_name_from_repo(gem_source_url)
+        lorry_name = self.lorry_prefix + project_name
 
         # One repo may produce multiple Gems. It's up to the caller to merge
         # multiple .lorry files that get generated for the same repo.
 
         lorry = {
-            project_name: {
+            lorry_name: {
                 'type': 'git',
                 'url': gem_source_url,
                 'x-products-rubygems': [gem_name]
