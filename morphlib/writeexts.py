@@ -355,7 +355,8 @@ class WriteExtension(cliapp.Application):
         decision will be honoured and /state/home will not be created.
 
         '''
-        new_mounts = {'home', 'root', 'opt', 'srv', 'var'}
+        new_mounts = {('home', None), ('root', None), ('opt', None),
+            ('srv', None), ('var', None)}
 
         fstab = Fstab(os.path.join(system_dir, 'etc', 'fstab'))
         existing_mounts = fstab.get_mounts()
@@ -368,13 +369,13 @@ class WriteExtension(cliapp.Application):
             fstab.add_line('%s  / btrfs defaults,rw,noatime 0 1' % root_device)
 
         mounts_to_create = set()
-        for mount_point in new_mounts:
+        for (mount_point, options) in new_mounts:
             if '/' + mount_point not in existing_mounts:
                 mounts_to_create.add(mount_point)
                 subvol = os.path.join('/state', mount_point)
-                fstab.add_line(
-                        '%s  /%s  btrfs subvol=%s,defaults,rw,noatime 0 2' %
-                        (root_device, mount_point, subvol))
+                fstab.add_line('%s  /%s  btrfs subvol=%s,%s' %
+                               (root_device, mount_point, subvol,
+                                options or 'defaults,rw,noatime 0 2'))
 
         fstab.write()
         return mounts_to_create
