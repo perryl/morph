@@ -352,7 +352,7 @@ class WriteExtension(cliapp.Application):
         '''Fill in /etc/fstab entries for the default Btrfs disk layout.
 
         In the future we should move this code out of the write extension and
-        in to a configure extension. To do that, though, we need some way of
+        into a configure extension. To do that, though, we need some way of
         informing the configure extension what layout should be used. Right now
         a configure extension doesn't know if the system is going to end up as
         a Btrfs disk image, a tarfile or something else and so it can't come
@@ -364,7 +364,7 @@ class WriteExtension(cliapp.Application):
         decision will be honoured and /state/home will not be created.
 
         '''
-        shared_state_dirs = {'home', 'root', 'opt', 'srv', 'var'}
+        new_mounts = {'home', 'root', 'opt', 'srv', 'var'}
 
         fstab = Fstab(os.path.join(system_dir, 'etc', 'fstab'))
         existing_mounts = fstab.get_mounts()
@@ -376,17 +376,17 @@ class WriteExtension(cliapp.Application):
                            'UUID=%s' % rootfs_uuid)
             fstab.add_line('%s  / btrfs defaults,rw,noatime 0 1' % root_device)
 
-        state_dirs_to_create = set()
-        for state_dir in shared_state_dirs:
-            if '/' + state_dir not in existing_mounts:
-                state_dirs_to_create.add(state_dir)
-                state_subvol = os.path.join('/state', state_dir)
+        mounts_to_create = set()
+        for mount_point in new_mounts:
+            if '/' + mount_point not in existing_mounts:
+                mounts_to_create.add(mount_point)
+                subvol = os.path.join('/state', mount_point)
                 fstab.add_line(
                         '%s  /%s  btrfs subvol=%s,defaults,rw,noatime 0 2' %
-                        (root_device, state_dir, state_subvol))
+                        (root_device, mount_point, subvol))
 
         fstab.write()
-        return state_dirs_to_create
+        return mounts_to_create
 
     def find_initramfs(self, temp_root):
         '''Check whether the rootfs has an initramfs.
