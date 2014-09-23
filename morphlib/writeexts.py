@@ -365,7 +365,7 @@ class WriteExtension(cliapp.Application):
 
         '''
         new_mounts = {('home', None), ('root', None), ('opt', None),
-            ('srv', None), ('var', None)}
+            ('srv', None), ('var', 'defaults,rw,noatime,autodefrag 0 2')}
 
         fstab = Fstab(os.path.join(system_dir, 'etc', 'fstab'))
         existing_mounts = fstab.get_mounts()
