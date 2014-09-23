@@ -60,23 +60,30 @@ class RubyGemChunkMorphologyGenerator
     # No options so far ..
     opts = OptionParser.new
 
-    opts.banner = "Usage: rubygems.to_chunk SOURCE_DIR GEM_NAME"
+    opts.banner = "Usage: rubygems.to_chunk SOURCE_DIR GEM_NAME [VERSION]"
     opts.separator ""
     opts.separator "This tool reads the Gemfile and optionally the " +
              "Gemfile.lock from a Ruby project "
     opts.separator "source tree in SOURCE_DIR. It outputs a chunk " +
              "morphology for GEM_NAME on stdout."
+    opts.separator "If VERSION is supplied, it is used to check that " +
+             "the build instructions will"
+    opts.separator "produce the expected version of the Gem."
     opts.separator ""
     opts.separator "It is intended for use with the `baserock-import` tool."
 
     parsed_arguments = opts.parse!(arguments)
 
-    if parsed_arguments.length != 2
+    if parsed_arguments.length != 2 && parsed_arguments.length != 3
       STDERR.puts opts.help
       exit 1
     end
 
-    parsed_arguments
+    source_dir, gem_name, expected_version = parsed_arguments
+    if expected_version != nil
+      expected_version = Gem::Version.new(expected_version)
+    end
+    [source_dir, gem_name, expected_version]
   end
 
   def error(message)
@@ -225,7 +232,7 @@ class RubyGemChunkMorphologyGenerator
   end
 
   def run
-    source_dir_name, gem_name = parse_options(ARGV)
+    source_dir_name, gem_name, expected_version = parse_options(ARGV)
 
     Log.info("Creating chunk morph for #{gem_name} based on " +
              "source code in #{source_dir_name}")
@@ -247,6 +254,12 @@ class RubyGemChunkMorphologyGenerator
       error "Specified gem '#{spec.name}' doesn't live in the source in " +
             "'#{source_dir_name}'"
       Log.debug "SPEC: #{spec.inspect} #{spec.source}"
+      exit 1
+    end
+
+    if expected_version != nil && spec.version != expected_version
+      error "Source in #{source_dir_name} produces #{spec.full_name}, but " +
+            "the expected version was #{expected_version}."
       exit 1
     end
 

@@ -602,10 +602,15 @@ class BaserockImportApplication(cliapp.Application):
         return version, ref
 
     def generate_chunk_morph_for_package(self, kind, source_repo, name,
-                                         filename):
+                                         version, filename):
         tool = '%s.to_chunk' % kind
         self.status('Calling %s to generate chunk morph for %s', tool, name)
-        text = run_extension(tool, [source_repo.dirname, name])
+
+        args = [source_repo.dirname, name]
+        if version != 'master':
+            args.append(version)
+        text = run_extension(tool, args)
+
         loader = morphlib.morphloader.MorphologyLoader()
         return loader.load_from_string(text, filename)
 
@@ -617,7 +622,7 @@ class BaserockImportApplication(cliapp.Application):
 
         def generate_morphology():
             morphology = self.generate_chunk_morph_for_package(
-                kind, source_repo, name, morphology_filename)
+                kind, source_repo, name, version, morphology_filename)
             morph_set.save_morphology(morphology_filename, morphology)
             return morphology
 
