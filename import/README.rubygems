@@ -34,3 +34,19 @@ You may be able to use the `rake gem` command instead of `gem build`.
 
 [Nokigori]: https://github.com/sparklemotion/nokogiri/blob/master/Y_U_NO_GEMSPEC.md
 [Hoe]: http://www.zenspider.com/projects/hoe.html
+
+
+Signed Gems
+-----------
+
+It's possible for a Gem maintainer to sign their Gems. See:
+
+  - <http://blog.meldium.com/home/2013/3/3/signed-rubygems-part>
+  - <http://www.ruby-doc.org/stdlib-1.9.3/libdoc/rubygems/rdoc/Gem/Security.html>
+
+When building a Gem in Baserock, signing is unnecessary because it's not going
+to be shared except as part of the build system. The .gemspec may include a
+`signing_key` field, which will be a local path on the maintainer's system to
+their private key. Removing this field causes an unsigned Gem to be built.
+
+Known Gems that do this: 'net-ssh' and family.
