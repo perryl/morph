@@ -258,6 +258,8 @@ class RubyGemChunkMorphologyGenerator
     end
 
     if expected_version != nil && spec.version != expected_version
+      # This check is brought to you by Coderay, which changes its version
+      # number based on an environment variable. Other Gems may do this too.
       error "Source in #{source_dir_name} produces #{spec.full_name}, but " +
             "the expected version was #{expected_version}."
       exit 1
