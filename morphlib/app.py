@@ -47,7 +47,8 @@ defaults = {
             'git://github.com/%s#'
             'ssh://git@github.com/%s'),
     ],
-    'cachedir': os.path.expanduser('~/.cache/morph'),
+    'cachedir': '/src/cache',
+    'tempdir': '/src/tmp',
     'max-jobs': morphlib.util.make_concurrency()
 }
 
@@ -150,7 +151,7 @@ class Morph(cliapp.Application):
                              'this setting can point at a directory in '
                              'NFS)',
                              metavar='DIR',
-                             default=None,
+                             default=defaults['tempdir'],
                              group=group_storage)
         self.settings.string(['cachedir'],
                              'cache git repositories and build results in DIR',
