@@ -112,7 +112,7 @@ class ListArtifactsPlugin(cliapp.Plugin):
 
             artifact_files.add(artifact.basename())
 
-            if artifact.source.morphology.needs_artifact_metadata_cached:
+            if artifact.source.morphology.needs_artifact_metadata_cached():
                 artifact_files.add('%s.meta' % artifact.basename())
 
             # This is unfortunate hardwiring of behaviour; in future we

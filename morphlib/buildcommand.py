@@ -447,7 +447,7 @@ class BuildCommand(object):
                 to_fetch.append((self.rac.get(artifact),
                                  self.lac.put(artifact)))
 
-            if artifact.source.morphology.needs_artifact_metadata_cached:
+            if artifact.source.morphology.needs_artifact_metadata_cached():
                 if not self.lac.has_artifact_metadata(artifact, 'meta'):
                     to_fetch.append((
                         self.rac.get_artifact_metadata(artifact, 'meta'),
