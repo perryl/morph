@@ -22,21 +22,16 @@ import distbuild
 import morphlib
 
 
-class MockMorphology(object):
-
-    def __init__(self, name, kind):
-        self.dict = {
-            'name': name,
-            'kind': kind,
-        }
-        self.needs_staging_area = None
-        self.needs_artifact_metadata_cached = None
-        
-    def keys(self):
-        return self.dict.keys()
-        
-    def __getitem__(self, key):
-        return self.dict[key]
+def make_morphology(name, kind):
+    m = morphlib.morphology.Morphology({
+        'name': name,
+        'kind': kind,
+    })
+    if kind == 'system':
+        m['strata'] = []
+    loader = morphlib.morphloader.MorphologyLoader()
+    loader.set_defaults(m)
+    return m
 
 
 class MockSource(object):
@@ -48,7 +43,7 @@ class MockSource(object):
         self.original_ref = '%s.source.original_ref' % name
         self.sha1 = '%s.source.sha1' % name
         self.tree = '%s.source.tree' % name
-        self.morphology = MockMorphology(name, kind)
+        self.morphology = make_morphology(name, kind)
         self.filename = '%s.source.filename' % name
         self.cache_id = {
             'blip': '%s.blip' % name,
@@ -63,7 +58,7 @@ class MockSource(object):
 
 
 
-def mock_artifact(name, kind):
+def make_artifact(name, kind):
     source = MockSource(name, kind)
     artifact = morphlib.artifact.Artifact(source, name)
     source.artifacts = {name: artifact}
@@ -73,10 +68,10 @@ def mock_artifact(name, kind):
 class SerialisationTests(unittest.TestCase):
 
     def setUp(self):
-        self.art1 = mock_artifact('name1', 'chunk')
-        self.art2 = mock_artifact('name2', 'chunk')
-        self.art3 = mock_artifact('name3', 'stratum')
-        self.art4 = mock_artifact('name4', 'system')
+        self.art1 = make_artifact('name1', 'chunk')
+        self.art2 = make_artifact('name2', 'chunk')
+        self.art3 = make_artifact('name3', 'stratum')
+        self.art4 = make_artifact('name4', 'system')
 
     def assertEqualMorphologies(self, a, b):
         self.assertEqual(sorted(a.keys()), sorted(b.keys()))
@@ -84,11 +79,6 @@ class SerialisationTests(unittest.TestCase):
         a_values = [a[k] for k in keys]
         b_values = [b[k] for k in keys]
         self.assertEqual(a_values, b_values)
-        self.assertEqual(a.needs_staging_area, b.needs_staging_area)
-        self.assertEqual(a.needs_artifact_metadata_cached, 
-                         b.needs_artifact_metadata_cached)
-        self.assertEqual(a.needs_staging_area, 
-                         b.needs_staging_area)
 
     def assertEqualSources(self, a, b):
         self.assertEqual(a.repo, b.repo)
@@ -102,8 +92,8 @@ class SerialisationTests(unittest.TestCase):
     def assertEqualArtifacts(self, a, b):
         self.assertEqualSources(a.source, b.source)
         self.assertEqual(a.name, b.name)
-        self.assertEqual(a.cache_id, b.cache_id)
-        self.assertEqual(a.cache_key, b.cache_key)
+        self.assertEqual(a.source.cache_id, b.source.cache_id)
+        self.assertEqual(a.source.cache_key, b.source.cache_key)
         self.assertEqual(len(a.source.dependencies),
                          len(b.source.dependencies))
         for i in range(len(a.source.dependencies)):
@@ -116,7 +106,7 @@ class SerialisationTests(unittest.TestCase):
         self.assertEqualArtifacts(artifact, decoded)
         
         def key(a):
-            return a.cache_key
+            return a.source.cache_key
         
         objs = {}
         queue = [decoded]
@@ -127,7 +117,7 @@ class SerialisationTests(unittest.TestCase):
                 self.assertTrue(obj is objs[k])
             else:
                 objs[k] = obj
-            queue.extend(obj.dependencies)
+            queue.extend(obj.source.dependencies)
 
     def test_returns_string(self):
         encoded = distbuild.serialise_artifact(self.art1)

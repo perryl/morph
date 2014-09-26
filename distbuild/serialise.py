@@ -22,22 +22,12 @@ import morphlib
 import logging
 
 
-morphology_attributes = [
-    'needs_artifact_metadata_cached',
-]
-
-
 def serialise_artifact(artifact):
     '''Serialise an Artifact object and its dependencies into string form.'''
 
     def encode_morphology(morphology):
-        result = {}
-        for key in morphology.keys():
-            result[key] = morphology[key]
-        for x in morphology_attributes:
-            result['__%s' % x] = getattr(morphology, x)
-        return result
-    
+        return morphology.data
+
     def encode_source(source, artifacts):
         source_dic = {
             'name': source.name,
@@ -119,30 +109,7 @@ def deserialise_artifact(encoded):
     '''
 
     def decode_morphology(le_dict):
-        '''Convert a dict into something that kinda acts like a Morphology.
-        
-        As it happens, we don't need the full Morphology so we cheat.
-        Cheating is good.
-        
-        '''
-        
-        class FakeMorphology(dict):
-        
-            def get_commands(self, which):
-                '''Get commands to run from a morphology or build system'''
-                if self[which] is None:
-                    attr = '_'.join(which.split('-'))
-                    bs = morphlib.buildsystem.lookup_build_system(
-                            self['build-system'])
-                    return getattr(bs, attr)
-                else:
-                    return self[which]
-
-        morphology = FakeMorphology(le_dict)
-        for x in morphology_attributes:
-            setattr(morphology, x, le_dict['__%s' % x])
-            del morphology['__%s' % x]
-        return morphology
+        return morphlib.morphology.Morphology(le_dict)
 
     def decode_source(le_dict):
         '''Convert a dict into a Source object.
@@ -167,8 +134,8 @@ def deserialise_artifact(encoded):
                 break
         else:
             raise ValueError(
-                "Didn't find source %s in %s sources generated for %s." %
-                le_dict['name']. len(sources), le_dict['filename'])
+                "Didn't find source %s for %s." % (le_dict['name'],
+                                                   le_dict['filename']))
 
         source.cache_id = le_dict['cache_id']
         source.cache_key = le_dict['cache_key']
@@ -215,7 +182,7 @@ def deserialise_artifact(encoded):
             key = artifacts[artifact_id].name
             sources[source_id].artifacts[key] = artifacts[artifact_id]
 
-        sources[source_id].dependencies = [artifacts[aid] for aid in
+        sources[source_id].dependencies = [artifacts_dict[aid] for aid in
                                            source_dict['dependencies']]
 
     return artifacts[artifacts_dict['_root']]
