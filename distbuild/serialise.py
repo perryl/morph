@@ -38,8 +38,9 @@ def serialise_artifact(artifact):
             result['__%s' % x] = getattr(morphology, x)
         return result
     
-    def encode_source(source):
+    def encode_source(source, artifacts):
         source_dic = {
+            'name': source.name,
             'repo': None,
             'repo_name': source.repo_name,
             'original_ref': source.original_ref,
@@ -47,6 +48,11 @@ def serialise_artifact(artifact):
             'tree': source.tree,
             'morphology': encode_morphology(source.morphology),
             'filename': source.filename,
+            'cache_id': source.cache_id,
+            'cache_key': source.cache_key,
+
+            'dependencies': [str(id(artifacts[id(d)]))
+                for d in source.dependencies],
 
             # dict keys are converted to strings by json
             # so we encode the artifact ids as strings
@@ -59,63 +65,42 @@ def serialise_artifact(artifact):
             source_dic['prefix'] = source.prefix
         return source_dic
 
-    def encode_artifact(a, artifacts, source_id):
-        if artifact.source.morphology['kind'] == 'system':
-            arch = artifact.source.morphology['arch']
-        else:
-            arch = artifact.arch
-
+    def encode_artifact(a, source_id):
         return {
             'source_id': source_id,
             'name': a.name,
-            'cache_id': a.cache_id,
-            'cache_key': a.cache_key,
-            'dependencies': [str(id(artifacts[id(d)]))
-                for d in a.dependencies],
-            'arch': arch
         }
-
-    visited = set()
-    def traverse(a):
-        visited.add(a)
-        for dep in a.dependencies:
-            if dep in visited:
-                continue
-            for ret in traverse(dep):
-                yield ret
-        yield a
-    
 
     artifacts = {}
     encoded_artifacts = {}
     encoded_sources = {}
 
-    for a in traverse(artifact):
+    for a in artifact.walk():
         if id(a.source) not in encoded_sources:
-            if a.source.morphology['kind'] == 'chunk':
+            #if a.source.morphology['kind'] == 'chunk':
+            if True:
                 for (_, sa) in a.source.artifacts.iteritems():
                     if id(sa) not in artifacts:
                         artifacts[id(sa)] = sa
                         encoded_artifacts[id(sa)] = encode_artifact(sa,
-                            artifacts, id(a.source))
-            else:
+                            id(a.source))
+            #else:
                 # We create separate sources for strata and systems,
                 # this is a bit of a hack, but needed to allow
                 # us to build strata and systems independently
 
-                s = a.source
-                t = morphlib.source.Source(s.repo_name, s.original_ref,
-                    s.sha1, s.tree, s.morphology, s.filename)
+                #s = a.source
+                #t = morphlib.source.Source(s.repo_name, s.original_ref,
+                #    s.sha1, s.tree, s.morphology, s.filename)
 
-                t.artifacts = {a.name: a}
-                a.source = t
+                #t.artifacts = {a.name: a}
+                #a.source = t
 
-            encoded_sources[id(a.source)] = encode_source(a.source)
+            encoded_sources[id(a.source)] = encode_source(a.source, artifacts)
 
         if id(a) not in artifacts:
             artifacts[id(a)] = a
-            encoded_artifacts[id(a)] = encode_artifact(a, artifacts,
-                id(a.source))
+            encoded_artifacts[id(a)] = encode_artifact(a, id(a.source))
 
     encoded_artifacts['_root'] = str(id(artifact))
 
@@ -160,42 +145,51 @@ def deserialise_artifact(encoded):
         return morphology
 
     def decode_source(le_dict):
-        '''Convert a dict into a Source object.'''
+        '''Convert a dict into a Source object.
+
+        Do not set dependencies, that will be dealt with later.
+
+        '''
 
         morphology = decode_morphology(le_dict['morphology'])
-        source = morphlib.source.Source(le_dict['repo_name'],
-                                        le_dict['original_ref'],
-                                        le_dict['sha1'],
-                                        le_dict['tree'],
-                                        morphology,
-                                        le_dict['filename'])
+
+        sources = morphlib.source.make_sources(le_dict['repo_name'],
+                                               le_dict['original_ref'],
+                                               le_dict['filename'],
+                                               le_dict['sha1'],
+                                               le_dict['tree'],
+                                               morphology)
+
+        # The above function creates all sources produced by one morphology,
+        # but we're only deserialising one of them. Find it.
+        for source in sources:
+            if source.name == le_dict['name']:
+                break
+        else:
+            raise ValueError(
+                "Didn't find source %s in %s sources generated for %s." %
+                le_dict['name']. len(sources), le_dict['filename'])
+
+        source.cache_id = le_dict['cache_id']
+        source.cache_key = le_dict['cache_key']
 
         if morphology['kind'] == 'chunk':
             source.build_mode = le_dict['build_mode']
             source.prefix = le_dict['prefix']
+
         return source
-        
+
     def decode_artifact(artifact_dict, source):
-        '''Convert dict into an Artifact object.
-        
-        Do not set dependencies, that will be dealt with later.
-        
-        '''
+        '''Convert dict into an Artifact object.'''
 
         artifact = morphlib.artifact.Artifact(source, artifact_dict['name'])
-        artifact.cache_id = artifact_dict['cache_id']
-        artifact.cache_key = artifact_dict['cache_key']
-        artifact.arch = artifact_dict['arch']
-        artifact.source = source
+        #artifact.arch = artifact_dict['arch']
 
         return artifact
 
     le_dicts = json.loads(encoded)
     artifacts_dict = le_dicts['artifacts']
     sources_dict = le_dicts['sources']
-
-    artifact_ids = ([artifacts_dict['_root']] +
-        filter(lambda k: k != '_root', artifacts_dict.keys()))
 
     source_ids = [sid for sid in sources_dict.keys()]
 
@@ -221,10 +215,7 @@ def deserialise_artifact(encoded):
             key = artifacts[artifact_id].name
             sources[source_id].artifacts[key] = artifacts[artifact_id]
 
-    # now add the dependencies
-    for artifact_id in artifact_ids:
-        artifact = artifacts[artifact_id]
-        artifact.dependencies = [artifacts[aid] for aid in
-            artifacts_dict[artifact_id]['dependencies']]
+        sources[source_id].dependencies = [artifacts[aid] for aid in
+                                           source_dict['dependencies']]
 
     return artifacts[artifacts_dict['_root']]
