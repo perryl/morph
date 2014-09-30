@@ -26,6 +26,7 @@ import copy
 import json
 import logging
 import os
+import subprocess
 import sys
 import time
 
@@ -351,6 +352,8 @@ class BaserockImportApplication(cliapp.Application):
                               default=False)
 
     def setup(self):
+        self.add_subcommand('omnibus', self.import_omnibus,
+                            arg_synopsis='REPO PROJECT_NAME SOFTWARE_NAME')
         self.add_subcommand('rubygems', self.import_rubygems,
                             arg_synopsis='GEM_NAME')
 
@@ -373,6 +376,40 @@ class BaserockImportApplication(cliapp.Application):
     def status(self, msg, *args):
         print msg % args
         logging.info(msg % args)
+
+    def import_omnibus(self, args):
+        '''Import a software component from an Omnibus project.
+
+        Omnibus is a tool for generating application bundles for various
+        platforms. See <https://github.com/opscode/omnibus> for more
+        information.
+
+        '''
+        if len(args) != 3:
+            raise cliapp.AppException(
+                'Please give the location of the Omnibus definitions repo, '
+                'and the name of the project and the top-level software '
+                'component.')
+
+        def running_inside_bundler():
+            return 'BUNDLE_GEMFILE' in os.environ
+
+        def reexecute_self_with_bundler(path):
+            subprocess.call(['bundle', 'exec', 'python'] + sys.argv,
+                            cwd=path)
+
+        # Omnibus definitions are spread across multiple repos, and there is
+        # no stability guarantee for the definition format. The official advice
+        # is to use Bundler to execute Omnibus, so let's do that.
+        if not running_inside_bundler():
+            reexecute_self_with_bundler(args[0])
+
+        # This is a slightly unhappy way of passing both the repo path and
+        # the project name in one argument.
+        definitions_dir = '%s#%s' % (args[0], args[1])
+
+        self.import_package_and_all_dependencies(
+            'omnibus', args[2], definitions_dir=definitions_dir)
 
     def import_rubygems(self, args):
         '''Import one or more RubyGems.'''
@@ -423,7 +460,8 @@ class BaserockImportApplication(cliapp.Application):
         return value
 
     def import_package_and_all_dependencies(self, kind, goal_name,
-                                            goal_version='master'):
+                                            goal_version='master',
+                                            definitions_dir=None):
         start_time = time.time()
         start_displaytime = time.strftime('%x %X %Z', time.localtime())
 
@@ -455,12 +493,19 @@ class BaserockImportApplication(cliapp.Application):
 
                 source_repo, url = self.fetch_or_update_source(lorry)
 
-                checked_out_version, ref = self.checkout_source_version(
-                    source_repo, name, version)
-                current_item.set_version_in_use(checked_out_version)
+                if definitions_dir is None:
+                    # Package is defined in the project's actual repo.
+                    package_definition_dir = source_repo
+                    checked_out_version, ref = self.checkout_source_version(
+                        source_repo, name, version)
+                    current_item.set_version_in_use(checked_out_version)
+                else:
+                    # All packages are defined in the same repo.
+                    package_definition_dir = definitions_dir
+
                 chunk_morph = self.find_or_create_chunk_morph(
                     morph_set, goal_name, kind, name, checked_out_version,
-                    source_repo, url, ref)
+                    package_definition_dir, url, ref)
 
                 current_item.set_morphology(chunk_morph)
 
