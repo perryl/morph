@@ -25,6 +25,8 @@ require 'rubygems/commands/install_command'
 require 'shellwords'
 require 'yaml'
 
+require_relative 'importer_base'
+
 TARGET_PROJECT = 'chefdk'  # should come from args
 
 TARGET_SOFTWARE = 'chefdk' # should come from args

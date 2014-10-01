@@ -22,21 +22,7 @@ require 'logger'
 require 'optparse'
 require 'yaml'
 
-# Log information was passed in from the main import process, probably.
-# This global constant approach seems a little ugly, but it seems to be
-# recommended here:
-# <https://stackoverflow.com/questions/1681745/share-global-logger-among-module-classes>
-#
-log_fd = ENV['MORPH_LOG_FD']
-if log_fd
-  log_stream = IO.new(Integer(log_fd), 'w')
-  Log = Logger.new(log_stream)
-  Log.level = Logger::DEBUG
-  Log.formatter = proc { |severity, datetime, progname, msg| "#{msg}\n" }
-else
-  Log = Logger.new('/dev/null')
-end
-
+require_relative 'importer_base'
 
 class << Bundler
   def default_gemfile
@@ -87,7 +73,7 @@ class RubyGemChunkMorphologyGenerator
   end
 
   def error(message)
-    Log.error(message)
+    log.error(message)
     STDERR.puts(message)
   end
 
@@ -104,9 +90,9 @@ class RubyGemChunkMorphologyGenerator
       'path' => dir,
     })
 
-    Log.info "Loaded #{source.specs.count} specs from source dir."
+    log.info "Loaded #{source.specs.count} specs from source dir."
     source.specs.each do |spec|
-      Log.debug "  * #{spec.inspect} #{spec.dependencies.inspect}"
+      log.debug "  * #{spec.inspect} #{spec.dependencies.inspect}"
     end
 
     source
@@ -234,7 +220,7 @@ class RubyGemChunkMorphologyGenerator
   def run
     source_dir_name, gem_name, expected_version = parse_options(ARGV)
 
-    Log.info("Creating chunk morph for #{gem_name} based on " +
+    log.info("Creating chunk morph for #{gem_name} based on " +
              "source code in #{source_dir_name}")
 
     Dir.chdir(source_dir_name)
@@ -253,7 +239,7 @@ class RubyGemChunkMorphologyGenerator
     if not spec_is_from_current_source_tree(spec)
       error "Specified gem '#{spec.name}' doesn't live in the source in " +
             "'#{source_dir_name}'"
-      Log.debug "SPEC: #{spec.inspect} #{spec.source}"
+      log.debug "SPEC: #{spec.inspect} #{spec.source}"
       exit 1
     end
 
