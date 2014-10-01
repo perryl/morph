@@ -46,6 +46,13 @@ class KvmPlusSshCheckExtension(morphlib.writeexts.WriteExtension):
         self.check_no_existing_libvirt_vm(ssh_host, vm_name)
         self.check_extra_disks_exist(ssh_host, self.parse_attach_disks())
 
+    def path_to_vm_exists(self, ssh_host, vmpath):
+        head, tail = os.path.split(vmpath)
+        return cliapp.ssh_runcmd(ssh_host, ['ls', head])
+
+    def vm_file_exists(self, ssh_host, vmpath):
+        return cliapp.ssh_runcmd(ssh_host, ['ls', vmpath])
+
     def check_and_parse_location(self, location):
         '''Check and parse the location argument to get relevant data.'''
 
