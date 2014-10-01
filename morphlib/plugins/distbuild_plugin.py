@@ -103,7 +103,7 @@ class WorkerBuild(cliapp.Plugin):
         self.app.subcommands['gc']([])
 
         arch = artifact.arch
-        bc.build_artifact(artifact, bc.new_build_env(arch))
+        bc.build_source(artifact.source, bc.new_build_env(arch))
 
     def is_system_artifact(self, filename):
         return re.match(r'^[0-9a-fA-F]{64}\.system\.', filename)

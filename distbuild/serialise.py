@@ -78,7 +78,8 @@ def serialise_artifact(artifact):
             for (_, sa) in a.source.artifacts.iteritems():
                 if id(sa) not in encoded_artifacts:
                     encoded_artifacts[id(sa)] = encode_artifact(sa)
-            encoded_morphologies[id(a.source.morphology)] = encode_morphology(a.source.morphology)
+            encoded_morphologies[id(a.source.morphology)] = \
+                encode_morphology(a.source.morphology)
             encoded_sources[id(a.source)] = encode_source(a.source)
 
         if id(a) not in encoded_artifacts: # pragma: no cover
@@ -164,7 +165,10 @@ def deserialise_artifact(encoded):
         morphology = morphologies[source_dict['morphology']]
         kind = morphology['kind']
         ruler = getattr(morphlib.artifactsplitrule, 'unify_%s_matches' % kind)
-        rules = ruler(morphology, le_dicts['default_split_rules'][kind])
+        if kind in ('chunk', 'stratum'):
+            rules = ruler(morphology, le_dicts['default_split_rules'][kind])
+        else: # pragma: no cover
+            rules = ruler(morphology)
         sources[source_id] = decode_source(source_dict, morphology, rules)
 
         # clear the source artifacts that get automatically generated

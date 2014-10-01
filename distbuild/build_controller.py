@@ -142,7 +142,7 @@ def map_build_graph(artifact, callback):
         a = queue.pop()
         if a not in done:
             result.append(callback(a))
-            queue.extend(a.dependencies)
+            queue.extend(a.source.dependencies)
             done.add(a)
     return result
 
@@ -388,7 +388,8 @@ class BuildController(distbuild.StateMachine):
     def _find_artifacts_that_are_ready_to_build(self):
         def is_ready_to_build(artifact):
             return (artifact.state == UNBUILT and
-                    all(a.state == BUILT for a in artifact.dependencies))
+                    all(a.state == BUILT
+                        for a in artifact.source.dependencies))
 
         return [a 
                 for a in map_build_graph(self._artifact, lambda a: a)
@@ -424,7 +425,7 @@ class BuildController(distbuild.StateMachine):
 
             logging.debug(
                 'Requesting worker-build of %s (%s)' %
-                    (artifact.name, artifact.cache_key))
+                    (artifact.name, artifact.source.cache_key))
             request = distbuild.WorkerBuildRequest(artifact,
                                                    self._request['id'])
             self.mainloop.queue_event(distbuild.WorkerBuildQueuer, request)
@@ -540,7 +541,7 @@ class BuildController(distbuild.StateMachine):
 
     def _find_artifact(self, cache_key):
         artifacts = map_build_graph(self._artifact, lambda a: a)
-        wanted = [a for a in artifacts if a.cache_key == cache_key]
+        wanted = [a for a in artifacts if a.source.cache_key == cache_key]
         if wanted:
             return wanted[0]
         else:
@@ -637,7 +638,7 @@ class BuildController(distbuild.StateMachine):
         baseurl = urlparse.urljoin(
             self._artifact_cache_server, '/1.0/artifacts')
         filename = ('%s.%s.%s' % 
-            (self._artifact.cache_key,
+            (self._artifact.source.cache_key,
              self._artifact.source.morphology['kind'],
              self._artifact.name))
         url = '%s?filename=%s' % (baseurl, urllib.quote(filename))

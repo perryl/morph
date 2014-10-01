@@ -279,7 +279,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                 self._give_job(job)
             else:
                 progress = WorkerBuildWaiting(event.initiator_id,
-                    event.artifact.cache_key)
+                    event.artifact.source.cache_key)
                 self.mainloop.queue_event(WorkerConnection, progress)
 
     def _handle_cancel(self, event_source, event):
@@ -483,7 +483,7 @@ class WorkerConnection(distbuild.StateMachine):
                 % (self._worker_name, msg))
 
         started = WorkerBuildStepStarted(self._job.initiators,
-            self._job.artifact.cache_key, self.name())
+            self._job.artifact.source.cache_key, self.name())
 
         self.mainloop.queue_event(WorkerConnection, _JobStarted(self._job))
         self.mainloop.queue_event(WorkerConnection, started)
@@ -510,7 +510,7 @@ class WorkerConnection(distbuild.StateMachine):
         logging.debug('WC: emitting: %s', repr(new))
         self.mainloop.queue_event(
             WorkerConnection,
-            WorkerBuildOutput(new, self._job.artifact.cache_key))
+            WorkerBuildOutput(new, self._job.artifact.source.cache_key))
 
     def _handle_exec_response(self, msg):
         logging.debug('WC: finished building: %s' % self._job.artifact.name)
@@ -522,7 +522,8 @@ class WorkerConnection(distbuild.StateMachine):
 
         if new['exit'] != 0:
             # Build failed.
-            new_event = WorkerBuildFailed(new, self._job.artifact.cache_key)
+            new_event = WorkerBuildFailed(new,
+                                          self._job.artifact.source.cache_key)
             self.mainloop.queue_event(WorkerConnection, new_event)
             self.mainloop.queue_event(WorkerConnection, _JobFailed(self._job))
             self.mainloop.queue_event(self, _BuildFailed())
@@ -556,10 +557,6 @@ class WorkerConnection(distbuild.StateMachine):
 
             if kind == 'stratum':
                 suffixes.append(filename + '.meta')
-            elif kind == 'system':
-                # FIXME: This is a really ugly hack.
-                if filename.endswith('-rootfs'):
-                    suffixes.append(filename[:-len('-rootfs')] + '-kernel')
         
         suffixes = [urllib.quote(x) for x in suffixes]
         suffixes = ','.join(suffixes)
@@ -571,7 +568,7 @@ class WorkerConnection(distbuild.StateMachine):
             '/1.0/fetch?host=%s:%d&cacheid=%s&artifacts=%s' %
                 (urllib.quote(worker_host),
                  self._worker_cache_server_port,
-                 urllib.quote(self._job.artifact.cache_key),
+                 urllib.quote(self._job.artifact.source.cache_key),
                  suffixes))
 
         msg = distbuild.message(
@@ -582,7 +579,7 @@ class WorkerConnection(distbuild.StateMachine):
         self.mainloop.queue_event(distbuild.HelperRouter, req)
         
         progress = WorkerBuildCaching(self._job.initiators,
-            self._job.artifact.cache_key)
+            self._job.artifact.source.cache_key)
         self.mainloop.queue_event(WorkerConnection, progress)
 
     def _maybe_handle_helper_result(self, event_source, event):
@@ -594,7 +591,8 @@ class WorkerConnection(distbuild.StateMachine):
                 logging.debug('Shared artifact cache population done')
 
                 new_event = WorkerBuildFinished(
-                    self._exec_response_msg, self._job.artifact.cache_key)
+                    self._exec_response_msg,
+                    self._job.artifact.source.cache_key)
                 self.mainloop.queue_event(WorkerConnection, new_event)
                 self.mainloop.queue_event(self, _Cached())
             else:
@@ -612,7 +610,8 @@ class WorkerConnection(distbuild.StateMachine):
                                           _JobFailed(self._job))
 
                 new_event = WorkerBuildFailed(
-                    self._exec_response_msg, self._job.artifact.cache_key)
+                    self._exec_response_msg,
+                    self._job.artifact.source.cache_key)
                 self.mainloop.queue_event(WorkerConnection, new_event)
 
                 self.mainloop.queue_event(self, _BuildFailed())

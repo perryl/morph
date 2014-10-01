@@ -171,7 +171,7 @@ class InitiatorConnection(distbuild.StateMachine):
                 'name': distbuild.build_step_name(artifact),
                 'build-depends': [
                     distbuild.build_step_name(x)
-                    for x in artifact.dependencies
+                    for x in artifact.source.dependencies
                 ]
             }
             
