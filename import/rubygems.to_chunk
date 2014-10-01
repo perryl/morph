@@ -23,6 +23,15 @@ require 'optparse'
 
 require_relative 'importer_base'
 
+DESCRIPTION = <<-END
+This tool reads the Gemfile and optionally the Gemfile.lock from a Ruby project
+source tree in SOURCE_DIR. It outputs a chunk morphology for GEM_NAME on
+stdout. If VERSION is supplied, it is used to check that the build instructions
+will produce the expected version of the Gem.
+
+It is intended for use with the `baserock-import` tool.
+END
+
 class << Bundler
   def default_gemfile
     # This is a hack to make things not crash when there's no Gemfile
@@ -42,25 +51,20 @@ class RubyGemChunkMorphologyGenerator < Importer::Base
   end
 
   def parse_options(arguments)
-    # No options so far ..
     opts = OptionParser.new
 
     opts.banner = "Usage: rubygems.to_chunk SOURCE_DIR GEM_NAME [VERSION]"
-    opts.separator ""
-    opts.separator "This tool reads the Gemfile and optionally the " +
-             "Gemfile.lock from a Ruby project "
-    opts.separator "source tree in SOURCE_DIR. It outputs a chunk " +
-             "morphology for GEM_NAME on stdout."
-    opts.separator "If VERSION is supplied, it is used to check that " +
-             "the build instructions will"
-    opts.separator "produce the expected version of the Gem."
-    opts.separator ""
-    opts.separator "It is intended for use with the `baserock-import` tool."
+
+    opts.on('-?', '--help', 'print this help') do
+      puts opts
+      print "\n", DESCRIPTION
+      exit 1
+    end
 
     parsed_arguments = opts.parse!(arguments)
 
     if parsed_arguments.length != 2 && parsed_arguments.length != 3
-      STDERR.puts opts.help
+      opts.parse(['-?'])
       exit 1
     end
 

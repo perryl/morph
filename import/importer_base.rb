@@ -19,11 +19,24 @@
 
 require 'json'
 require 'logger'
+require 'optparse'
 require 'yaml'
 
 module Importer
   class Base
     private
+
+    def create_option_parser(banner, description)
+      opts = OptionParser.new
+
+      opts.banner = banner
+
+      opts.on('-?', '--help', 'print this help') do
+        puts opts
+        print "\n", description
+        exit 1
+      end
+    end
 
     def log
       @logger ||= create_logger
