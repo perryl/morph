@@ -23,6 +23,15 @@ module Importer
       @logger ||= create_logger
     end
 
+    def error(message)
+      log.error(message)
+      STDERR.puts(message)
+    end
+
+    def write_morph(file, morph)
+      file.write(YAML.dump(morph))
+    end
+
     private
 
     def create_logger

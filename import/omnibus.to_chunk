@@ -90,10 +90,6 @@ class OmnibusChunkMorphologyGenerator
     }
   end
 
-  def write_morph(file, morph)
-    file.write(YAML.dump(morph))
-  end
-
   def run
     project = Omnibus::Project.load(TARGET_PROJECT)
 

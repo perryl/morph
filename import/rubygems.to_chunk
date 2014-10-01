@@ -213,10 +213,6 @@ class RubyGemChunkMorphologyGenerator
     spec.dependencies.select {|d| d.type == :runtime}
   end
 
-  def write_morph(file, morph)
-    file.write(YAML.dump(morph))
-  end
-
   def run
     source_dir_name, gem_name, expected_version = parse_options(ARGV)
 
