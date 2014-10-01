@@ -19,18 +19,7 @@
 
 require 'bundler'
 
-require 'optparse'
-
 require_relative 'importer_base'
-
-DESCRIPTION = <<-END
-This tool reads the Gemfile and optionally the Gemfile.lock from a Ruby project
-source tree in SOURCE_DIR. It outputs a chunk morphology for GEM_NAME on
-stdout. If VERSION is supplied, it is used to check that the build instructions
-will produce the expected version of the Gem.
-
-It is intended for use with the `baserock-import` tool.
-END
 
 class << Bundler
   def default_gemfile
@@ -44,6 +33,17 @@ def spec_is_from_current_source_tree(spec)
     spec.source.path.fnmatch?('.')
 end
 
+BANNER = "Usage: rubygems.to_chunk SOURCE_DIR GEM_NAME [VERSION]"
+
+DESCRIPTION = <<-END
+This tool reads the Gemfile and optionally the Gemfile.lock from a Ruby project
+source tree in SOURCE_DIR. It outputs a chunk morphology for GEM_NAME on
+stdout. If VERSION is supplied, it is used to check that the build instructions
+will produce the expected version of the Gem.
+
+It is intended for use with the `baserock-import` tool.
+END
+
 class RubyGemChunkMorphologyGenerator < Importer::Base
   def initialize
     local_data = YAML.load_file("rubygems.yaml")
@@ -51,15 +51,7 @@ class RubyGemChunkMorphologyGenerator < Importer::Base
   end
 
   def parse_options(arguments)
-    opts = OptionParser.new
-
-    opts.banner = "Usage: rubygems.to_chunk SOURCE_DIR GEM_NAME [VERSION]"
-
-    opts.on('-?', '--help', 'print this help') do
-      puts opts
-      print "\n", DESCRIPTION
-      exit 1
-    end
+    opts = create_option_parser(BANNER, DESCRIPTION)
 
     parsed_arguments = opts.parse!(arguments)
 
