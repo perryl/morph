@@ -63,7 +63,7 @@ class Omnibus::Builder
   end
 end
 
-class OmnibusChunkMorphologyGenerator
+class OmnibusChunkMorphologyGenerator < Importer::Base
   def deps_for_software(software)
     deps = Hash.new
     software.dependencies.each do |dep|

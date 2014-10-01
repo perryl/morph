@@ -36,6 +36,8 @@ def spec_is_from_current_source_tree(spec)
 end
 
 class RubyGemChunkMorphologyGenerator
+  include Importer::Base
+
   def initialize
     local_data = YAML.load_file("rubygems.yaml")
     @build_dependency_whitelist = local_data['build-dependency-whitelist']
