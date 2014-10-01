@@ -23,7 +23,6 @@ require 'omnibus'
 require 'optparse'
 require 'rubygems/commands/install_command'
 require 'shellwords'
-require 'yaml'
 
 require_relative 'importer_base'
 
