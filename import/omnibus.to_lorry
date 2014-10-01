@@ -30,7 +30,29 @@ TARGET_PROJECT = 'chefdk'  # should come from args
 
 TARGET_SOFTWARE = 'chefdk' # should come from args
 
+# This DEFINITIONS#PROJECT thing is a bit shit. Make main.py smarter.
+BANNER = "Usage: omnibus.to_lorry DEFINITIONS_DIR#PROJECT_NAME SOFTWARE_NAME"
+
+DESCRIPTION = <<-END
+Generate a .lorry file for a given Omnibus software component.
+END
+
 class OmnibusLorryGenerator < Importer::Base
+  def parse_options(arguments)
+    opts = create_option_parser(BANNER, DESCRIPTION)
+
+    parsed_arguments = opts.parse!(arguments)
+
+    if parsed_arguments.length != 2
+      opts.parse(['-?'])
+      exit 1
+    end
+
+    definitions_and_project, software_name = parsed_arguments
+    definitions_dir, _, project_name = definitions_and_project.rpartition('#')
+    [definitions_dir, project_name, software_name]
+  end
+
   def generate_lorry_for_software(software)
     lorry_body = {
       'x-products-omnibus' => [software.name]
@@ -54,9 +76,11 @@ class OmnibusLorryGenerator < Importer::Base
   end
 
   def run
-    project = Omnibus::Project.load(TARGET_PROJECT)
+    definitions_dir, project_name, software_name = parse_options(ARGV)
 
-    software = Omnibus::Software.load(project, TARGET_SOFTWARE)
+    project = Omnibus::Project.load(project_name)
+
+    software = Omnibus::Software.load(project, software_name)
 
     lorry = generate_lorry_for_software(software)
 
