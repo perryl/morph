@@ -17,6 +17,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+require 'json'
 require 'logger'
 require 'yaml'
 
@@ -29,6 +30,11 @@ module Importer
     def error(message)
       log.error(message)
       STDERR.puts(message)
+    end
+
+    def write_lorry(file, lorry)
+      format_options = { :indent => '    ' }
+      file.puts(JSON.pretty_generate(lorry, format_options))
     end
 
     def write_morph(file, morph)

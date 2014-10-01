@@ -1,0 +1,67 @@
+#!/usr/bin/env ruby
+#
+# Create a Baserock .lorry file for a given Omnibus software component
+#
+# Copyright (C) 2014  Codethink Limited
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+require 'bundler'
+require 'omnibus'
+
+require 'optparse'
+require 'rubygems/commands/install_command'
+require 'shellwords'
+
+require_relative 'importer_base'
+
+TARGET_PROJECT = 'chefdk'  # should come from args
+
+TARGET_SOFTWARE = 'chefdk' # should come from args
+
+class OmnibusLorryGenerator < Importer::Base
+  def generate_lorry_for_software(software)
+    lorry_body = {
+      'x-products-omnibus' => [software.name]
+    }
+
+    if software.source.member? :git
+      lorry_body.update({
+        'type' => 'git',
+        'url' => software.source[:git],
+      })
+    else
+      lorry_body.update({
+        'type' => 'tarball',
+        'url' => software.source[:url],
+        # lorry doesn't validate the checksum right now, but maybe it should.
+        'x-md5' => software.source[:md5],
+      })
+    end
+
+    { software.name => lorry_body }
+  end
+
+  def run
+    project = Omnibus::Project.load(TARGET_PROJECT)
+
+    software = Omnibus::Software.load(project, TARGET_SOFTWARE)
+
+    lorry = generate_lorry_for_software(software)
+
+    write_lorry(STDOUT, lorry)
+  end
+end
+
+OmnibusLorryGenerator.new.run
