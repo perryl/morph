@@ -23,6 +23,8 @@ require 'yaml'
 
 module Importer
   class Base
+    private
+
     def log
       @logger ||= create_logger
     end
@@ -40,8 +42,6 @@ module Importer
     def write_morph(file, morph)
       file.write(YAML.dump(morph))
     end
-
-    private
 
     def create_logger
       # Use the logger that was passed in from the 'main' import process, if
