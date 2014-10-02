@@ -34,7 +34,7 @@ module Importer
       opts.on('-?', '--help', 'print this help') do
         puts opts
         print "\n", description
-        exit 1
+        exit 255
       end
     end
 

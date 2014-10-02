@@ -56,8 +56,9 @@ class RubyGemChunkMorphologyGenerator < Importer::Base
     parsed_arguments = opts.parse!(arguments)
 
     if parsed_arguments.length != 2 && parsed_arguments.length != 3
+      STDERR.puts "Expected 2 or 3 arguments, got #{parsed_arguments}."
       opts.parse(['-?'])
-      exit 1
+      exit 255
     end
 
     source_dir, gem_name, expected_version = parsed_arguments

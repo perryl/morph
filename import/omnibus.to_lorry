@@ -44,8 +44,9 @@ class OmnibusLorryGenerator < Importer::Base
     parsed_arguments = opts.parse!(arguments)
 
     if parsed_arguments.length != 2
+      STDERR.puts "Expected 2 arguments, got #{parsed_arguments}."
       opts.parse(['-?'])
-      exit 1
+      exit 255
     end
 
     definitions_and_project, software_name = parsed_arguments
