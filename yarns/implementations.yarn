@@ -282,12 +282,22 @@ another to hold a chunk.
     name: test-chunk
     kind: chunk
     build-system: manual
-    # `install-commands` is a list of shell commands to run. Commands
+    # `build-commands` is a list of shell commands to run. Commands
     # may be on multiple lines, and indeed anything programmatic will
     # benefit from doing so. Arguably we could have just one command,
     # but it's split into multiple so that morph can inform us which
     # command failed without us having to include a lot of status
     # information in the command and look at the error message.
+    # `build-commands` are passed MAKEFLAGS to specify build parallelism,
+    # and are expected to generate files to be installed in `install-files`
+    build-commands:
+    # All of morph's building needs to handle binary output, so we can echo
+    # that out on the command line.
+    # Trust me, this gets decoded to "echo " then a bunch of binary output.
+    - !!binary |
+      ZWNobyBQ1+k661ol3khrsF4VO4HNcuYzwN0LYxEWS8mPmhQiQ7Vu8CME2+gsnKQaoIRIFuUEiLCI
+      vfIj1GTdXG6cVTJfNQ==
+
     install-commands:
     - copy files
     EOF
