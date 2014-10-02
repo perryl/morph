@@ -19,6 +19,7 @@
 import base64
 import cliapp
 import logging
+import os
 import random
 import sys
 
@@ -49,6 +50,7 @@ class Initiator(distbuild.StateMachine):
         self._morphology = morphology
         self._steps = None
         self._step_outputs = {}
+        self._step_output_dir = app.settings['initiator-step-output-dir']
         self.debug_transitions = False
 
     def setup(self):
@@ -121,7 +123,11 @@ class Initiator(distbuild.StateMachine):
 
     def _open_output(self, msg):
         assert msg['step_name'] not in self._step_outputs
-        filename = 'build-step-%s.log' % msg['step_name']
+        if self._step_output_dir:
+            filename = os.path.join(self._step_output_dir,
+                                    'build-step-%s.log' % msg['step_name'])
+        else:
+            filename = '/dev/null'
         f = open(filename, 'a')
         self._step_outputs[msg['step_name']] = f
 

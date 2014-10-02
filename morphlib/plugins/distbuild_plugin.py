@@ -168,6 +168,11 @@ class ControllerDaemon(cliapp.Plugin):
             'write the port to listen for initiator connections to FILE',
             default='',
             group=group_distbuild)
+        self.app.settings.string(
+            ['initiator-step-output-dir'],
+            'write build output to files in DIR',
+            default='.',
+            group=group_distbuild)
 
         self.app.settings.string(
             ['controller-helper-address'],
