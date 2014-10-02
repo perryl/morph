@@ -516,6 +516,7 @@ class BaserockImportApplication(cliapp.Application):
             except BaserockImportException as e:
                 # Don't print the exception on stdout; the error messages will
                 # have gone to stderr already.
+                logging.error(str(e))
                 errors[current_item] = e
                 build_deps = runtime_deps = {}
 
