@@ -16,7 +16,9 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA..
 
 
+import base64
 import json
+import yaml
 
 import morphlib
 import logging
@@ -39,16 +41,14 @@ def serialise_artifact(artifact):
             'original_ref': source.original_ref,
             'sha1': source.sha1,
             'tree': source.tree,
-            'morphology': str(id(source.morphology)),
+            'morphology': id(source.morphology),
             'filename': source.filename,
 
-            # dict keys are converted to strings by json
-            # so we encode the artifact ids as strings
-            'artifact_ids': [str(id(artifact)) for (_, artifact)
+            'artifact_ids': [id(artifact) for (_, artifact)
                 in source.artifacts.iteritems()],
             'cache_id': source.cache_id,
             'cache_key': source.cache_key,
-            'dependencies': [str(id(d))
+            'dependencies': [id(d)
                 for d in source.dependencies],
         }
 
@@ -85,15 +85,17 @@ def serialise_artifact(artifact):
         if id(a) not in encoded_artifacts: # pragma: no cover
             encoded_artifacts[id(a)] = encode_artifact(a)
 
-    return json.dumps({'sources': encoded_sources,
+    content = {
+        'sources': encoded_sources,
         'artifacts': encoded_artifacts,
         'morphologies': encoded_morphologies,
-        'root_artifact': str(id(artifact)),
+        'root_artifact': id(artifact),
         'default_split_rules': {
             'chunk': morphlib.artifactsplitrule.DEFAULT_CHUNK_RULES,
             'stratum': morphlib.artifactsplitrule.DEFAULT_STRATUM_RULES,
         },
-    })
+    }
+    return json.dumps(base64.standard_b64encode(yaml.dump(content)))
 
 
 def deserialise_artifact(encoded):
@@ -148,7 +150,7 @@ def deserialise_artifact(encoded):
 
         return artifact
 
-    le_dicts = json.loads(encoded)
+    le_dicts = yaml.load(base64.standard_b64decode(json.loads(encoded)))
     artifacts_dict = le_dicts['artifacts']
     sources_dict = le_dicts['sources']
     morphologies_dict = le_dicts['morphologies']
