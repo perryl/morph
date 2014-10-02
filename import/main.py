@@ -26,6 +26,7 @@ import copy
 import json
 import logging
 import os
+import pipes
 import subprocess
 import sys
 import time
@@ -290,7 +291,7 @@ def find(iterable, match):
     return next((x for x in iterable if match(x)), None)
 
 
-def run_extension(filename, args):
+def run_extension(filename, args, cwd='.'):
     output = []
     errors = []
 
@@ -312,7 +313,11 @@ def run_extension(filename, args):
         report_logger=report_extension_logger,
     )
 
-    returncode = ext.run(os.path.abspath(filename), args, '.', os.environ)
+    # There are better ways of doing this, but it works for now.
+    main_path = os.path.dirname(os.path.realpath(__file__))
+    extension_path = os.path.join(main_path, filename)
+
+    returncode = ext.run(extension_path, args, cwd, os.environ)
 
     if returncode == 0:
         ext_logger.info('succeeded')
@@ -394,9 +399,27 @@ class BaserockImportApplication(cliapp.Application):
         def running_inside_bundler():
             return 'BUNDLE_GEMFILE' in os.environ
 
+        def command_to_run_python_in_directory(directory, args):
+            # Bundler requires that we run it from the Omnibus project
+            # directory. That messes up any relative paths the user may have
+            # passed on the commandline, so we do a bit of a hack to change
+            # back to the original directory inside the `bundle exec` process.
+            subshell_command = "(cd %s; exec python %s)" % \
+                (pipes.quote(directory), ' '.join(map(pipes.quote, args)))
+            shell_command = "sh -c %s" % pipes.quote(subshell_command)
+            return shell_command
+
         def reexecute_self_with_bundler(path):
-            subprocess.call(['bundle', 'exec', 'python'] + sys.argv,
-                            cwd=path)
+            script = sys.argv[0]
+
+            logging.info('Reexecuting %s within Bundler, so that extensions '
+                         'use the correct dependencies for Omnibus and the '
+                         'Omnibus project definitions.', script)
+            command = command_to_run_python_in_directory(os.getcwd(), sys.argv)
+
+            logging.debug('Running: `bundle exec %s` in dir %s', command, path)
+            os.chdir(path)
+            os.execvp('bundle', [script, 'exec', command])
 
         # Omnibus definitions are spread across multiple repos, and there is
         # no stability guarantee for the definition format. The official advice
@@ -554,10 +577,12 @@ class BaserockImportApplication(cliapp.Application):
         tool = '%s.to_lorry' % kind
         self.status('Calling %s to generate lorry for %s', tool, name)
         if definitions_dir is None:
+            cwd = '.'
             args = [name]
         else:
+            cwd = definitions_dir.rsplit('#')[0]
             args = [definitions_dir, name]
-        lorry_text = run_extension(tool, args)
+        lorry_text = run_extension(tool, args, cwd=cwd)
         try:
             lorry = json.loads(lorry_text)
         except ValueError as e:
