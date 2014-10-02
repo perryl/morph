@@ -699,6 +699,23 @@ class BaserockImportApplication(cliapp.Application):
 
         return morphology
 
+    def sort_chunks_by_build_order(self, graph):
+        order = reversed(sorted(graph.nodes()))
+        try:
+            return networkx.topological_sort(graph, nbunch=order)
+        except networkx.NetworkXUnfeasible as e:
+            # Cycle detected!
+            loop_subgraphs = networkx.strongly_connected_component_subgraphs(
+                graph, copy=False)
+            all_loops_str = []
+            for graph in loop_subgraphs:
+                if graph.number_of_nodes() > 1:
+                    loops_str = '->'.join(str(node) for node in graph.nodes())
+                    all_loops_str.append(loops_str)
+            raise cliapp.AppException(
+                'One or more cycles detected in build graph: %s' %
+                (', '.join(all_loops_str)))
+
     def generate_stratum_morph_if_none_exists(self, graph, goal_name):
         filename = os.path.join(
             self.settings['definitions-dir'], 'strata', '%s.morph' % goal_name)
@@ -710,11 +727,9 @@ class BaserockImportApplication(cliapp.Application):
 
         self.status(msg='Generating stratum morph for %s' % goal_name)
 
-        order = reversed(sorted(graph.nodes()))
-        chunk_packages = networkx.topological_sort(graph, nbunch=order)
         chunk_entries = []
 
-        for package in chunk_packages:
+        for package in self.sort_chunks_by_build_order(graph):
             m = package.morphology
             if m is None:
                 raise cliapp.AppException('No morphology for %s' % package)
