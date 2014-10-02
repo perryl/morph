@@ -1110,6 +1110,8 @@ Distbuild
         >>"$DATADIR/morph.conf"
     echo "controller-initiator-address = localhost" \
         >>"$DATADIR/morph.conf"
+    echo "initiator-step-output-dir = $DATADIR" \
+        >>"$DATADIR/morph.conf"
 
     IMPLEMENTS FINALLY the distbuild controller is terminated
     stop_daemon "$DATADIR/controller-helper-pid"
