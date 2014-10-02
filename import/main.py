@@ -489,23 +489,30 @@ class BaserockImportApplication(cliapp.Application):
             version = current_item.version
 
             try:
-                lorry = self.find_or_create_lorry_file(lorry_set, kind, name)
+                lorry = self.find_or_create_lorry_file(lorry_set, kind, name,
+                                                       definitions_dir=definitions_dir)
 
                 source_repo, url = self.fetch_or_update_source(lorry)
 
                 if definitions_dir is None:
                     # Package is defined in the project's actual repo.
-                    package_definition_dir = source_repo
+                    package_definition_repo = source_repo
                     checked_out_version, ref = self.checkout_source_version(
                         source_repo, name, version)
                     current_item.set_version_in_use(checked_out_version)
                 else:
-                    # All packages are defined in the same repo.
-                    package_definition_dir = definitions_dir
+                    # FIXME: we do actually need to make the package source
+                    # available too so we can detect which SHA1 to build.
+                    # For now we lie
+                    checked_out_version = 'lie'
+                    ref = 'lie'
+                    # If 'definitions_dir' was passed, we assume all packages
+                    # are defined in the same repo.
+                    package_definition_repo = GitDirectory(definitions_dir)
 
                 chunk_morph = self.find_or_create_chunk_morph(
                     morph_set, goal_name, kind, name, checked_out_version,
-                    package_definition_dir, url, ref)
+                    package_definition_repo, url, ref)
 
                 current_item.set_morphology(chunk_morph)
 
@@ -543,14 +550,23 @@ class BaserockImportApplication(cliapp.Application):
         self.status('%s: Import of %s %s ended (took %i seconds)',
                     end_displaytime, kind, goal_name, duration)
 
-    def generate_lorry_for_package(self, kind, name):
+    def generate_lorry_for_package(self, kind, name, definitions_dir):
         tool = '%s.to_lorry' % kind
         self.status('Calling %s to generate lorry for %s', tool, name)
-        lorry_text = run_extension(tool, [name])
-        lorry = json.loads(lorry_text)
+        if definitions_dir is None:
+            args = [name]
+        else:
+            args = [definitions_dir, name]
+        lorry_text = run_extension(tool, args)
+        try:
+            lorry = json.loads(lorry_text)
+        except ValueError as e:
+            raise cliapp.AppException(
+                'Invalid output from %s: %s' % (tool, lorry_text))
         return lorry
 
-    def find_or_create_lorry_file(self, lorry_set, kind, name):
+    def find_or_create_lorry_file(self, lorry_set, kind, name,
+                                  definitions_dir):
         # Note that the lorry file may already exist for 'name', but lorry
         # files are named for project name rather than package name. In this
         # case we will generate the lorry, and try to add it to the set, at
@@ -558,7 +574,7 @@ class BaserockImportApplication(cliapp.Application):
         lorry = lorry_set.find_lorry_for_package(kind, name)
 
         if lorry is None:
-            lorry = self.generate_lorry_for_package(kind, name)
+            lorry = self.generate_lorry_for_package(kind, name, definitions_dir)
 
             if len(lorry) != 1:
                 raise Exception(
