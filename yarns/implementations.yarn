@@ -984,6 +984,9 @@ Altering morphologies in the workspace
 Distbuild
 =========
 
+    IMPLEMENTS ASSUMING the morph-cache-server can be run
+    "$SRCDIR/morph-cache-server" --version
+
     IMPLEMENTS GIVEN a communal cache server
     # The communal cache server has direct access to the git repositories
     # and can have artifacts placed on it

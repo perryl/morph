@@ -10,6 +10,7 @@ Morph Building Tests
     FINALLY the git server is shut down
 
     SCENARIO distbuilding
+    ASSUMING the morph-cache-server can be run
     GIVEN a workspace
     AND a git server
     AND a communal cache server
