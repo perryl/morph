@@ -16,12 +16,14 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA..
 
 
+import base64
 import fcntl
 import json
 import logging
 import os
 import socket
 import sys
+import yaml
 
 from sm import StateMachine 
 from stringbuffer import StringBuffer
@@ -54,7 +56,7 @@ class JsonMachine(StateMachine):
     def __init__(self, conn):
         StateMachine.__init__(self, 'rw')
         self.conn = conn
-        self.debug_json = False
+        self.debug_json = True
 
     def __repr__(self):
         return '<JsonMachine at 0x%x: socket %s, max_buffer %s>' % \
@@ -79,7 +81,12 @@ class JsonMachine(StateMachine):
         
     def send(self, msg):
         '''Send a message to the other side.'''
-        self.sockbuf.write('%s\n' % json.dumps(msg))
+        if self.debug_json:
+            logging.debug('JsonMachine: Sending message %s' % repr(msg))
+	s = json.dumps(base64.standard_b64encode(yaml.safe_dump(msg)))
+        if self.debug_json:
+            logging.debug('JsonMachine: As %s' % repr(s))
+        self.sockbuf.write('%s\n' % s)
     
     def close(self):
         '''Tell state machine it should shut down.
@@ -103,7 +110,7 @@ class JsonMachine(StateMachine):
             line = line.rstrip()
             if self.debug_json:
                 logging.debug('JsonMachine: line: %s' % repr(line))
-            msg = json.loads(line)
+            msg = yaml.load(base64.standard_b64decode(json.loads(line)))
             self.mainloop.queue_event(self, JsonNewMessage(msg))
 
     def _send_eof(self, event_source, event):
