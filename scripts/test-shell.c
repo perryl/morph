@@ -133,6 +133,12 @@ int main(int argc, char *argv[]) {
                        strstr(line, "false ") == line) {
                 ret = 1;
                 break;
+            } else if (strstr(line, "echo ") == line) {
+                if (puts(line + sizeof("echo ") - 1) == EOF){
+                    perror("echo");
+                    ret = 1;
+                    break;
+                }
             } else {
                 ret = 127;
                 break;
