@@ -76,6 +76,12 @@ class OmnibusChunkMorphologyGenerator < Importer::Base
   end
 
   def generate_chunk_morph_for_software(software)
+    omnibus_deps = Hash[software.dependencies.collect do |dep|
+      [dep, 0]
+    end]
+    rubygems_deps = Hash[software.builder.manually_installed_rubygems.collect do |dep|
+      [dep.name, dep.requirement.to_s]
+    end]
     {
       "name" => software.name,
       "kind" => "chunk",
@@ -84,8 +90,11 @@ class OmnibusChunkMorphologyGenerator < Importer::Base
       # For now: don't bother!
 
       # FIXME: are these build or runtime dependencies? We'll assume both.
-      "x-build-dependencies-omnibus" => deps_for_software(software),
-      "x-runtime-dependencies-omnibus" => deps_for_software(software),
+      "x-build-dependencies-omnibus" => omnibus_deps,
+      "x-runtime-dependencies-omnibus" => omnibus_deps,
+
+      "x-build-dependencies-rubygems" => {},
+      "x-runtime-dependencies-rubygems" => rubygems_deps,
     }
   end
 
