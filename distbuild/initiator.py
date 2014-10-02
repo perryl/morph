@@ -16,6 +16,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA..
 
 
+import base64
 import cliapp
 import logging
 import random
@@ -145,8 +146,8 @@ class Initiator(distbuild.StateMachine):
         step_name = msg['step_name']
         if step_name in self._step_outputs:
             f = self._step_outputs[step_name]
-            f.write(msg['stdout'])
-            f.write(msg['stderr'])
+            f.write(base64.standard_b64decode(msg['stdout']))
+            f.write(base64.standard_b64decode(msg['stderr']))
             f.flush()
         else:
             logging.warning(

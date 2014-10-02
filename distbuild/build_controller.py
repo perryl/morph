@@ -16,6 +16,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA..
 
 
+import base64
 import logging
 import httplib
 import traceback
@@ -273,8 +274,10 @@ class BuildController(distbuild.StateMachine):
         distbuild.crash_point()
 
         if event.msg['id'] == self._helper_id:
-            self._artifact_data.add(event.msg['stdout'])
-            self._artifact_error.add(event.msg['stderr'])
+            self._artifact_data.add(
+                base64.standard_b64decode(event.msg['stdout']))
+            self._artifact_error.add(
+                base64.standard_b64decode(event.msg['stderr']))
 
     def _maybe_finish_graph(self, event_source, event):
         distbuild.crash_point()

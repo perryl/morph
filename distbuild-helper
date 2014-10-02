@@ -17,6 +17,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA..
 
+import base64
 import cliapp
 import errno
 import fcntl
@@ -231,8 +232,8 @@ class HelperMachine(distbuild.StateMachine):
             msg = {
                 'type': 'exec-output',
                 'id': event.request_id,
-                stream: data,
-                other: '',
+                stream: base64.standard_b64encode(data),
+                other: base64.standard_b64encode(''),
             }
             logging.debug('JsonMachine: sent to parent: %s', repr(msg))
             self.jm.send(msg)
