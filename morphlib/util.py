@@ -172,7 +172,7 @@ def combine_aliases(app):  # pragma: no cover
                     m.group('prefix'),
                     _expand(m.group('pull'), m.group('path')),
                     _expand(m.group('push'), m.group('path')))
-            elif '=' not in trove_id:
+            elif '=' not in trove_id and trove_id not in alias_map:
                 alias_map[trove_id] = "%s=%s#%s" % (
                     trove_id,
                     _expand('ssh', trove_id),

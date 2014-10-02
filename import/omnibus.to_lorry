@@ -49,9 +49,9 @@ class OmnibusLorryGenerator < Importer::Base
       exit 255
     end
 
-    definitions_and_project, software_name = parsed_arguments
-    definitions_dir, _, project_name = definitions_and_project.rpartition('#')
-    [definitions_dir, project_name, software_name]
+    project_dir_and_name, software_name = parsed_arguments
+    project_dir, _, project_name = project_dir_and_name.rpartition('#')
+    [project_dir, project_name, software_name]
   end
 
   def generate_lorry_for_software(software)
@@ -77,7 +77,19 @@ class OmnibusLorryGenerator < Importer::Base
   end
 
   def run
-    definitions_dir, project_name, software_name = parse_options(ARGV)
+    STDERR.puts("Current working directory: #{Dir.getwd}")
+    log.info("Current working directory: #{Dir.getwd}")
+    project_dir, project_name, software_name = parse_options(ARGV)
+
+    log.info("Creating lorry for #{software_name} from project " +
+             "#{project_name}, defined in #{project_dir}")
+
+    # Omnibus definitions are spread across multiple repos, and there is
+    # no stability guarantee for the definition format. The official advice
+    # is to use Bundler to execute Omnibus, so let's do that.
+    ensure_running_inside_bundler_exec(project_dir)
+
+    STDERR.puts Omnibus.projects()
 
     project = Omnibus::Project.load(project_name)
 
