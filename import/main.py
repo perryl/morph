@@ -680,7 +680,8 @@ class BaserockImportApplication(cliapp.Application):
                                    version, source_repo, repo_url, named_ref):
         morphology_filename = 'strata/%s/%s-%s.morph' % (
             goal_name, name, version)
-        sha1 = source_repo.resolve_ref_to_commit(named_ref)
+        #sha1 = source_repo.resolve_ref_to_commit(named_ref)
+        sha1 = 1
 
         def generate_morphology():
             morphology = self.generate_chunk_morph_for_package(
