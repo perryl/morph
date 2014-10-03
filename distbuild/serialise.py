@@ -33,7 +33,7 @@ def serialise_artifact(artifact):
             result[key] = morphology[key]
         return result
     
-    def encode_source(source):
+    def encode_source(source, prune_leaf=False):
         source_dic = {
             'name': source.name,
             'repo': None,
@@ -43,14 +43,16 @@ def serialise_artifact(artifact):
             'tree': source.tree,
             'morphology': id(source.morphology),
             'filename': source.filename,
-
-            'artifact_ids': [id(artifact) for (_, artifact)
-                in source.artifacts.iteritems()],
+            'artifact_ids': [],
             'cache_id': source.cache_id,
             'cache_key': source.cache_key,
-            'dependencies': [id(d)
-                for d in source.dependencies],
+            'dependencies': [],
         }
+        if not prune_leaf:
+            source_dic['artifact_ids'].extend(id(artifact) for (_, artifact)
+                                              in source.artifacts.iteritems())
+            source_dic['dependencies'].extend(id(d)
+                                              for d in source.dependencies)
 
         if source.morphology['kind'] == 'chunk':
             source_dic['build_mode'] = source.build_mode
@@ -66,24 +68,39 @@ def serialise_artifact(artifact):
         return {
             'source_id': id(a.source),
             'name': a.name,
-            'arch': arch
+            'arch': arch,
+            'dependents': [id(d)
+                for d in a.dependents],
         }
 
     encoded_artifacts = {}
     encoded_sources = {}
     encoded_morphologies = {}
+    visited_artifacts = {}
 
     for a in artifact.walk():
         if id(a.source) not in encoded_sources:
-            for (_, sa) in a.source.artifacts.iteritems():
+            for sa in a.source.artifacts.itervalues():
                 if id(sa) not in encoded_artifacts:
+                    visited_artifacts[id(sa)] = sa
                     encoded_artifacts[id(sa)] = encode_artifact(sa)
             encoded_morphologies[id(a.source.morphology)] = \
                 encode_morphology(a.source.morphology)
             encoded_sources[id(a.source)] = encode_source(a.source)
 
         if id(a) not in encoded_artifacts: # pragma: no cover
+            visited_artifacts[id(a)] = a
             encoded_artifacts[id(a)] = encode_artifact(a)
+
+    # Include one level of dependents above encoded artifacts, as we need
+    # them to be able to tell whether two sources are in the same stratum.
+    for a in visited_artifacts.itervalues():
+        for source in a.dependents: # pragma: no cover
+            if id(source) not in encoded_sources:
+                encoded_morphologies[id(source.morphology)] = \
+                    encode_morphology(source.morphology)
+                encoded_sources[id(source)] = \
+                    encode_source(source, prune_leaf=True)
 
     content = {
         'sources': encoded_sources,
@@ -155,14 +172,14 @@ def deserialise_artifact(encoded):
     sources_dict = le_dicts['sources']
     morphologies_dict = le_dicts['morphologies']
     root_artifact = le_dicts['root_artifact']
-
-    artifact_ids = ([root_artifact] + artifacts_dict.keys())
+    assert root_artifact in artifacts_dict
 
     artifacts = {}
     sources = {}
     morphologies = {id: decode_morphology(d)
                     for (id, d) in morphologies_dict.iteritems()}
 
+    # Decode sources
     for source_id, source_dict in sources_dict.iteritems():
         morphology = morphologies[source_dict['morphology']]
         kind = morphology['kind']
@@ -173,25 +190,29 @@ def deserialise_artifact(encoded):
             rules = ruler(morphology)
         sources[source_id] = decode_source(source_dict, morphology, rules)
 
-        # clear the source artifacts that get automatically generated
-        # we want to add the ones that were sent to us
-        sources[source_id].artifacts = {}
-        source_artifacts = source_dict['artifact_ids']
+    # decode artifacts
+    for artifact_id, artifact_dict in artifacts_dict.iteritems():
+        source_id = artifact_dict['source_id']
+        source = sources[source_id]
+        artifact = decode_artifact(artifact_dict, source)
+        artifacts[artifact_id] = artifact
 
-        for artifact_id in source_artifacts:
-            if artifact_id not in artifacts:
-                artifact_dict = artifacts_dict[artifact_id]
-                artifact = decode_artifact(artifact_dict, sources[source_id])
+    # add source artifacts reference
+    for source_id, source in sources.iteritems():
+        source_dict = sources_dict[source_id]
+        source.artifacts = {artifacts[a].name: artifacts[a]
+                            for a in source_dict['artifact_ids']}
 
-                artifacts[artifact_id] = artifact
-
-            key = artifacts[artifact_id].name
-            sources[source_id].artifacts[key] = artifacts[artifact_id]
-
-    # now add the dependencies
+    # add source dependencies
     for source_id, source_dict in sources_dict.iteritems():
         source = sources[source_id]
         source.dependencies = [artifacts[aid]
                                for aid in source_dict['dependencies']]
+
+    # add artifact dependents
+    for artifact_id, artifact in artifacts.iteritems():
+        artifact_dict = artifacts_dict[artifact_id]
+        artifact.dependents = [sources[sid]
+                               for sid in artifact_dict['dependents']]
 
     return artifacts[root_artifact]

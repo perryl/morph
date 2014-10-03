@@ -77,6 +77,7 @@ class MockArtifact(object):
         self.source = MockSource(name, kind)
         self.source.artifacts = {name: self}
         self.name = name
+        self.dependents = []
 
     def walk(self): # pragma: no cover
         done = set()
