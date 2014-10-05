@@ -142,6 +142,21 @@ class BuildCommand(object):
                    for spec in src.morphology['chunks']):
             raise morphlib.Error('No non-bootstrap chunks found.')
 
+    def _compute_cache_keys(self, root_artifact):
+        arch = root_artifact.source.morphology['arch']
+        self.app.status(msg='Creating build environment for %(arch)s',
+                        arch=arch, chatty=True)
+        build_env = self.new_build_env(arch)
+
+        self.app.status(msg='Computing cache keys', chatty=True)
+        ckc = morphlib.cachekeycomputer.CacheKeyComputer(build_env)
+
+        for source in set(a.source for a in root_artifact.walk()):
+            source.cache_key = ckc.compute_key(source)
+            source.cache_id = ckc.get_cache_id(source)
+
+        root_artifact.build_env = build_env
+
     def resolve_artifacts(self, srcpool):
         '''Resolve the artifacts that will be built for a set of sources'''
 
@@ -149,38 +164,20 @@ class BuildCommand(object):
         ar = morphlib.artifactresolver.ArtifactResolver()
 
         self.app.status(msg='Resolving artifacts', chatty=True)
-        artifacts = ar.resolve_artifacts(srcpool)
+        root_artifacts = ar.resolve_root_artifacts(srcpool)
 
-        self.app.status(msg='Computing build order', chatty=True)
-        root_artifacts = self._find_root_artifacts(artifacts)
         if len(root_artifacts) > 1:
-            # Validate root artifacts, since validation covers errors
-            # such as trying to build a chunk or stratum directly,
-            # and this is one cause for having multiple root artifacts
+            # Validate root artifacts to give a more useful error message
             for root_artifact in root_artifacts:
                 self._validate_root_artifact(root_artifact)
             raise MultipleRootArtifactsError(root_artifacts)
-        root_artifact = root_artifacts[0]
 
-        # Validate the root artifact here, since it's a costly function
-        # to finalise it, so any pre finalisation validation is better
-        # done before that happens, but we also don't want to expose
-        # the root artifact until it's finalised.
+        root_artifact = root_artifacts[0]
         self.app.status(msg='Validating root artifact', chatty=True)
         self._validate_root_artifact(root_artifact)
-        arch = root_artifact.source.morphology['arch']
 
-        self.app.status(msg='Creating build environment for %(arch)s',
-                        arch=arch, chatty=True)
-        build_env = self.new_build_env(arch)
+        self._compute_cache_keys(root_artifact)
 
-        self.app.status(msg='Computing cache keys', chatty=True)
-        ckc = morphlib.cachekeycomputer.CacheKeyComputer(build_env)
-        for source in set(a.source for a in artifacts):
-            source.cache_key = ckc.compute_key(source)
-            source.cache_id = ckc.get_cache_id(source)
-
-        root_artifact.build_env = build_env
         return root_artifact
 
     def _validate_cross_morphology_references(self, srcpool):
@@ -249,17 +246,6 @@ class BuildCommand(object):
                              filename,
                              other.morphology['kind'],
                              wanted))
-
-    def _find_root_artifacts(self, artifacts):
-        '''Find all the root artifacts among a set of artifacts in a DAG.
-
-        It would be nice if the ArtifactResolver would return its results in a
-        more useful order to save us from needing to do this -- the root object
-        is known already since that's the one the user asked us to build.
-
-        '''
-
-        return [a for a in artifacts if not a.dependents]
 
     @staticmethod
     def get_ordered_sources(artifacts):

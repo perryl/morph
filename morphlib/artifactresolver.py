@@ -52,7 +52,11 @@ class ArtifactResolver(object):
         self._added_artifacts = None
         self._source_pool = None
 
-    def resolve_artifacts(self, source_pool):
+    def resolve_root_artifacts(self, source_pool): #pragma: no cover
+        return [a for a in self._resolve_artifacts(source_pool)
+                if not a.dependents]
+
+    def _resolve_artifacts(self, source_pool):
         self._source_pool = source_pool
         self._added_artifacts = set()
 
