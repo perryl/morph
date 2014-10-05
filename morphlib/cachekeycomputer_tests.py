@@ -99,7 +99,7 @@ class CacheKeyComputerTests(unittest.TestCase):
             "USER": "foouser",
             "USERNAME": "foouser"}, 'dummy')
         self.artifact_resolver = morphlib.artifactresolver.ArtifactResolver()
-        self.artifacts = self.artifact_resolver.resolve_artifacts(
+        self.artifacts = self.artifact_resolver._resolve_artifacts(
             self.source_pool)
         self.ckc = morphlib.cachekeycomputer.CacheKeyComputer(self.build_env)
 

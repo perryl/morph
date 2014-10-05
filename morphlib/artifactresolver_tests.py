@@ -82,7 +82,7 @@ class ArtifactResolverTests(unittest.TestCase):
 
     def test_resolve_artifacts_using_an_empty_pool(self):
         pool = morphlib.sourcepool.SourcePool()
-        artifacts = self.resolver.resolve_artifacts(pool)
+        artifacts = self.resolver._resolve_artifacts(pool)
         self.assertEqual(len(artifacts), 0)
 
     def test_resolve_single_chunk_with_no_subartifacts(self):
@@ -95,7 +95,7 @@ class ArtifactResolverTests(unittest.TestCase):
         for source in sources:
             pool.add(source)
 
-        artifacts = self.resolver.resolve_artifacts(pool)
+        artifacts = self.resolver._resolve_artifacts(pool)
 
         self.assertEqual(len(artifacts),
                          sum(len(s.split_rules.artifacts) for s in pool))
@@ -116,7 +116,7 @@ class ArtifactResolverTests(unittest.TestCase):
         for source in sources:
             pool.add(source)
 
-        artifacts = self.resolver.resolve_artifacts(pool)
+        artifacts = self.resolver._resolve_artifacts(pool)
 
         self.assertEqual(len(artifacts),
                          sum(len(s.split_rules.artifacts) for s in pool))
@@ -136,7 +136,7 @@ class ArtifactResolverTests(unittest.TestCase):
         for source in sources:
             pool.add(source)
 
-        artifacts = self.resolver.resolve_artifacts(pool)
+        artifacts = self.resolver._resolve_artifacts(pool)
         artifacts.sort(key=lambda a: a.name)
 
         self.assertEqual(len(artifacts),
@@ -167,7 +167,7 @@ class ArtifactResolverTests(unittest.TestCase):
         for stratum in stratum_sources:
             pool.add(stratum)
 
-        artifacts = self.resolver.resolve_artifacts(pool)
+        artifacts = self.resolver._resolve_artifacts(pool)
 
         all_artifacts = set()
         for s in pool: all_artifacts.update(s.split_rules.artifacts)
@@ -216,7 +216,7 @@ class ArtifactResolverTests(unittest.TestCase):
         for stratum in stratum_sources:
             pool.add(stratum)
 
-        artifacts = self.resolver.resolve_artifacts(pool)
+        artifacts = self.resolver._resolve_artifacts(pool)
 
         self.assertEqual(
             set(artifacts),
@@ -278,7 +278,7 @@ class ArtifactResolverTests(unittest.TestCase):
             pool.add(stratum2)
 
         self.assertRaises(morphlib.artifactresolver.MutualDependencyError,
-                          self.resolver.resolve_artifacts, pool)
+                          self.resolver._resolve_artifacts, pool)
 
     def test_detection_of_chunk_dependencies_in_invalid_order(self):
         pool = morphlib.sourcepool.SourcePool()
@@ -321,7 +321,7 @@ class ArtifactResolverTests(unittest.TestCase):
             pool.add(chunk2)
 
         self.assertRaises(morphlib.artifactresolver.DependencyOrderError,
-                          self.resolver.resolve_artifacts, pool)
+                          self.resolver._resolve_artifacts, pool)
 
 
 # TODO: Expand test suite to include better dependency checking, many
