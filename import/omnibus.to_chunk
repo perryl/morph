@@ -26,9 +26,14 @@ require 'shellwords'
 
 require_relative 'importer_base'
 
-TARGET_PROJECT = 'chefdk'  # should come from args
+# This DEFINITIONS#PROJECT thing is a bit shit. Make main.py smarter about
+# being able to pass extra arguments to import extensions instead of forcing
+# everything into two arguments.
+BANNER = "Usage: omnibus.to_chunk DEFINITIONS_DIR#PROJECT_NAME SOFTWARE_NAME"
 
-TARGET_SOFTWARE = 'chefdk' # should come from args
+DESCRIPTION = <<-END
+Generate a .morph file for a given Omnibus software component.
+END
 
 class Omnibus::Builder
   # It's possible to use `gem install` in build commands, which is a great
@@ -64,6 +69,26 @@ class Omnibus::Builder
 end
 
 class OmnibusChunkMorphologyGenerator < Importer::Base
+  def parse_options(arguments)
+    opts = create_option_parser(BANNER, DESCRIPTION)
+
+    parsed_arguments = opts.parse!(arguments)
+
+    if parsed_arguments.length != 2 and parsed_arguments.length != 3
+      STDERR.puts "Expected 2 or 3 arguments, got #{parsed_arguments}."
+      opts.parse(['-?'])
+      exit 255
+    end
+
+    project_dir_and_name, software_name, expected_version = parsed_arguments
+    project_dir, _, project_name = project_dir_and_name.rpartition('#')
+    # Not yet implemented
+    #if expected_version != nil
+    #  expected_version = Gem::Version.new(expected_version)
+    #end
+    [project_dir, project_name, software_name, expected_version]
+  end
+
   def deps_for_software(software)
     deps = Hash.new
     software.dependencies.each do |dep|
@@ -99,9 +124,15 @@ class OmnibusChunkMorphologyGenerator < Importer::Base
   end
 
   def run
-    project = Omnibus::Project.load(TARGET_PROJECT)
+    project_dir, project_name, software_name = parse_options(ARGV)
 
-    software = Omnibus::Software.load(project, TARGET_SOFTWARE)
+    log.info("Creating chunk morph for #{software_name} from project " +
+             "#{project_name}, defined in #{project_dir}")
+    log.debug("Running in: #{Dir.getwd}")
+
+    project = Omnibus::Project.load(project_name)
+
+    software = Omnibus::Software.load(project, software_name)
 
     morph = generate_chunk_morph_for_software(software)
 

@@ -321,6 +321,9 @@ def run_extension(filename, args, cwd='.'):
     main_path = os.path.dirname(os.path.realpath(__file__))
     extension_path = os.path.join(main_path, filename)
 
+    logging.debug(
+        "Running %s %s with cwd %s, env %s" % (extension_path, args, cwd,
+                                               os.environ))
     returncode = ext.run(extension_path, args, cwd, os.environ)
 
     if returncode == 0:
@@ -539,7 +542,7 @@ class BaserockImportApplication(cliapp.Application):
 
                 chunk_morph = self.find_or_create_chunk_morph(
                     morph_set, goal_name, kind, name, checked_out_version,
-                    package_definition_repo, url, ref)
+                    package_definition_repo, url, ref, definitions_dir)
 
                 current_item.set_morphology(chunk_morph)
 
@@ -693,20 +696,28 @@ class BaserockImportApplication(cliapp.Application):
         return version, ref
 
     def generate_chunk_morph_for_package(self, kind, source_repo, name,
-                                         version, filename):
+                                         version, filename, definitions_dir):
         tool = '%s.to_chunk' % kind
         self.status('Calling %s to generate chunk morph for %s', tool, name)
 
-        args = [source_repo.dirname, name]
+        if definitions_dir is None:
+            cwd = '.'
+            args = [source_repo.dirname, name]
+        else:
+            cwd = definitions_dir.rsplit('#')[0]
+            args = [definitions_dir, name]
+
         if version != 'master':
             args.append(version)
-        text = run_extension(tool, args)
+
+        text = run_extension(tool, args, cwd=cwd)
 
         loader = morphlib.morphloader.MorphologyLoader()
         return loader.load_from_string(text, filename)
 
     def find_or_create_chunk_morph(self, morph_set, goal_name, kind, name,
-                                   version, source_repo, repo_url, named_ref):
+                                   version, source_repo, repo_url, named_ref,
+                                   definitions_dir):
         morphology_filename = 'strata/%s/%s-%s.morph' % (
             goal_name, name, version)
         #sha1 = source_repo.resolve_ref_to_commit(named_ref)
@@ -714,7 +725,8 @@ class BaserockImportApplication(cliapp.Application):
 
         def generate_morphology():
             morphology = self.generate_chunk_morph_for_package(
-                kind, source_repo, name, version, morphology_filename)
+                kind, source_repo, name, version, morphology_filename,
+                definitions_dir)
             morph_set.save_morphology(morphology_filename, morphology)
             return morphology
 

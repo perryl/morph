@@ -26,11 +26,9 @@ require 'shellwords'
 
 require_relative 'importer_base'
 
-TARGET_PROJECT = 'chefdk'  # should come from args
-
-TARGET_SOFTWARE = 'chefdk' # should come from args
-
-# This DEFINITIONS#PROJECT thing is a bit shit. Make main.py smarter.
+# This DEFINITIONS#PROJECT thing is a bit shit. Make main.py smarter about
+# being able to pass extra arguments to import extensions instead of forcing
+# everything into two arguments.
 BANNER = "Usage: omnibus.to_lorry DEFINITIONS_DIR#PROJECT_NAME SOFTWARE_NAME"
 
 DESCRIPTION = <<-END
@@ -77,19 +75,11 @@ class OmnibusLorryGenerator < Importer::Base
   end
 
   def run
-    STDERR.puts("Current working directory: #{Dir.getwd}")
-    log.info("Current working directory: #{Dir.getwd}")
     project_dir, project_name, software_name = parse_options(ARGV)
 
     log.info("Creating lorry for #{software_name} from project " +
              "#{project_name}, defined in #{project_dir}")
-
-    # Omnibus definitions are spread across multiple repos, and there is
-    # no stability guarantee for the definition format. The official advice
-    # is to use Bundler to execute Omnibus, so let's do that.
-    ensure_running_inside_bundler_exec(project_dir)
-
-    STDERR.puts Omnibus.projects()
+    log.debug("Running in: #{Dir.getwd}")
 
     project = Omnibus::Project.load(project_name)
 
