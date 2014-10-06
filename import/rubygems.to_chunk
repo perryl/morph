@@ -28,9 +28,9 @@ class << Bundler
   end
 end
 
-def spec_is_from_current_source_tree(spec)
+def spec_is_from_current_source_tree(spec, source_dir)
   spec.source.instance_of? Bundler::Source::Path and
-    spec.source.path.fnmatch?('.')
+    spec.source.path.fnmatch?(source_dir)
 end
 
 BANNER = "Usage: rubygems.to_chunk SOURCE_DIR GEM_NAME [VERSION]"
@@ -223,7 +223,7 @@ class RubyGemChunkMorphologyGenerator < Importer::Base
 
     spec = get_spec_for_gem(resolved_specs, gem_name)
 
-    if not spec_is_from_current_source_tree(spec)
+    if not spec_is_from_current_source_tree(spec, source_dir_name)
       error "Specified gem '#{spec.name}' doesn't live in the source in " +
             "'#{source_dir_name}'"
       log.debug "SPEC: #{spec.inspect} #{spec.source}"
