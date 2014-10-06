@@ -20,6 +20,7 @@
 import cliapp
 import morphlib
 import networkx
+import six
 
 import contextlib
 import copy
@@ -153,9 +154,9 @@ class LorrySet(object):
             raise cliapp.AppException(
                 'Invalid lorry %s: %s' % (filename, lorry_entry))
 
-        if not isinstance(info['url'], str):
+        if not isinstance(info.get('url'), six.string_types):
             raise cliapp.AppException(
-                'Invalid URL in lorry %s: %s' % (filename, info['url']))
+                'Invalid URL in lorry %s: %s' % (filename, info.get('url')))
 
         if project_name in self.data:
             stored_lorry = self.get_lorry(project_name)
