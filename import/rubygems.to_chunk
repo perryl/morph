@@ -63,7 +63,7 @@ class RubyGemChunkMorphologyGenerator < Importer::Base
 
     source_dir, gem_name, expected_version = parsed_arguments
     if expected_version != nil
-      expected_version = Gem::Version.new(expected_version)
+      expected_version = Gem::Version.new(expected_version.dup)
     end
     [source_dir, gem_name, expected_version]
   end
