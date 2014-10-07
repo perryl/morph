@@ -322,9 +322,7 @@ def run_extension(filename, args, cwd='.'):
     main_path = os.path.dirname(os.path.realpath(__file__))
     extension_path = os.path.join(main_path, filename)
 
-    logging.debug(
-        "Running %s %s with cwd %s, env %s" % (extension_path, args, cwd,
-                                               os.environ))
+    logging.debug("Running %s %s with cwd %s" % (extension_path, args, cwd))
     returncode = ext.run(extension_path, args, cwd, os.environ)
 
     if returncode == 0:
