@@ -19,10 +19,39 @@
 
 from __future__ import print_function
 
+import subprocess
 import requests
+import json
+import sys
 
-def get_package_json(package_name):
+def fetch_package_metadata(package_name):
 	return requests.get('http://pypi.python.org/pypi/%s/json'
 						% package_name).json()
 
-print(get_package_json('numpy'))
+def is_repo(url):
+	vcss = [('git', 'clone'), ('hg', 'clone'),
+			('svn', 'checkout'), ('bzr', 'branch')]
+
+	for (vcs, vcs_command) in vcss:
+		p = subprocess.Popen([vcs, vcs_command, url], stdout=subprocess.PIPE,
+							 stderr=subprocess.PIPE)
+
+		if p.returncode == 0:
+			return True
+
+	return False
+
+if len(sys.argv) != 2:
+	print('usage: %s python_package' % sys.argv[0], file=sys.stderr)
+	sys.exit(1)
+
+info = fetch_package_metadata('numpy')['info']
+
+if 'home_page' in info:
+	# TODO: detect if git repo, if so then great lorry from here
+	if is_repo(info['home_page']):
+		# lorry this thing
+		print('not implemented yet: lorry from ', info['home_page'])
+	else:
+		# tarball time
+		print("not a repo, it's tarball time!")
