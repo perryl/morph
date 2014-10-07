@@ -17,6 +17,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
+import ansicolor
 import cliapp
 import morphlib
 import networkx
@@ -307,7 +308,6 @@ def run_extension(filename, args, cwd='.'):
 
     def report_extension_stderr(line):
         errors.append(line)
-        sys.stderr.write('%s\n' % line)
 
     def report_extension_logger(line):
         ext_logger.debug(line)
@@ -364,11 +364,27 @@ class BaserockImportApplication(cliapp.Application):
                               "error",
                               default=False)
 
+    def _stream_has_colours(self, stream):
+        # http://blog.mathieu-leplatre.info/colored-output-in-console-with-python.html
+        if not hasattr(stream, "isatty"):
+            return False
+        if not stream.isatty():
+            return False # auto color only on TTYs
+        try:
+            import curses
+            curses.setupterm()
+            return curses.tigetnum("colors") > 2
+        except:
+            # guess false in case of error
+            return False
+
     def setup(self):
         self.add_subcommand('omnibus', self.import_omnibus,
                             arg_synopsis='REPO PROJECT_NAME SOFTWARE_NAME')
         self.add_subcommand('rubygems', self.import_rubygems,
                             arg_synopsis='GEM_NAME')
+
+        self.stdout_has_colours = self._stream_has_colours(sys.stdout)
 
     def setup_logging_formatter_for_file(self):
         root_logger = logging.getLogger()
@@ -386,9 +402,18 @@ class BaserockImportApplication(cliapp.Application):
 
         super(BaserockImportApplication, self).process_args(args)
 
-    def status(self, msg, *args):
-        print msg % args
-        logging.info(msg % args)
+    def status(self, msg, *args, **kwargs):
+        text = msg % args
+        if kwargs.get('error') == True:
+            logging.error(text)
+            if self.stdout_has_colours:
+                sys.stdout.write(ansicolor.red(text))
+            else:
+                sys.stdout.write(text)
+        else:
+            logging.info(text)
+            sys.stdout.write(text)
+        sys.stdout.write('\n')
 
     def import_omnibus(self, args):
         '''Import a software component from an Omnibus project.
@@ -552,9 +577,7 @@ class BaserockImportApplication(cliapp.Application):
                 runtime_deps = self.get_dependencies_from_morphology(
                     chunk_morph, 'x-runtime-dependencies-%s' % kind)
             except BaserockImportException as e:
-                # Don't print the exception on stdout; the error messages will
-                # have gone to stderr already.
-                logging.error(str(e))
+                self.status(str(e), error=True)
                 errors[current_item] = e
                 build_deps = runtime_deps = {}
 
@@ -566,8 +589,6 @@ class BaserockImportApplication(cliapp.Application):
                 current_item, runtime_deps, to_process, processed, False)
 
         if len(errors) > 0:
-            for package, exception in errors.iteritems():
-                self.status('\n%s: %s', package.name, exception)
             self.status(
                 '\nErrors encountered, not generating a stratum morphology.')
             self.status(
