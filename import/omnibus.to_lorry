@@ -57,18 +57,21 @@ class OmnibusLorryGenerator < Importer::Base
       'x-products-omnibus' => [software.name]
     }
 
-    if software.source.member? :git
+    if software.source and software.source.member? :git
       lorry_body.update({
         'type' => 'git',
         'url' => software.source[:git],
       })
-    else
+    elsif software.source and software.source.member? :url
       lorry_body.update({
         'type' => 'tarball',
         'url' => software.source[:url],
         # lorry doesn't validate the checksum right now, but maybe it should.
-        'x-md5' => software.source[:md5],
+      'x-md5' => software.source[:md5],
       })
+    else
+      error "Couldn't generate lorry file from source '#{software.source.inspect}'"
+      exit 1
     end
 
     { software.name => lorry_body }
