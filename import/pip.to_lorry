@@ -55,13 +55,32 @@ def is_repo(url):
 # also we only allow tar urls >.>
 # need a compression flag for bzip I think >.>
 
+def get_compression(url):
+    bzip = 'bzip2'
+    gzip = 'gzip'
+    lzma = 'lzma'
+
+    m = {'tar.gz': gzip, 'tgz': gzip, 'tar.Z': gzip,
+           'tar.bz2': bzip, 'tbz2': bzip,
+           'tar.lzma': lzma, 'tar.xz': lzma, 'tlz': lzma, 'txz': lzma}
+
+    print(url)
+
+    ext = '.'.join(url.split('.')[-2:])
+    if ext in m: return m[ext]
+
+    ext = url.split('.')[-1:]
+    if ext in m: return m[ext]
+
+    return None
+
 def make_tarball_lorry(name, url):
-    return '''{
-    "%s-tarball": {
-        "type": "tarball",
-        "url": "%s"
-    }
-}''' % (name, url)
+    lorry = {'type': 'tarball', 'url': url}
+    compression = get_compression(url)
+    if compression:
+        lorry['compression'] = compression
+
+    return "%s-tarball: { %s }" % (name, json.dumps(lorry))
 
 def ask_user(client, xs, fn, prompt='--> '):
     for n, x in enumerate(xs, 1):
@@ -79,7 +98,7 @@ def ask_user(client, xs, fn, prompt='--> '):
     return choice
 
 def filter_urls(urls):
-    allowed_extensions = ['tar.gz', 'tgz', 'tar.Z', '.tar.bz2', 'tbz2',
+    allowed_extensions = ['tar.gz', 'tgz', 'tar.Z', 'tar.bz2', 'tbz2',
                           'tar.lzma', 'tar.xz', 'tlz', 'txz', 'tar']
 
     def allowed_extension(url):
