@@ -24,34 +24,72 @@ import requests
 import json
 import sys
 
+import xmlrpclib
+
+PYPI_URL = 'http://pypi.python.org/pypi'
+
 def fetch_package_metadata(package_name):
-	return requests.get('http://pypi.python.org/pypi/%s/json'
-						% package_name).json()
+    return requests.get('%s/%s/json'
+                        % (PYPI_URL, package_name)).json()
 
 def is_repo(url):
-	vcss = [('git', 'clone'), ('hg', 'clone'),
-			('svn', 'checkout'), ('bzr', 'branch')]
+    vcss = [('git', 'clone'), ('hg', 'clone'),
+            ('svn', 'checkout'), ('bzr', 'branch')]
 
-	for (vcs, vcs_command) in vcss:
-		p = subprocess.Popen([vcs, vcs_command, url], stdout=subprocess.PIPE,
-							 stderr=subprocess.PIPE)
+    for (vcs, vcs_command) in vcss:
+        p = subprocess.Popen([vcs, vcs_command, url], stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
 
-		if p.returncode == 0:
-			return True
+        if p.returncode == 0:
+            return True
 
-	return False
+    return False
+
+def make_lorry(name, url):
+    return '''{
+    "%s-tarball": {
+        "type": "tarball",
+        "url": "%s"
+    }
+}''' % (name, url)
+
+def generate_lorry_from_tarball(package_name):
+    client = xmlrpclib.ServerProxy(PYPI_URL)
+    releases = client.package_releases(package_name)
+    print('releases: ', releases)
+
+    for n, release in enumerate(releases):
+        print('%s: %s (%s)' % (n, client.release_data(package_name,
+                               release)['name'], release))
+
+    s = raw_input('--> ')
+    choice = int(s) if s.isdigit() else None
+    choice = choice if choice < len(releases) else None
+
+    if choice == None:
+        print("Invalid choice, exiting", file=sys.stderr)
+        sys.exit(1)
+
+    release = releases[choice]
+    print('Will use ', choice)
 
 if len(sys.argv) != 2:
-	print('usage: %s python_package' % sys.argv[0], file=sys.stderr)
-	sys.exit(1)
+    print('usage: %s python_package' % sys.argv[0], file=sys.stderr)
+    sys.exit(1)
 
-info = fetch_package_metadata('numpy')['info']
+package_name = sys.argv[1]
+metadata = fetch_package_metadata(package_name)
+info = metadata['info']
 
 if 'home_page' in info:
-	# TODO: detect if git repo, if so then great lorry from here
-	if is_repo(info['home_page']):
-		# lorry this thing
-		print('not implemented yet: lorry from ', info['home_page'])
-	else:
-		# tarball time
-		print("not a repo, it's tarball time!")
+    # TODO: detect if git repo, if so then great lorry from here
+    if is_repo(info['home_page']):
+        # lorry this thing
+        print('not implemented yet: lorry from ', info['home_page'])
+    else:
+        # tarball time
+        print("not a repo, it's tarball time!")
+
+        # urls or releases???
+
+        generate_lorry_from_tarball(package_name)
