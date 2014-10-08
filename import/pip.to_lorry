@@ -53,13 +53,14 @@ def make_lorry(name, url):
     }
 }''' % (name, url)
 
-def ask_user(client, xs, fn):
+def ask_user(client, xs, fn, prompt='--> '):
     for n, x in enumerate(xs, 1):
-        print('%s: %s' % (n, fn(x)))
+        print('[%s]: %s' % (n, fn(x)))
+    print('')
 
-    s = raw_input('--> ')
-    choice = int(s) if s.isdigit() else xsNone
-    choice = choice - 1 if choice <= len(xs) else None
+    s = raw_input(prompt)
+    choice = int(s) if s.isdigit() else None
+    choice = choice - 1 if choice != None and choice <= len(xs) else None
 
     if choice == None:
         print("Invalid choice, exiting", file=sys.stderr)
@@ -70,22 +71,26 @@ def ask_user(client, xs, fn):
 def generate_lorry_from_tarball(package_name):
     client = xmlrpclib.ServerProxy(PYPI_URL)
     releases = client.package_releases(package_name)
-    print('releases: ', releases)
+
+    if len(releases) == 0:
+        print("Couldn't find any releases for packge %s, exiting" % package_name)
+        sys.exit(1)
 
     def f(release):
         return client.release_data(package_name, release)['name'] + ' ' + release
 
-    release_version = releases[ask_user(client, releases, f)
+    release_version = releases[ask_user(client, releases, f, prompt='Select release: ')
                                 if len(releases) > 1 else 0]
-
-    print("Convert release with version", release_version)
 
     urls = client.release_urls(package_name, release_version)
 
-    def g(url):
-        return url['url']
+    if len(urls) == 0:
+        print("Couldn't get download urls for package %s with release %s, exiting"
+              % (package_name, release_version), file=sys.stderr)
+        sys.exit(1)
 
-    url = urls[ask_user(client, urls, g) if len(urls) > 1 else 0]['url']
+    url = urls[ask_user(client, urls, lambda url: url['url'], prompt='Select url: ')
+                if len(urls) > 1 else 0]['url']
 
     return make_lorry(package_name, url)
 
