@@ -29,7 +29,6 @@ import json
 import logging
 import os
 import pipes
-import subprocess
 import sys
 import time
 
@@ -337,6 +336,378 @@ def run_extension(filename, args, cwd='.'):
     return '\n'.join(output)
 
 
+class ImportLoop(object):
+    '''Import a package and all of its dependencies into Baserock.
+
+    This class holds the state for the processing loop.
+
+    '''
+
+    def __init__(self, app, kind, goal_name, goal_version, extra_args=[]):
+        self.app = app
+        self.kind = kind
+        self.goal_name = goal_name
+        self.goal_version = goal_version
+        self.extra_args = extra_args
+
+        self.lorry_set = LorrySet(self.app.settings['lorries-dir'])
+        self.morph_set = MorphologySet(self.app.settings['definitions-dir'])
+
+        self.morphloader = morphlib.morphloader.MorphologyLoader()
+
+    def run(self):
+        '''Process the goal package and all of its dependencies.'''
+        start_time = time.time()
+        start_displaytime = time.strftime('%x %X %Z', time.localtime())
+
+        self.app.status(
+            '%s: Import of %s %s started', start_displaytime, self.kind,
+            self.goal_name)
+
+        if not self.app.settings['update-existing']:
+            self.app.status(
+                'Not updating existing Git checkouts or existing definitions')
+
+        chunk_dir = os.path.join(self.morph_set.path, 'strata', self.goal_name)
+        if not os.path.exists(chunk_dir):
+            os.makedirs(chunk_dir)
+
+        to_process = [Package(self.goal_name, self.goal_version)]
+        processed = networkx.DiGraph()
+
+        errors = {}
+
+        while len(to_process) > 0:
+            current_item = to_process.pop()
+
+            try:
+                build_deps, runtime_deps = self._process_package(current_item)
+            except BaserockImportException as e:
+                self.app.status(str(e), error=True)
+                errors[current_item] = e
+                build_deps = runtime_deps = {}
+
+            processed.add_node(current_item)
+
+            self._process_dependency_list(
+                current_item, build_deps, to_process, processed, True)
+            self._process_dependency_list(
+                current_item, runtime_deps, to_process, processed, False)
+
+        if len(errors) > 0:
+            self.app.status(
+                '\nErrors encountered, not generating a stratum morphology.')
+            self.app.status(
+                'See the README files for guidance.')
+        else:
+            self._generate_stratum_morph_if_none_exists(
+                processed, self.goal_name)
+
+        duration = time.time() - start_time
+        end_displaytime = time.strftime('%x %X %Z', time.localtime())
+
+        self.app.status(
+            '%s: Import of %s %s ended (took %i seconds)', end_displaytime,
+            self.kind, self.goal_name, duration)
+
+    def _get_dependencies_from_morphology(self, morphology, field_name):
+        # We need to validate this field because it doesn't go through the
+        # normal MorphologyFactory validation, being an extension.
+        value = morphology.get(field_name, {})
+        if not hasattr(value, 'iteritems'):
+            value_type = type(value).__name__
+            raise cliapp.AppException(
+                "Morphology for %s has invalid '%s': should be a dict, but "
+                "got a %s." % (morphology['name'], field_name, value_type))
+
+        return value
+
+    def _process_package(self, package):
+        name = package.name
+        version = package.version
+
+        lorry = self._find_or_create_lorry_file(name)
+        source_repo, url = self._fetch_or_update_source(lorry)
+
+        checked_out_version, ref = self._checkout_source_version(
+            source_repo, name, version)
+        package.set_version_in_use(checked_out_version)
+
+        chunk_morph = self._find_or_create_chunk_morph(
+            name, checked_out_version, source_repo, url, ref)
+
+        package.set_morphology(chunk_morph)
+
+        build_deps = self._get_dependencies_from_morphology(
+            chunk_morph, 'x-build-dependencies-%s' % self.kind)
+        runtime_deps = self._get_dependencies_from_morphology(
+            chunk_morph, 'x-runtime-dependencies-%s' % self.kind)
+
+        return build_deps, runtime_deps
+
+    def _process_dependency_list(self, current_item, deps, to_process,
+                                 processed, these_are_build_deps):
+        # All deps are added as nodes to the 'processed' graph. Runtime
+        # dependencies only need to appear in the stratum, but build
+        # dependencies have ordering constraints, so we add edges in
+        # the graph for build-dependencies too.
+
+        for dep_name, dep_version in deps.iteritems():
+            dep_package = find(
+                processed, lambda i: i.match(dep_name, dep_version))
+
+            if dep_package is None:
+                # Not yet processed
+                queue_item = find(
+                    to_process, lambda i: i.match(dep_name, dep_version))
+                if queue_item is None:
+                    queue_item = Package(dep_name, dep_version)
+                    to_process.append(queue_item)
+                dep_package = queue_item
+
+            dep_package.add_required_by(current_item)
+
+            if these_are_build_deps or current_item.is_build_dep:
+                # A runtime dep of a build dep becomes a build dep
+                # itself.
+                dep_package.set_is_build_dep(True)
+                processed.add_edge(dep_package, current_item)
+
+    def _find_or_create_lorry_file(self, name):
+        # Note that the lorry file may already exist for 'name', but lorry
+        # files are named for project name rather than package name. In this
+        # case we will generate the lorry, and try to add it to the set, at
+        # which point LorrySet will notice the existing one and merge the two.
+        lorry = self.lorry_set.find_lorry_for_package(self.kind, name)
+
+        if lorry is None:
+            lorry = self._generate_lorry_for_package(name)
+
+            if len(lorry) != 1:
+                raise Exception(
+                    'Expected generated lorry file with one entry.')
+
+            lorry_filename = lorry.keys()[0]
+
+            if '/' in lorry_filename:
+                # We try to be a bit clever and guess that if there's a prefix
+                # in the name, e.g. 'ruby-gems/chef' then it should go in a
+                # mega-lorry file, such as ruby-gems.lorry.
+                parts = lorry_filename.split('/', 1)
+                lorry_filename = parts[0]
+
+            if lorry_filename == '':
+                raise cliapp.AppException(
+                    'Invalid lorry data for %s: %s' % (name, lorry))
+
+            self.lorry_set.add(lorry_filename, lorry)
+        else:
+            lorry_filename = lorry.keys()[0]
+            logging.info(
+                'Found existing lorry file for %s: %s', name, lorry_filename)
+
+        return lorry
+
+    def _generate_lorry_for_package(self, name):
+        tool = '%s.to_lorry' % self.kind
+        self.app.status('Calling %s to generate lorry for %s', tool, name)
+        lorry_text = run_extension(tool, self.extra_args + [name])
+        try:
+            lorry = json.loads(lorry_text)
+        except ValueError as e:
+            raise cliapp.AppException(
+                'Invalid output from %s: %s' % (tool, lorry_text))
+        return lorry
+
+    def _fetch_or_update_source(self, lorry):
+        assert len(lorry) == 1
+        lorry_entry = lorry.values()[0]
+
+        url = lorry_entry['url']
+        reponame = os.path.basename(url.rstrip('/'))
+        repopath = os.path.join(self.app.settings['checkouts-dir'], reponame)
+
+        # FIXME: we should use Lorry here, so that we can import other VCSes.
+        # But for now, this hack is fine!
+        if os.path.exists(repopath):
+            if self.app.settings['update-existing']:
+                self.app.status('Updating repo %s', url)
+                cliapp.runcmd(['git', 'remote', 'update', 'origin'],
+                              cwd=repopath)
+        else:
+            self.app.status('Cloning repo %s', url)
+            try:
+                cliapp.runcmd(['git', 'clone', '--quiet', url, repopath])
+            except cliapp.AppException as e:
+                raise BaserockImportException(e.msg.rstrip())
+
+        repo = GitDirectory(repopath)
+        if repo.dirname != repopath:
+            # Work around strange/unintentional behaviour in GitDirectory class
+            # when 'repopath' isn't a Git repo. If 'repopath' is contained
+            # within a Git repo then the GitDirectory will traverse up to the
+            # parent repo, which isn't what we want in this case.
+            logging.error(
+                'Got git directory %s for %s!', repo.dirname, repopath)
+            raise cliapp.AppException(
+                '%s exists but is not the root of a Git repository' % repopath)
+        return repo, url
+
+    def _checkout_source_version(self, source_repo, name, version):
+        # FIXME: we need to be a bit smarter than this. Right now we assume
+        # that 'version' is a valid Git ref.
+
+        possible_names = [
+            version,
+            'v%s' % version,
+            '%s-%s' % (name, version)
+        ]
+
+        for tag_name in possible_names:
+            if source_repo.has_ref(tag_name):
+                source_repo.checkout(tag_name)
+                ref = tag_name
+                break
+        else:
+            if self.app.settings['use-master-if-no-tag']:
+                logging.warning(
+                    "Couldn't find tag %s in repo %s. Using 'master'.",
+                    tag_name, source_repo)
+                source_repo.checkout('master')
+                ref = version = 'master'
+            else:
+                raise BaserockImportException(
+                    'Could not find ref for %s version %s.' % (name, version))
+
+        return version, ref
+
+    def _find_or_create_chunk_morph(self, name, version, source_repo, repo_url,
+                                    named_ref):
+        morphology_filename = 'strata/%s/%s-%s.morph' % (
+            self.goal_name, name, version)
+        # HACK so omnibus works!
+        #sha1 = source_repo.resolve_ref_to_commit(named_ref)
+        sha1 = 1
+
+        def generate_morphology():
+            morphology = self._generate_chunk_morph_for_package(
+                source_repo, name, version, morphology_filename)
+            self.morph_set.save_morphology(morphology_filename, morphology)
+            return morphology
+
+        if self.app.settings['update-existing']:
+            morphology = generate_morphology()
+        else:
+            morphology = self.morph_set.get_morphology(
+                repo_url, sha1, morphology_filename)
+
+            if morphology is None:
+                # Existing chunk morphologies loaded from disk don't contain
+                # the repo and ref information. That's stored in the stratum
+                # morph. So the first time we touch a chunk morph we need to
+                # set this info.
+                logging.debug("Didn't find morphology for %s|%s|%s", repo_url,
+                              sha1, morphology_filename)
+                morphology = self.morph_set.get_morphology(
+                    None, None, morphology_filename)
+
+                if morphology is None:
+                    logging.debug("Didn't find morphology for None|None|%s",
+                                  morphology_filename)
+                    morphology = generate_morphology()
+
+        morphology.repo_url = repo_url
+        morphology.ref = sha1
+        morphology.named_ref = named_ref
+
+        return morphology
+
+    def _generate_chunk_morph_for_package(self, source_repo, name, version,
+                                          filename):
+        tool = '%s.to_chunk' % self.kind
+        self.app.status(
+            'Calling %s to generate chunk morph for %s', tool, name)
+
+        args = self.extra_args + [source_repo.dirname, name]
+        if version != 'master':
+            args.append(version)
+        text = run_extension(tool, args)
+
+        return self.morphloader.load_from_string(text, filename)
+
+    def _sort_chunks_by_build_order(self, graph):
+        order = reversed(sorted(graph.nodes()))
+        try:
+            return networkx.topological_sort(graph, nbunch=order)
+        except networkx.NetworkXUnfeasible as e:
+            # Cycle detected!
+            loop_subgraphs = networkx.strongly_connected_component_subgraphs(
+                graph, copy=False)
+            all_loops_str = []
+            for graph in loop_subgraphs:
+                if graph.number_of_nodes() > 1:
+                    loops_str = '->'.join(str(node) for node in graph.nodes())
+                    all_loops_str.append(loops_str)
+            raise cliapp.AppException(
+                'One or more cycles detected in build graph: %s' %
+                (', '.join(all_loops_str)))
+
+    def _generate_stratum_morph_if_none_exists(self, graph, goal_name):
+        filename = os.path.join(
+            self.app.settings['definitions-dir'], 'strata', '%s.morph' %
+            goal_name)
+
+        if os.path.exists(filename) and not self.settings['update-existing']:
+            self.app.status(
+                msg='Found stratum morph for %s at %s, not overwriting' %
+                (goal_name, filename))
+            return
+
+        self.app.status(msg='Generating stratum morph for %s' % goal_name)
+
+        chunk_entries = []
+
+        for package in self._sort_chunks_by_build_order(graph):
+            m = package.morphology
+            if m is None:
+                raise cliapp.AppException('No morphology for %s' % package)
+
+            def format_build_dep(name, version):
+                dep_package = find(graph, lambda p: p.match(name, version))
+                return '%s-%s' % (name, dep_package.version_in_use)
+
+            build_depends = [
+                format_build_dep(name, version) for name, version in
+                m['x-build-dependencies-rubygems'].iteritems()
+            ]
+
+            entry = {
+                'name': m['name'],
+                'repo': m.repo_url,
+                'ref': m.ref,
+                'unpetrify-ref': m.named_ref,
+                'morph': m.filename,
+                'build-depends': build_depends,
+            }
+            chunk_entries.append(entry)
+
+        stratum_name = goal_name
+        stratum = {
+            'name': stratum_name,
+            'kind': 'stratum',
+            'description': 'Autogenerated by Baserock import tool',
+            'build-depends': [
+                {'morph': 'strata/ruby.morph'}
+            ],
+            'chunks': chunk_entries,
+        }
+
+        morphology = self.morphloader.load_from_string(
+            json.dumps(stratum), filename=filename)
+        self.morphloader.unset_defaults(morphology)
+        self.morphloader.save_to_file(filename, morphology)
+
+
 class BaserockImportApplication(cliapp.Application):
     def add_settings(self):
         self.settings.string(['lorries-dir'],
@@ -458,12 +829,16 @@ class BaserockImportApplication(cliapp.Application):
         if not running_inside_bundler():
             reexecute_self_with_bundler(args[0])
 
-        # This is a slightly unhappy way of passing both the repo path and
-        # the project name in one argument.
-        definitions_dir = '%s#%s' % (args[0], args[1])
+        definitions_dir = args[0]
+        project_name = args[1]
 
-        self.import_package_and_all_dependencies(
-            'omnibus', args[2], definitions_dir=definitions_dir)
+        ImportLoop(
+            app=self,
+            kind='omnibus',
+            goal_name=args[2],
+            goal_version='master',
+            extra_args=[definitions_dir, project_name]
+        ).run()
 
     def import_rubygems(self, args):
         '''Import one or more RubyGems.'''
@@ -471,383 +846,12 @@ class BaserockImportApplication(cliapp.Application):
             raise cliapp.AppException(
                 'Please pass the name of a RubyGem on the commandline.')
 
-        self.import_package_and_all_dependencies('rubygems', args[0])
-
-    def process_dependency_list(self, current_item, deps, to_process,
-                                processed, these_are_build_deps):
-        # All deps are added as nodes to the 'processed' graph. Runtime
-        # dependencies only need to appear in the stratum, but build
-        # dependencies have ordering constraints, so we add edges in
-        # the graph for build-dependencies too.
-
-        for dep_name, dep_version in deps.iteritems():
-            dep_package = find(
-                processed, lambda i: i.match(dep_name, dep_version))
-
-            if dep_package is None:
-                # Not yet processed
-                queue_item = find(
-                    to_process, lambda i: i.match(dep_name, dep_version))
-                if queue_item is None:
-                    queue_item = Package(dep_name, dep_version)
-                    to_process.append(queue_item)
-                dep_package = queue_item
-
-            dep_package.add_required_by(current_item)
-
-            if these_are_build_deps or current_item.is_build_dep:
-                # A runtime dep of a build dep becomes a build dep
-                # itself.
-                dep_package.set_is_build_dep(True)
-                processed.add_edge(dep_package, current_item)
-
-    def get_dependencies_from_morphology(self, morphology, field_name):
-        # We need to validate this field because it doesn't go through the
-        # normal MorphologyFactory validation, being an extension.
-        value = morphology.get(field_name, {})
-        if not hasattr(value, 'iteritems'):
-            value_type = type(value).__name__
-            raise cliapp.AppException(
-                "Morphology for %s has invalid '%s': should be a dict, but "
-                "got a %s." % (morphology['name'], field_name, value_type))
-
-        return value
-
-    def import_package_and_all_dependencies(self, kind, goal_name,
-                                            goal_version='master',
-                                            definitions_dir=None):
-        start_time = time.time()
-        start_displaytime = time.strftime('%x %X %Z', time.localtime())
-
-        self.status('%s: Import of %s %s started', start_displaytime, kind,
-                    goal_name)
-
-        if not self.settings['update-existing']:
-            self.status('Not updating existing Git checkouts or existing definitions')
-
-        lorry_set = LorrySet(self.settings['lorries-dir'])
-        morph_set = MorphologySet(self.settings['definitions-dir'])
-
-        chunk_dir = os.path.join(morph_set.path, 'strata', goal_name)
-        if not os.path.exists(chunk_dir):
-            os.makedirs(chunk_dir)
-
-        to_process = [Package(goal_name, goal_version)]
-        processed = networkx.DiGraph()
-
-        errors = {}
-
-        while len(to_process) > 0:
-            current_item = to_process.pop()
-            name = current_item.name
-            version = current_item.version
-
-            try:
-                lorry = self.find_or_create_lorry_file(lorry_set, kind, name,
-                                                       definitions_dir=definitions_dir)
-
-                source_repo, url = self.fetch_or_update_source(lorry)
-
-                if definitions_dir is None:
-                    # Package is defined in the project's actual repo.
-                    package_definition_repo = source_repo
-                    checked_out_version, ref = self.checkout_source_version(
-                        source_repo, name, version)
-                    current_item.set_version_in_use(checked_out_version)
-                else:
-                    # FIXME: we do actually need to make the package source
-                    # available too so we can detect which SHA1 to build.
-                    # For now we lie
-                    checked_out_version = 'lie'
-                    ref = 'lie'
-                    # If 'definitions_dir' was passed, we assume all packages
-                    # are defined in the same repo.
-                    package_definition_repo = GitDirectory(definitions_dir)
-
-                chunk_morph = self.find_or_create_chunk_morph(
-                    morph_set, goal_name, kind, name, checked_out_version,
-                    package_definition_repo, url, ref, definitions_dir)
-
-                current_item.set_morphology(chunk_morph)
-
-                build_deps = self.get_dependencies_from_morphology(
-                    chunk_morph, 'x-build-dependencies-%s' % kind)
-                runtime_deps = self.get_dependencies_from_morphology(
-                    chunk_morph, 'x-runtime-dependencies-%s' % kind)
-            except BaserockImportException as e:
-                self.status(str(e), error=True)
-                errors[current_item] = e
-                build_deps = runtime_deps = {}
-
-            processed.add_node(current_item)
-
-            self.process_dependency_list(
-                current_item, build_deps, to_process, processed, True)
-            self.process_dependency_list(
-                current_item, runtime_deps, to_process, processed, False)
-
-        if len(errors) > 0:
-            self.status(
-                '\nErrors encountered, not generating a stratum morphology.')
-            self.status(
-                'See the README files for guidance.')
-        else:
-            self.generate_stratum_morph_if_none_exists(processed, goal_name)
-
-        duration = time.time() - start_time
-        end_displaytime = time.strftime('%x %X %Z', time.localtime())
-
-        self.status('%s: Import of %s %s ended (took %i seconds)',
-                    end_displaytime, kind, goal_name, duration)
-
-    def generate_lorry_for_package(self, kind, name, definitions_dir):
-        tool = '%s.to_lorry' % kind
-        self.status('Calling %s to generate lorry for %s', tool, name)
-        if definitions_dir is None:
-            cwd = '.'
-            args = [name]
-        else:
-            cwd = definitions_dir.rsplit('#')[0]
-            args = [definitions_dir, name]
-        lorry_text = run_extension(tool, args, cwd=cwd)
-        try:
-            lorry = json.loads(lorry_text)
-        except ValueError as e:
-            raise cliapp.AppException(
-                'Invalid output from %s: %s' % (tool, lorry_text))
-        return lorry
-
-    def find_or_create_lorry_file(self, lorry_set, kind, name,
-                                  definitions_dir):
-        # Note that the lorry file may already exist for 'name', but lorry
-        # files are named for project name rather than package name. In this
-        # case we will generate the lorry, and try to add it to the set, at
-        # which point LorrySet will notice the existing one and merge the two.
-        lorry = lorry_set.find_lorry_for_package(kind, name)
-
-        if lorry is None:
-            lorry = self.generate_lorry_for_package(kind, name, definitions_dir)
-
-            if len(lorry) != 1:
-                raise Exception(
-                    'Expected generated lorry file with one entry.')
-
-            lorry_filename = lorry.keys()[0]
-
-            if '/' in lorry_filename:
-                # We try to be a bit clever and guess that if there's a prefix
-                # in the name, e.g. 'ruby-gems/chef' then it should go in a
-                # mega-lorry file, such as ruby-gems.lorry.
-                parts = lorry_filename.split('/', 1)
-                lorry_filename = parts[0]
-
-            if lorry_filename == '':
-                raise cliapp.AppException(
-                    'Invalid lorry data for %s: %s' % (name, lorry))
-
-            lorry_set.add(lorry_filename, lorry)
-        else:
-            lorry_filename = lorry.keys()[0]
-            logging.info(
-                'Found existing lorry file for %s: %s', name, lorry_filename)
-
-        return lorry
-
-    def fetch_or_update_source(self, lorry):
-        assert len(lorry) == 1
-        lorry_entry = lorry.values()[0]
-
-        url = lorry_entry['url']
-        reponame = os.path.basename(url.rstrip('/'))
-        repopath = os.path.join(self.settings['checkouts-dir'], reponame)
-
-        # FIXME: we should use Lorry here, so that we can import other VCSes.
-        # But for now, this hack is fine!
-        if os.path.exists(repopath):
-            if self.settings['update-existing']:
-                self.status('Updating repo %s', url)
-                cliapp.runcmd(['git', 'remote', 'update', 'origin'],
-                              cwd=repopath)
-        else:
-            self.status('Cloning repo %s', url)
-            try:
-                cliapp.runcmd(['git', 'clone', '--quiet', url, repopath])
-            except cliapp.AppException as e:
-                raise BaserockImportException(e.msg.rstrip())
-
-        repo = GitDirectory(repopath)
-        if repo.dirname != repopath:
-            # Work around strange/unintentional behaviour in GitDirectory class
-            # when 'repopath' isn't a Git repo. If 'repopath' is contained
-            # within a Git repo then the GitDirectory will traverse up to the
-            # parent repo, which isn't what we want in this case.
-            logging.error(
-                'Got git directory %s for %s!', repo.dirname, repopath)
-            raise cliapp.AppException(
-                '%s exists but is not the root of a Git repository' % repopath)
-        return repo, url
-
-    def checkout_source_version(self, source_repo, name, version):
-        # FIXME: we need to be a bit smarter than this. Right now we assume
-        # that 'version' is a valid Git ref.
-
-        possible_names = [
-            version,
-            'v%s' % version,
-            '%s-%s' % (name, version)
-        ]
-
-        for tag_name in possible_names:
-            if source_repo.has_ref(tag_name):
-                source_repo.checkout(tag_name)
-                ref = tag_name
-                break
-        else:
-            if self.settings['use-master-if-no-tag']:
-                logging.warning(
-                    "Couldn't find tag %s in repo %s. Using 'master'.",
-                    tag_name, source_repo)
-                source_repo.checkout('master')
-                ref = version = 'master'
-            else:
-                raise BaserockImportException(
-                    'Could not find ref for %s version %s.' % (name, version))
-
-        return version, ref
-
-    def generate_chunk_morph_for_package(self, kind, source_repo, name,
-                                         version, filename, definitions_dir):
-        tool = '%s.to_chunk' % kind
-        self.status('Calling %s to generate chunk morph for %s', tool, name)
-
-        if definitions_dir is None:
-            cwd = '.'
-            args = [source_repo.dirname, name]
-        else:
-            cwd = definitions_dir.rsplit('#')[0]
-            args = [definitions_dir, name]
-
-        if version != 'master':
-            args.append(version)
-
-        text = run_extension(tool, args, cwd=cwd)
-
-        loader = morphlib.morphloader.MorphologyLoader()
-        return loader.load_from_string(text, filename)
-
-    def find_or_create_chunk_morph(self, morph_set, goal_name, kind, name,
-                                   version, source_repo, repo_url, named_ref,
-                                   definitions_dir):
-        morphology_filename = 'strata/%s/%s-%s.morph' % (
-            goal_name, name, version)
-        #sha1 = source_repo.resolve_ref_to_commit(named_ref)
-        sha1 = 1
-
-        def generate_morphology():
-            morphology = self.generate_chunk_morph_for_package(
-                kind, source_repo, name, version, morphology_filename,
-                definitions_dir)
-            morph_set.save_morphology(morphology_filename, morphology)
-            return morphology
-
-        if self.settings['update-existing']:
-            morphology = generate_morphology()
-        else:
-            morphology = morph_set.get_morphology(
-                repo_url, sha1, morphology_filename)
-
-            if morphology is None:
-                # Existing chunk morphologies loaded from disk don't contain
-                # the repo and ref information. That's stored in the stratum
-                # morph. So the first time we touch a chunk morph we need to
-                # set this info.
-                logging.debug("Didn't find morphology for %s|%s|%s", repo_url,
-                            sha1, morphology_filename)
-                morphology = morph_set.get_morphology(
-                    None, None, morphology_filename)
-
-                if morphology is None:
-                    logging.debug("Didn't find morphology for None|None|%s",
-                                morphology_filename)
-                    morphology = generate_morphology()
-
-        morphology.repo_url = repo_url
-        morphology.ref = sha1
-        morphology.named_ref = named_ref
-
-        return morphology
-
-    def sort_chunks_by_build_order(self, graph):
-        order = reversed(sorted(graph.nodes()))
-        try:
-            return networkx.topological_sort(graph, nbunch=order)
-        except networkx.NetworkXUnfeasible as e:
-            # Cycle detected!
-            loop_subgraphs = networkx.strongly_connected_component_subgraphs(
-                graph, copy=False)
-            all_loops_str = []
-            for graph in loop_subgraphs:
-                if graph.number_of_nodes() > 1:
-                    loops_str = '->'.join(str(node) for node in graph.nodes())
-                    all_loops_str.append(loops_str)
-            raise cliapp.AppException(
-                'One or more cycles detected in build graph: %s' %
-                (', '.join(all_loops_str)))
-
-    def generate_stratum_morph_if_none_exists(self, graph, goal_name):
-        filename = os.path.join(
-            self.settings['definitions-dir'], 'strata', '%s.morph' % goal_name)
-
-        if os.path.exists(filename) and not self.settings['update-existing']:
-            self.status(msg='Found stratum morph for %s at %s, not overwriting'
-                        % (goal_name, filename))
-            return
-
-        self.status(msg='Generating stratum morph for %s' % goal_name)
-
-        chunk_entries = []
-
-        for package in self.sort_chunks_by_build_order(graph):
-            m = package.morphology
-            if m is None:
-                raise cliapp.AppException('No morphology for %s' % package)
-
-            def format_build_dep(name, version):
-                dep_package = find(graph, lambda p: p.match(name, version))
-                return '%s-%s' % (name, dep_package.version_in_use)
-
-            build_depends = [
-                format_build_dep(name, version) for name, version in
-                m['x-build-dependencies-rubygems'].iteritems()
-            ]
-
-            entry = {
-                'name': m['name'],
-                'repo': m.repo_url,
-                'ref': m.ref,
-                'unpetrify-ref': m.named_ref,
-                'morph': m.filename,
-                'build-depends': build_depends,
-            }
-            chunk_entries.append(entry)
-
-        stratum_name = goal_name
-        stratum = {
-            'name': stratum_name,
-            'kind': 'stratum',
-            'description': 'Autogenerated by Baserock import tool',
-            'build-depends': [
-                {'morph': 'strata/ruby.morph'}
-            ],
-            'chunks': chunk_entries,
-        }
-
-        loader = morphlib.morphloader.MorphologyLoader()
-        morphology = loader.load_from_string(json.dumps(stratum),
-                                             filename=filename)
-
-        loader.unset_defaults(morphology)
-        loader.save_to_file(filename, morphology)
+        ImportLoop(
+            app=self,
+            kind='rubygems',
+            goal_name=args[0],
+            goal_version='master'
+        ).run()
 
 
 app = BaserockImportApplication(progname='import')
