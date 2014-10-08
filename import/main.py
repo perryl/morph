@@ -30,6 +30,7 @@ import logging
 import os
 import pipes
 import sys
+import tempfile
 import time
 
 from logging import debug
@@ -235,6 +236,19 @@ class MorphologySet(morphlib.morphset.MorphologySet):
 
 
 class GitDirectory(morphlib.gitdir.GitDirectory):
+    def __init__(self, dirname):
+        super(GitDirectory, self).__init__(dirname)
+
+        # Work around strange/unintentional behaviour in GitDirectory class
+        # when 'repopath' isn't a Git repo. If 'repopath' is contained
+        # within a Git repo then the GitDirectory will traverse up to the
+        # parent repo, which isn't what we want in this case.
+        if self.dirname != dirname:
+            logging.error(
+                'Got git directory %s for %s!', self.dirname, dirname)
+            raise cliapp.AppException(
+                '%s is not the root of a Git repository' % dirname)
+
     def has_ref(self, ref):
         try:
             self._rev_parse(ref)
@@ -519,38 +533,55 @@ class ImportLoop(object):
                 'Invalid output from %s: %s' % (tool, lorry_text))
         return lorry
 
+    def _run_lorry(self, lorry):
+        f = tempfile.NamedTemporaryFile(delete=False)
+        try:
+            logging.debug(json.dumps(lorry))
+            json.dump(lorry, f)
+            f.close()
+            cliapp.runcmd([
+                'lorry', '--working-area',
+                self.app.settings['lorry-working-dir'], '--pull-only',
+                '--bundle', 'never', '--tarball', 'never', f.name])
+        finally:
+            os.unlink(f.name)
+
     def _fetch_or_update_source(self, lorry):
         assert len(lorry) == 1
-        lorry_entry = lorry.values()[0]
+        lorry_name, lorry_entry = lorry.items()[0]
 
         url = lorry_entry['url']
-        reponame = os.path.basename(url.rstrip('/'))
-        repopath = os.path.join(self.app.settings['checkouts-dir'], reponame)
+        reponame = '_'.join(lorry_name.split('/'))
+        repopath = os.path.join(
+            self.app.settings['lorry-working-dir'], reponame, 'git')
 
-        # FIXME: we should use Lorry here, so that we can import other VCSes.
-        # But for now, this hack is fine!
-        if os.path.exists(repopath):
-            if self.app.settings['update-existing']:
-                self.app.status('Updating repo %s', url)
-                cliapp.runcmd(['git', 'remote', 'update', 'origin'],
-                              cwd=repopath)
-        else:
-            self.app.status('Cloning repo %s', url)
-            try:
-                cliapp.runcmd(['git', 'clone', '--quiet', url, repopath])
-            except cliapp.AppException as e:
-                raise BaserockImportException(e.msg.rstrip())
+        checkoutpath = os.path.join(
+            self.app.settings['checkouts-dir'], reponame)
 
-        repo = GitDirectory(repopath)
-        if repo.dirname != repopath:
-            # Work around strange/unintentional behaviour in GitDirectory class
-            # when 'repopath' isn't a Git repo. If 'repopath' is contained
-            # within a Git repo then the GitDirectory will traverse up to the
-            # parent repo, which isn't what we want in this case.
-            logging.error(
-                'Got git directory %s for %s!', repo.dirname, repopath)
-            raise cliapp.AppException(
-                '%s exists but is not the root of a Git repository' % repopath)
+
+        try:
+            already_lorried = os.path.exists(repopath)
+            if already_lorried:
+                if self.app.settings['update-existing']:
+                    self.app.status('Updating lorry of %s', url)
+                    self._run_lorry(lorry)
+            else:
+                self.app.status('Lorrying %s', url)
+                self._run_lorry(lorry)
+
+            if os.path.exists(checkoutpath):
+                repo = GitDirectory(checkoutpath)
+                repo.update_remotes()
+            else:
+                if already_lorried:
+                    logging.warning(
+                        'Expected %s to exist, but will recreate it',
+                        checkoutpath)
+                cliapp.runcmd(['git', 'clone', repopath, checkoutpath])
+                repo = GitDirectory(checkoutpath)
+        except cliapp.AppException as e:
+            raise BaserockImportException(e.msg.rstrip())
+
         return repo, url
 
     def _checkout_source_version(self, source_repo, name, version):
@@ -722,6 +753,10 @@ class BaserockImportApplication(cliapp.Application):
                              "location for Git checkouts",
                              metavar="PATH",
                              default=os.path.abspath('./checkouts'))
+        self.settings.string(['lorry-working-dir'],
+                             "Lorry working directory",
+                             metavar="PATH",
+                             default=os.path.abspath('./lorry-working-dir'))
 
         self.settings.boolean(['update-existing'],
                               "update all the checked-out Git trees and "
