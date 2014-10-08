@@ -23,6 +23,8 @@ import subprocess
 import requests
 import json
 import sys
+import shutil
+import tempfile
 
 import xmlrpclib
 
@@ -36,9 +38,16 @@ def is_repo(url):
     vcss = [('git', 'clone'), ('hg', 'clone'),
             ('svn', 'checkout'), ('bzr', 'branch')]
 
+    # make temp directory
+    tempdir = tempfile.mkdtemp()
+
+    # run commands from there
     for (vcs, vcs_command) in vcss:
         p = subprocess.Popen([vcs, vcs_command, url], stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
+                             stderr=subprocess.PIPE, cwd=tempdir)
+
+        p.wait()
+        shutil.rmtree(tempdir)
 
         if p.returncode == 0:
             return True
@@ -79,8 +88,9 @@ def generate_lorry_from_tarball(package_name):
     def f(release):
         return client.release_data(package_name, release)['name'] + ' ' + release
 
-    release_version = releases[ask_user(client, releases, f, prompt='Select release: ')
-                                if len(releases) > 1 else 0]
+    choice = (ask_user(client, releases, f, prompt='Select release: ')
+                       if len(releases) > 1 else 0)
+    release_version = releases[choice]
 
     urls = client.release_urls(package_name, release_version)
 
@@ -89,8 +99,9 @@ def generate_lorry_from_tarball(package_name):
               % (package_name, release_version), file=sys.stderr)
         sys.exit(1)
 
-    url = urls[ask_user(client, urls, lambda url: url['url'], prompt='Select url: ')
-                if len(urls) > 1 else 0]['url']
+    choice = (ask_user(client, urls, lambda url: url['url'],
+                       prompt='Select url: ') if len(urls) > 1 else 0)
+    url = urls[choice]['url']
 
     return make_lorry(package_name, url)
 
@@ -104,6 +115,7 @@ info = metadata['info']
 
 if 'home_page' in info:
     # TODO: detect if git repo, if so then great lorry from here
+    print(info['home_page'])
     if is_repo(info['home_page']):
         # lorry this thing
         print('not implemented yet: lorry from ', info['home_page'])
