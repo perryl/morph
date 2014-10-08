@@ -38,11 +38,9 @@ def is_repo(url):
     vcss = [('git', 'clone'), ('hg', 'clone'),
             ('svn', 'checkout'), ('bzr', 'branch')]
 
-    # make temp directory
-    tempdir = tempfile.mkdtemp()
-
-    # run commands from there
     for (vcs, vcs_command) in vcss:
+        tempdir = tempfile.mkdtemp()
+
         p = subprocess.Popen([vcs, vcs_command, url], stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE, cwd=tempdir)
 
@@ -114,8 +112,6 @@ metadata = fetch_package_metadata(package_name)
 info = metadata['info']
 
 if 'home_page' in info:
-    # TODO: detect if git repo, if so then great lorry from here
-    print(info['home_page'])
     if is_repo(info['home_page']):
         # lorry this thing
         print('not implemented yet: lorry from ', info['home_page'])
