@@ -26,10 +26,7 @@ require 'shellwords'
 
 require_relative 'importer_base'
 
-# This DEFINITIONS#PROJECT thing is a bit shit. Make main.py smarter about
-# being able to pass extra arguments to import extensions instead of forcing
-# everything into two arguments.
-BANNER = "Usage: omnibus.to_lorry DEFINITIONS_DIR#PROJECT_NAME SOFTWARE_NAME"
+BANNER = "Usage: omnibus.to_lorry PROJECT_DIR PROJECT_NAME SOFTWARE_NAME"
 
 DESCRIPTION = <<-END
 Generate a .lorry file for a given Omnibus software component.
@@ -41,14 +38,13 @@ class OmnibusLorryGenerator < Importer::Base
 
     parsed_arguments = opts.parse!(arguments)
 
-    if parsed_arguments.length != 2
-      STDERR.puts "Expected 2 arguments, got #{parsed_arguments}."
+    if parsed_arguments.length != 3
+      STDERR.puts "Expected 3 arguments, got #{parsed_arguments}."
       opts.parse(['-?'])
       exit 255
     end
 
-    project_dir_and_name, software_name = parsed_arguments
-    project_dir, _, project_name = project_dir_and_name.rpartition('#')
+    project_dir, project_name, software_name = parsed_arguments
     [project_dir, project_name, software_name]
   end
 
@@ -82,7 +78,8 @@ class OmnibusLorryGenerator < Importer::Base
 
     log.info("Creating lorry for #{software_name} from project " +
              "#{project_name}, defined in #{project_dir}")
-    log.debug("Running in: #{Dir.getwd}")
+
+    Dir.chdir(project_dir)
 
     project = Omnibus::Project.load(project_name)
 

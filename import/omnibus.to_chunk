@@ -27,10 +27,7 @@ require 'shellwords'
 
 require_relative 'importer_base'
 
-# This DEFINITIONS#PROJECT thing is a bit shit. Make main.py smarter about
-# being able to pass extra arguments to import extensions instead of forcing
-# everything into two arguments.
-BANNER = "Usage: omnibus.to_chunk DEFINITIONS_DIR#PROJECT_NAME SOFTWARE_NAME"
+BANNER = "Usage: omnibus.to_chunk PROJECT_DIR PROJECT_NAME SOURCE_DIR SOFTWARE_NAME"
 
 DESCRIPTION = <<-END
 Generate a .morph file for a given Omnibus software component.
@@ -104,19 +101,19 @@ class OmnibusChunkMorphologyGenerator < Importer::Base
 
     parsed_arguments = opts.parse!(arguments)
 
-    if parsed_arguments.length != 2 and parsed_arguments.length != 3
-      STDERR.puts "Expected 2 or 3 arguments, got #{parsed_arguments}."
+    if parsed_arguments.length != 4 and parsed_arguments.length != 5
+      STDERR.puts "Expected 4 or 5 arguments, got #{parsed_arguments}."
       opts.parse(['-?'])
       exit 255
     end
 
-    project_dir_and_name, software_name, expected_version = parsed_arguments
-    project_dir, _, project_name = project_dir_and_name.rpartition('#')
+    project_dir, project_name, source_dir, software_name, expected_version = \
+      parsed_arguments
     # Not yet implemented
     #if expected_version != nil
     #  expected_version = Gem::Version.new(expected_version)
     #end
-    [project_dir, project_name, software_name, expected_version]
+    [project_dir, project_name, source_dir, software_name, expected_version]
   end
 
   ##these should be methods in Software
@@ -160,23 +157,37 @@ class OmnibusChunkMorphologyGenerator < Importer::Base
   #  Hash[deps]
   #end
 
-  def generate_chunk_morph_for_rubygems_software(software)
+  def generate_chunk_morph_for_rubygems_software(software, source_dir)
     scripts_dir = File.dirname(__FILE__)
-    tool = File.join(scripts_dir, 'rubygems.to_chunk')
-    command = [[tool, tool], 
-    puts "Running #{tool} in #{scripts_dir}"
-    io = IO.popen([[tool, tool], 'foo', 'bar', 'baz', 'kaz', :chdir => scripts_dir])
-    text = io.read
+    tool_name = 'rubygems.to_chunk'
+    tool_path = File.join(scripts_dir, tool_name)
+    command = [[tool_path, tool_name], source_dir, software.name]
+    # FIXME: something breaks when we try to share this FD, it's not
+    # ideal that the subprocess doesn't log anything, though.
+    env_changes = {'MORPH_LOG_FD' => nil}
+    log.info("Running #{command.join(' ')} in #{scripts_dir}")
+    text = IO.popen(
+      env_changes, command, :chdir => scripts_dir, :err => [:child, :out]
+    ) do |io|
+      io.read
+    end
+    if $? != 0
+      error "Tried to import #{software.name} as a RubyGem, got the " \
+            "following error from rubygems.to_chunk: #{text}"
+      exit 1
+    end
+    log.debug("Text from output: #{text}, result #{$?}")
     morphology = YAML::load(text)
     return morphology
   end
 
-  def generate_chunk_morph_for_software(software)
+  def generate_chunk_morph_for_software(software, source_dir)
     #omnibus_deps = omnibus_deps_for_software software
     #rubygems_deps = rubygems_deps_for_software software
 
     if software.builder.built_gemspec != nil
-      morphology = generate_chunk_morph_for_rubygems_software(software)
+      morphology = generate_chunk_morph_for_rubygems_software(software,
+                                                              source_dir)
     else
       morphology = {
         "name" => software.name,
@@ -209,17 +220,18 @@ class OmnibusChunkMorphologyGenerator < Importer::Base
   end
 
   def run
-    project_dir, project_name, software_name = parse_options(ARGV)
+    project_dir, project_name, source_dir, software_name = parse_options(ARGV)
 
     log.info("Creating chunk morph for #{software_name} from project " +
              "#{project_name}, defined in #{project_dir}")
-    log.debug("Running in: #{Dir.getwd}")
+
+    Dir.chdir(project_dir)
 
     @project = Omnibus::Project.load(project_name)
 
     software = Omnibus::Software.load(@project, software_name)
 
-    morph = generate_chunk_morph_for_software(software)
+    morph = generate_chunk_morph_for_software(software, source_dir)
 
     write_morph(STDOUT, morph)
   end
