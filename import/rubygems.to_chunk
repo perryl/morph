@@ -217,7 +217,12 @@ class RubyGemChunkMorphologyGenerator < Importer::Base
     # chosen .gemspec. If present, the Gemfile.lock will be honoured.
     fake_gemfile = Bundler::Dsl.new
     fake_gemfile.source('https://rubygems.org')
-    fake_gemfile.gemspec({:name => gem_name})
+    begin
+      fake_gemfile.gemspec({:name => gem_name})
+    rescue Bundler::InvalidOption
+      error "Did not find #{gem_name}.gemspec in #{source_dir_name}"
+      exit 1
+    end
 
     definition = fake_gemfile.to_definition('Gemfile.lock', true)
     resolved_specs = definition.resolve_remotely!
