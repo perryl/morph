@@ -26,6 +26,8 @@ import sys
 import shutil
 import tempfile
 
+#TODO: import logging  ssam2 pointed out that we need to add logging
+
 import xmlrpclib
 
 PYPI_URL = 'http://pypi.python.org/pypi'
