@@ -52,7 +52,10 @@ def is_repo(url):
 
     return False
 
-def make_lorry(name, url):
+# also we only allow tar urls >.>
+# need a compression flag for bzip I think >.>
+
+def make_tarball_lorry(name, url):
     return '''{
     "%s-tarball": {
         "type": "tarball",
@@ -75,6 +78,16 @@ def ask_user(client, xs, fn, prompt='--> '):
 
     return choice
 
+def filter_urls(urls):
+    allowed_extensions = ['tar.gz', 'tgz', 'tar.Z', '.tar.bz2', 'tbz2',
+                          'tar.lzma', 'tar.xz', 'tlz', 'txz', 'tar']
+
+    def allowed_extension(url):
+        return ('.'.join(url['url'].split('.')[-2:]) in allowed_extensions
+            or url['url'].split('.')[-1:] in allowed_extensions)
+
+    return filter(allowed_extension, urls)
+
 def generate_lorry_from_tarball(package_name):
     client = xmlrpclib.ServerProxy(PYPI_URL)
     releases = client.package_releases(package_name)
@@ -90,7 +103,7 @@ def generate_lorry_from_tarball(package_name):
                        if len(releases) > 1 else 0)
     release_version = releases[choice]
 
-    urls = client.release_urls(package_name, release_version)
+    urls = filter_urls(client.release_urls(package_name, release_version))
 
     if len(urls) == 0:
         print("Couldn't get download urls for package %s with release %s, exiting"
@@ -101,7 +114,7 @@ def generate_lorry_from_tarball(package_name):
                        prompt='Select url: ') if len(urls) > 1 else 0)
     url = urls[choice]['url']
 
-    return make_lorry(package_name, url)
+    return make_tarball_lorry(package_name, url)
 
 if len(sys.argv) != 2:
     print('usage: %s python_package' % sys.argv[0], file=sys.stderr)
