@@ -54,7 +54,7 @@ def make_lorry(name, url):
 }''' % (name, url)
 
 def ask_user(client, xs, fn):
-    for n, x in enumerate(xs):
+    for n, x in enumerate(xs, 1):
         print('%s: %s' % (n, fn(x)))
 
     s = raw_input('--> ')
