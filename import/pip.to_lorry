@@ -53,25 +53,41 @@ def make_lorry(name, url):
     }
 }''' % (name, url)
 
-def generate_lorry_from_tarball(package_name):
-    client = xmlrpclib.ServerProxy(PYPI_URL)
-    releases = client.package_releases(package_name)
-    print('releases: ', releases)
-
-    for n, release in enumerate(releases):
-        print('%s: %s (%s)' % (n, client.release_data(package_name,
-                               release)['name'], release))
+def ask_user(client, xs, fn):
+    for n, x in enumerate(xs):
+        print('%s: %s' % (n, fn(x)))
 
     s = raw_input('--> ')
-    choice = int(s) if s.isdigit() else None
-    choice = choice if choice < len(releases) else None
+    choice = int(s) if s.isdigit() else xsNone
+    choice = choice - 1 if choice <= len(xs) else None
 
     if choice == None:
         print("Invalid choice, exiting", file=sys.stderr)
         sys.exit(1)
 
-    release = releases[choice]
-    print('Will use ', choice)
+    return choice
+
+def generate_lorry_from_tarball(package_name):
+    client = xmlrpclib.ServerProxy(PYPI_URL)
+    releases = client.package_releases(package_name)
+    print('releases: ', releases)
+
+    def f(release):
+        return client.release_data(package_name, release)['name'] + ' ' + release
+
+    release_version = releases[ask_user(client, releases, f)
+                                if len(releases) > 1 else 0]
+
+    print("Convert release with version", release_version)
+
+    urls = client.release_urls(package_name, release_version)
+
+    def g(url):
+        return url['url']
+
+    url = urls[ask_user(client, urls, g) if len(urls) > 1 else 0]['url']
+
+    return make_lorry(package_name, url)
 
 if len(sys.argv) != 2:
     print('usage: %s python_package' % sys.argv[0], file=sys.stderr)
@@ -87,9 +103,4 @@ if 'home_page' in info:
         # lorry this thing
         print('not implemented yet: lorry from ', info['home_page'])
     else:
-        # tarball time
-        print("not a repo, it's tarball time!")
-
-        # urls or releases???
-
-        generate_lorry_from_tarball(package_name)
+        print(generate_lorry_from_tarball(package_name))
