@@ -87,7 +87,7 @@ def make_tarball_lorry(name, url):
     if compression:
         lorry['compression'] = compression
 
-    return "%s-tarball: { %s }" % (name, json.dumps(lorry))
+    return "%s-tarball: %s" % (name, json.dumps(lorry, indent=4, sort_keys=True))
 
 def ask_user(client, xs, fn, prompt='--> '):
     for n, x in enumerate(xs, 1):
