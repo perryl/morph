@@ -558,7 +558,6 @@ class ImportLoop(object):
         checkoutpath = os.path.join(
             self.app.settings['checkouts-dir'], reponame)
 
-
         try:
             already_lorried = os.path.exists(repopath)
             if already_lorried:
@@ -657,7 +656,8 @@ class ImportLoop(object):
                                           filename):
         tool = '%s.to_chunk' % self.kind
         self.app.status(
-            'Calling %s to generate chunk morph for %s', tool, name)
+            'Calling %s to generate chunk morph for %s %s', tool, name,
+            version)
 
         args = self.extra_args + [source_repo.dirname, name]
         if version != 'master':
