@@ -71,8 +71,6 @@ def get_compression(url):
            'tar.bz2': bzip, 'tbz2': bzip,
            'tar.lzma': lzma, 'tar.xz': lzma, 'tlz': lzma, 'txz': lzma}
 
-    print(url)
-
     ext = '.'.join(url.split('.')[-2:])
     if ext in m: return m[ext]
 
@@ -129,11 +127,21 @@ def generate_lorry_from_tarball(package_name):
                        if len(releases) > 1 else 0)
     release_version = releases[choice]
 
-    urls = filter_urls(client.release_urls(package_name, release_version))
+    print('Fetching urls for package %s with version %s'
+          % (package_name, release_version))
+    urls = client.release_urls(package_name, release_version)
+    tarball_urls = filter_urls(urls)
 
-    if len(urls) == 0:
-        print("Couldn't get download urls for package %s with release %s, exiting"
-              % (package_name, release_version), file=sys.stderr)
+    if len(tarball_urls) > 0:
+        urls = tarball_urls
+    elif len(urls) > 0:
+        print("None of these urls look like tarballs:", file=sys.stderr)
+        for url in urls:
+            print("\t%s", url, file=sys.stderr)
+        print("Cannot proceed, exiting", file=sys.stderr)
+        sys.exit(1)
+    else:
+        print("Couldn't find any download urls for package, exiting", file=sys.stderr)
         sys.exit(1)
 
     choice = (ask_user(client, urls, lambda url: url['url'],
