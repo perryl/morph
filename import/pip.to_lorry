@@ -76,8 +76,7 @@ def make_tarball_lorry(name, url):
     if compression:
         lorry['compression'] = compression
 
-    return "%s-tarball: %s" % (name.lower(),
-                               json.dumps(lorry, indent=4, sort_keys=True))
+    return json.dumps({name.lower(): lorry}, indent=4, sort_keys=True)
 
 def ask_user(client, xs, fn, prompt='--> '):
     for n, x in enumerate(xs, 1):
@@ -157,9 +156,8 @@ def generate_tarball_lorry(package_name):
     return make_tarball_lorry(package_name, url)
 
 def str_repo_lorry(package_name, repo_type, url):
-    return "%s: %s" % (package_name.lower(),
-                       json.dumps({'type': repo_type, 'url': url},
-                                  indent=4, sort_keys=True))
+    return json.dumps({package_name.lower(): {'type': repo_type, 'url': url}},
+                      indent=4, sort_keys=True)
 
 if len(sys.argv) != 2:
     print('usage: %s python_package' % sys.argv[0], file=sys.stderr)
@@ -172,4 +170,6 @@ info = metadata['info']
 repo_type = find_repo_type(info['home_page']) if 'home_page' in info else None
 
 print(str_repo_lorry(package_name, repo_type, info['home_page'])
-    if repo_type else generate_tarball_lorry(package_name))
+        if repo_type else generate_tarball_lorry(package_name))
+
+# TODO: argv in err msgs
