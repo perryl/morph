@@ -81,7 +81,8 @@ class Omnibus::Builder
     elsif command.start_with? 'install'
       parser = GemInstallCommandParser.new
       args = Shellwords.split(command).drop(1)
-      gems = parser.dependency_list_from_commandline(args)
+      args_without_build_flags = args.take_while { |item| item != '--' }
+      gems = parser.dependency_list_from_commandline(args_without_build_flags)
       manually_installed_rubygems.concat gems
     end
   end
