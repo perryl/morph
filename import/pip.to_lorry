@@ -26,7 +26,12 @@ import sys
 import shutil
 import tempfile
 
-#TODO: import logging  ssam2 pointed out that we need to add logging
+# TODO: import logging  ssam2 pointed out that we need to add logging
+# I'm not sure it really makes sense for such a small tool, there's no config
+# file etc, where am I supposed to log to anyway? I think the only thing I
+# need to worry about is filtering out links based on the extension
+# I can get around this by asking the user if they want to see the list of
+# urls if the filtered list turns out to be empty...
 
 import xmlrpclib
 
