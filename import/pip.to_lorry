@@ -29,12 +29,18 @@ import xmlrpclib
 
 PYPI_URL = 'http://pypi.python.org/pypi'
 
+def warn(*args, **kwargs):
+    print('%s:' % sys.argv[0], *args, file=sys.stderr, **kwargs)
+
+def error(*args, **kwargs):
+    warn(*args, **kwargs)
+    sys.exit(1)
+
 def fetch_package_metadata(package_name):
     try:
         return requests.get('%s/%s/json' % (PYPI_URL, package_name)).json()
     except Exception as e:
-        print("Couldn't fetch package metadata: ", e, file=sys.stderr)
-        sys.exit(1)
+        error("Couldn't fetch package metadata: ", e)
 
 def find_repo_type(url):
     vcss = [('git', 'clone'), ('hg', 'clone'),
@@ -109,12 +115,10 @@ def generate_tarball_lorry(package_name):
         client = xmlrpclib.ServerProxy(PYPI_URL)
         releases = client.package_releases(package_name)
     except Exception as e:
-        print("Couldn't fetch release data:", e, file=sys.stderr)
-        sys.exit(1)
+        error("Couldn't fetch release data:", e)
 
     if len(releases) == 0:
-        print("Couldn't find any releases for package %s" % package_name)
-        sys.exit(1)
+        error("Couldn't find any releases for package %s" % package_name)
 
     def get_description(release):
         return client.release_data(package_name,
@@ -131,22 +135,19 @@ def generate_tarball_lorry(package_name):
     try:
         urls = client.release_urls(package_name, release_version)
     except Exception as e:
-        print("Couldn't fetch release urls:", e, file=sys.stderr)
-        sys.exit(1)
+        error("Couldn't fetch release urls:", e)
 
     tarball_urls = filter_urls(urls)
 
     if len(tarball_urls) > 0:
         urls = tarball_urls
     elif len(urls) > 0:
-        print("None of these urls look like tarballs:", file=sys.stderr)
+        warn("None of these urls look like tarballs:")
         for url in urls:
-            print("\t%s", url, file=sys.stderr)
-        print("Cannot proceed", file=sys.stderr)
-        sys.exit(1)
+            warn("\t%s", url)
+        error("Cannot proceed")
     else:
-        print("Couldn't find any download urls for package", file=sys.stderr)
-        sys.exit(1)
+        error("Couldn't find any download urls for package")
 
     urls = [{'url': 'http://foobar/baz.tar'}]
 
@@ -161,8 +162,7 @@ def str_repo_lorry(package_name, repo_type, url):
                       indent=4, sort_keys=True)
 
 if len(sys.argv) != 2:
-    print('usage: %s python_package' % sys.argv[0], file=sys.stderr)
-    sys.exit(1)
+    error('usage: %s python_package' % sys.argv[0])
 
 package_name = sys.argv[1]
 metadata = fetch_package_metadata(package_name)
@@ -172,5 +172,3 @@ repo_type = find_repo_type(info['home_page']) if 'home_page' in info else None
 
 print(str_repo_lorry(package_name, repo_type, info['home_page'])
         if repo_type else generate_tarball_lorry(package_name))
-
-# TODO: argv in err msgs
