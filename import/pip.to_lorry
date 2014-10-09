@@ -25,7 +25,6 @@ import json
 import sys
 import shutil
 import tempfile
-
 import xmlrpclib
 
 PYPI_URL = 'http://pypi.python.org/pypi'
@@ -55,9 +54,6 @@ def find_repo_type(url):
 
     return None
 
-# also we only allow tar urls >.>
-# need a compression flag for bzip I think >.>
-
 def get_compression(url):
     bzip = 'bzip2'
     gzip = 'gzip'
@@ -73,6 +69,7 @@ def get_compression(url):
 
     return None
 
+# Assumption: url passed to this function must have a 'standard' tar extension
 def make_tarball_lorry(name, url):
     lorry = {'type': 'tarball', 'url': url}
     compression = get_compression(url)
@@ -91,7 +88,7 @@ def ask_user(client, xs, fn, prompt='--> '):
     choice = choice - 1 if choice != None and choice <= len(xs) else None
 
     if choice == None:
-        print("Invalid choice, exiting", file=sys.stderr)
+        print("Invalid choice", file=sys.stderr)
         sys.exit(1)
 
     return choice
@@ -115,13 +112,15 @@ def str_tarball_lorry(package_name):
         sys.exit(1)
 
     if len(releases) == 0:
-        print("Couldn't find any releases for packge %s, exiting" % package_name)
+        print("Couldn't find any releases for package %s" % package_name)
         sys.exit(1)
 
-    def f(release):
-        return client.release_data(package_name, release)['name'] + ' ' + release
+    def get_description(release):
+        return client.release_data(package_name,
+                                   release)['name'] + ' ' + release
 
-    choice = (ask_user(client, releases, f, prompt='Select release: ')
+    choice = (ask_user(client, releases,
+                       get_description, prompt='Select release: ')
                        if len(releases) > 1 else 0)
     release_version = releases[choice]
 
@@ -142,11 +141,13 @@ def str_tarball_lorry(package_name):
         print("None of these urls look like tarballs:", file=sys.stderr)
         for url in urls:
             print("\t%s", url, file=sys.stderr)
-        print("Cannot proceed, exiting", file=sys.stderr)
+        print("Cannot proceed", file=sys.stderr)
         sys.exit(1)
     else:
-        print("Couldn't find any download urls for package, exiting", file=sys.stderr)
+        print("Couldn't find any download urls for package", file=sys.stderr)
         sys.exit(1)
+
+    urls = [{'url': 'http://foobar/baz.tar'}]
 
     choice = (ask_user(client, urls, lambda url: url['url'],
                        prompt='Select url: ') if len(urls) > 1 else 0)
