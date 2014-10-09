@@ -116,75 +116,50 @@ class OmnibusChunkMorphologyGenerator < Importer::Base
     [project_dir, project_name, source_dir, software_name, expected_version]
   end
 
-  ##these should be methods in Software
-  #def software_needs_importing(software_name)
-  #  software = Omnibus::Software.load(@project, software_name)
-  #  if software.fetcher.instance_of?(Omnibus::PathFetcher)
-  #    log.info(
-  #      "Not adding #{software.name} as a dependency: it's installed from " +
-  #      "a path which probably means that it is package configuration, not " +
-  #      "a 3rd-party component to be imported.")
-  #    false
-  #  elsif software.fetcher.instance_of?(Omnibus::NullFetcher)
-  #    gems = software.builder.manually_installed_rubygems
-  #    if not gems.empty?
-  #      log.info(
-  #        "Adding #{software.name} as a dependency because it installs one " +
-  #        "or more RubyGems manually: #{gems}")
-  #      true
-  #    end
-  #    false
-  #  else
-  #    true
-  #  end
-  #end
+  class SubprocessError < RuntimeError
+  end
 
-  #def omnibus_deps_for_software(software)
-  #  deps = software.dependencies.collect do |name|
-  #    if software_needs_importing(name)
-  #      [name, 0]
-  #    else
-  #      nil
-  #    end
-  #  end
-  #  Hash[deps.compact]
-  #end
-
-  #def rubygems_deps_for_software(software)
-  #  deps = software.builder.manually_installed_rubygems.collect do |dep|
-  #    [dep.name, dep.requirement.to_s]
-  #  end
-  #  Hash[deps]
-  #end
-
-  def generate_chunk_morph_for_rubygems_software(software, source_dir)
+  def run_tool_capture_output(tool_name, *args)
     scripts_dir = File.dirname(__FILE__)
-    tool_name = 'rubygems.to_chunk'
     tool_path = File.join(scripts_dir, tool_name)
-    command = [[tool_path, tool_name], source_dir, software.name]
+
     # FIXME: something breaks when we try to share this FD, it's not
     # ideal that the subprocess doesn't log anything, though.
     env_changes = {'MORPH_LOG_FD' => nil}
+
+    command = [[tool_path, tool_name], *args]
     log.info("Running #{command.join(' ')} in #{scripts_dir}")
+
     text = IO.popen(
       env_changes, command, :chdir => scripts_dir, :err => [:child, :out]
     ) do |io|
       io.read
     end
-    if $? != 0
-      error "Tried to import #{software.name} as a RubyGem, got the " \
-            "following error from rubygems.to_chunk: #{text}"
-      exit 1
+
+    if $? == 0
+      text
+    else
+      raise SubprocessError, text
     end
-    log.debug("Text from output: #{text}, result #{$?}")
-    morphology = YAML::load(text)
-    return morphology
   end
 
-  def generate_chunk_morph_for_software(software, source_dir)
-    #omnibus_deps = omnibus_deps_for_software software
-    #rubygems_deps = rubygems_deps_for_software software
+  def generate_chunk_morph_for_rubygems_software(software, source_dir)
+    # This is a better heuristic for getting the name of the Gem
+    # than the software name, it seems ...
+    gem_name = software.relative_path
 
+    text = run_tool_capture_output('rubygems.to_chunk', source_dir, gem_name)
+    log.debug("Text from output: #{text}, result #{$?}")
+
+    morphology = YAML::load(text)
+    return morphology
+  rescue SubprocessError => e
+      error "Tried to import #{software.name} as a RubyGem, got the " \
+            "following error from rubygems.to_chunk: #{e.message}"
+      exit 1
+  end
+
+  def generate_chunk_morph_for_software(project, software, source_dir)
     if software.builder.built_gemspec != nil
       morphology = generate_chunk_morph_for_rubygems_software(software,
                                                               source_dir)
@@ -195,24 +170,48 @@ class OmnibusChunkMorphologyGenerator < Importer::Base
       }
     end
 
-    #gems = software.builder.manually_installed_rubygems
-    #self_gems, dep_gems = gems.partition do |req|
-    #  req.name
-    #end
+    omnibus_deps = {}
+    rubygems_deps = {}
+
+    software.dependencies.each do |name|
+      software = Omnibus::Software.load(project, name)
+      if software.fetcher.instance_of?(Omnibus::PathFetcher)
+        log.info(
+          "Not adding #{name} as a dependency: it's installed from " +
+          "a path which probably means that it is package configuration, not " +
+          "a 3rd-party component to be imported.")
+      elsif software.fetcher.instance_of?(Omnibus::NullFetcher)
+        if software.builder.built_gemspec
+          log.info(
+            "Adding #{name} as a RubyGem dependency because it builds " +
+            "#{software.builder.built_gemspec}")
+          rubygems_deps[name] = software.version
+        else
+          log.info(
+            "Not adding #{name} as a dependency: no sources listed.")
+        end
+      else
+        omnibus_deps[name] = software.version
+      end
+    end
+
+    software.builder.manually_installed_rubygems.each do |dep|
+      rubygems_deps[dep.name] = dep.requirement.to_s
+    end
 
     ## FIXME: will overwrite the deps from rubygems
-    #morphology.update({
-    #  # Possibly this tool should look at software.build and
-    #  # generate suitable configure, build and install-commands.
-    #  # For now: don't bother!
+    morphology.update({
+      # Possibly this tool should look at software.build and
+      # generate suitable configure, build and install-commands.
+      # For now: don't bother!
 
-    #  # FIXME: are these build or runtime dependencies? We'll assume both.
-    #  "x-build-dependencies-omnibus" => omnibus_deps,
-    #  "x-runtime-dependencies-omnibus" => omnibus_deps,
+      # FIXME: are these build or runtime dependencies? We'll assume both.
+      "x-build-dependencies-omnibus" => omnibus_deps,
+      "x-runtime-dependencies-omnibus" => omnibus_deps,
 
-    #  "x-build-dependencies-rubygems" => {},
-    #  "x-runtime-dependencies-rubygems" => rubygems_deps,
-    #})
+      "x-build-dependencies-rubygems" => {},
+      "x-runtime-dependencies-rubygems" => rubygems_deps,
+    })
     if software.description
       morphology['description'] = software.description
     end
@@ -227,11 +226,11 @@ class OmnibusChunkMorphologyGenerator < Importer::Base
 
     Dir.chdir(project_dir)
 
-    @project = Omnibus::Project.load(project_name)
+    project = Omnibus::Project.load(project_name)
 
     software = Omnibus::Software.load(@project, software_name)
 
-    morph = generate_chunk_morph_for_software(software, source_dir)
+    morph = generate_chunk_morph_for_software(project, software, source_dir)
 
     write_morph(STDOUT, morph)
   end
