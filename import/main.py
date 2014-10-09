@@ -268,7 +268,8 @@ class Package(object):
     packages depend on it, and hence of why it was added to the queue.
 
     '''
-    def __init__(self, name, version):
+    def __init__(self, kind, name, version):
+        self.kind = kind
         self.name = name
         self.version = version
         self.required_by = []
@@ -357,9 +358,9 @@ class ImportLoop(object):
 
     '''
 
-    def __init__(self, app, kind, goal_name, goal_version, extra_args=[]):
+    def __init__(self, app, goal_kind, goal_name, goal_version, extra_args=[]):
         self.app = app
-        self.kind = kind
+        self.goal_kind = goal_kind
         self.goal_name = goal_name
         self.goal_version = goal_version
         self.extra_args = extra_args
@@ -375,7 +376,7 @@ class ImportLoop(object):
         start_displaytime = time.strftime('%x %X %Z', time.localtime())
 
         self.app.status(
-            '%s: Import of %s %s started', start_displaytime, self.kind,
+            '%s: Import of %s %s started', start_displaytime, self.goal_kind,
             self.goal_name)
 
         if not self.app.settings['update-existing']:
@@ -386,7 +387,8 @@ class ImportLoop(object):
         if not os.path.exists(chunk_dir):
             os.makedirs(chunk_dir)
 
-        to_process = [Package(self.goal_name, self.goal_version)]
+        goal = Package(self.goal_kind, self.goal_name, self.goal_version)
+        to_process = [goal]
         processed = networkx.DiGraph()
 
         errors = {}
@@ -395,18 +397,19 @@ class ImportLoop(object):
             current_item = to_process.pop()
 
             try:
-                build_deps, runtime_deps = self._process_package(current_item)
+                self._process_package(current_item)
+                error = False
             except BaserockImportException as e:
                 self.app.status(str(e), error=True)
                 errors[current_item] = e
-                build_deps = runtime_deps = {}
+                error = True
 
             processed.add_node(current_item)
 
-            self._process_dependency_list(
-                current_item, build_deps, to_process, processed, True)
-            self._process_dependency_list(
-                current_item, runtime_deps, to_process, processed, False)
+            if not error:
+                self._process_dependencies_from_morphology(
+                    current_item, current_item.morphology, to_process,
+                    processed)
 
         if len(errors) > 0:
             self.app.status(
@@ -422,25 +425,14 @@ class ImportLoop(object):
 
         self.app.status(
             '%s: Import of %s %s ended (took %i seconds)', end_displaytime,
-            self.kind, self.goal_name, duration)
-
-    def _get_dependencies_from_morphology(self, morphology, field_name):
-        # We need to validate this field because it doesn't go through the
-        # normal MorphologyFactory validation, being an extension.
-        value = morphology.get(field_name, {})
-        if not hasattr(value, 'iteritems'):
-            value_type = type(value).__name__
-            raise cliapp.AppException(
-                "Morphology for %s has invalid '%s': should be a dict, but "
-                "got a %s." % (morphology['name'], field_name, value_type))
-
-        return value
+            self.goal_kind, self.goal_name, duration)
 
     def _process_package(self, package):
+        kind = package.kind
         name = package.name
         version = package.version
 
-        lorry = self._find_or_create_lorry_file(name)
+        lorry = self._find_or_create_lorry_file(kind, name)
         source_repo, url = self._fetch_or_update_source(lorry)
 
         checked_out_version, ref = self._checkout_source_version(
@@ -448,18 +440,40 @@ class ImportLoop(object):
         package.set_version_in_use(checked_out_version)
 
         chunk_morph = self._find_or_create_chunk_morph(
-            name, checked_out_version, source_repo, url, ref)
+            kind, name, checked_out_version, source_repo, url, ref)
 
         package.set_morphology(chunk_morph)
 
-        build_deps = self._get_dependencies_from_morphology(
-            chunk_morph, 'x-build-dependencies-%s' % self.kind)
-        runtime_deps = self._get_dependencies_from_morphology(
-            chunk_morph, 'x-runtime-dependencies-%s' % self.kind)
+    def _process_dependencies_from_morphology(self, current_item, morphology,
+                                              to_process, processed):
+        '''Enqueue all dependencies of a package that are yet to be processed.
 
-        return build_deps, runtime_deps
+        Dependencies are communicated using extra fields in morphologies,
+        currently.
 
-    def _process_dependency_list(self, current_item, deps, to_process,
+        '''
+        for key, value in morphology.iteritems():
+            if key.startswith('x-build-dependencies-'):
+                kind = key[len('x-build-dependencies-'):]
+                is_build_deps = True
+            elif key.startswith('x-runtime-dependencies-'):
+                kind = key[len('x-runtime-dependencies-'):]
+                is_build_deps = False
+            else:
+                continue
+
+            # We need to validate this field because it doesn't go through the
+            # normal MorphologyFactory validation, being an extension.
+            if not hasattr(value, 'iteritems'):
+                value_type = type(value).__name__
+                raise cliapp.AppException(
+                    "Morphology for %s has invalid '%s': should be a dict, but "
+                    "got a %s." % (morphology['name'], key, value_type))
+
+            self._process_dependency_list(
+                current_item, kind, value, to_process, processed, is_build_deps)
+
+    def _process_dependency_list(self, current_item, kind, deps, to_process,
                                  processed, these_are_build_deps):
         # All deps are added as nodes to the 'processed' graph. Runtime
         # dependencies only need to appear in the stratum, but build
@@ -475,7 +489,7 @@ class ImportLoop(object):
                 queue_item = find(
                     to_process, lambda i: i.match(dep_name, dep_version))
                 if queue_item is None:
-                    queue_item = Package(dep_name, dep_version)
+                    queue_item = Package(kind, dep_name, dep_version)
                     to_process.append(queue_item)
                 dep_package = queue_item
 
@@ -487,15 +501,15 @@ class ImportLoop(object):
                 dep_package.set_is_build_dep(True)
                 processed.add_edge(dep_package, current_item)
 
-    def _find_or_create_lorry_file(self, name):
+    def _find_or_create_lorry_file(self, kind, name):
         # Note that the lorry file may already exist for 'name', but lorry
         # files are named for project name rather than package name. In this
         # case we will generate the lorry, and try to add it to the set, at
         # which point LorrySet will notice the existing one and merge the two.
-        lorry = self.lorry_set.find_lorry_for_package(self.kind, name)
+        lorry = self.lorry_set.find_lorry_for_package(kind, name)
 
         if lorry is None:
-            lorry = self._generate_lorry_for_package(name)
+            lorry = self._generate_lorry_for_package(kind, name)
 
             if len(lorry) != 1:
                 raise Exception(
@@ -522,8 +536,8 @@ class ImportLoop(object):
 
         return lorry
 
-    def _generate_lorry_for_package(self, name):
-        tool = '%s.to_lorry' % self.kind
+    def _generate_lorry_for_package(self, kind, name):
+        tool = '%s.to_lorry' % kind
         self.app.status('Calling %s to generate lorry for %s', tool, name)
         lorry_text = run_extension(tool, self.extra_args + [name])
         try:
@@ -611,8 +625,8 @@ class ImportLoop(object):
 
         return version, ref
 
-    def _find_or_create_chunk_morph(self, name, version, source_repo, repo_url,
-                                    named_ref):
+    def _find_or_create_chunk_morph(self, kind, name, version, source_repo,
+                                    repo_url, named_ref):
         morphology_filename = 'strata/%s/%s-%s.morph' % (
             self.goal_name, name, version)
         # HACK so omnibus works!
@@ -621,7 +635,7 @@ class ImportLoop(object):
 
         def generate_morphology():
             morphology = self._generate_chunk_morph_for_package(
-                source_repo, name, version, morphology_filename)
+                source_repo, kind, name, version, morphology_filename)
             self.morph_set.save_morphology(morphology_filename, morphology)
             return morphology
 
@@ -652,9 +666,9 @@ class ImportLoop(object):
 
         return morphology
 
-    def _generate_chunk_morph_for_package(self, source_repo, name, version,
-                                          filename):
-        tool = '%s.to_chunk' % self.kind
+    def _generate_chunk_morph_for_package(self, source_repo, kind, name,
+                                          version, filename):
+        tool = '%s.to_chunk' % kind
         self.app.status(
             'Calling %s to generate chunk morph for %s %s', tool, name,
             version)
@@ -869,7 +883,7 @@ class BaserockImportApplication(cliapp.Application):
 
         ImportLoop(
             app=self,
-            kind='omnibus',
+            goal_kind='omnibus',
             goal_name=args[2],
             goal_version='master',
             extra_args=[definitions_dir, project_name]
@@ -883,7 +897,7 @@ class BaserockImportApplication(cliapp.Application):
 
         ImportLoop(
             app=self,
-            kind='rubygems',
+            goal_kind='rubygems',
             goal_name=args[0],
             goal_version='master'
         ).run()
