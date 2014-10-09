@@ -67,11 +67,9 @@ def get_compression(url):
            'tar.bz2': bzip, 'tbz2': bzip,
            'tar.lzma': lzma, 'tar.xz': lzma, 'tlz': lzma, 'txz': lzma}
 
-    ext = '.'.join(url.split('.')[-2:])
-    if ext in m: return m[ext]
-
-    ext = url.split('.')[-1:]
-    if ext in m: return m[ext]
+    for x in [1, 2]:
+        ext = '.'.join(url.split('.')[-x:])
+        if ext in m: return m[ext]
 
     return None
 
