@@ -112,7 +112,7 @@ def filter_urls(urls):
 
     return filter(allowed_extension, urls)
 
-def generate_lorry_from_tarball(package_name):
+def str_tarball_lorry(package_name):
     client = xmlrpclib.ServerProxy(PYPI_URL)
     releases = client.package_releases(package_name)
 
@@ -150,7 +150,7 @@ def generate_lorry_from_tarball(package_name):
 
     return make_tarball_lorry(package_name, url)
 
-def str_lorry_from_repo(package_name, repo_type, url):
+def str_repo_lorry(package_name, repo_type, url):
     return "%s: %s" % (package_name, json.dumps({'type': repo_type, 'url': url},
                                                 indent=4, sort_keys=True))
 
@@ -164,5 +164,5 @@ info = metadata['info']
 
 repo_type = find_repo_type(info['home_page']) if 'home_page' in info else None
 
-print(str_lorry_from_repo(package_name, repo_type, info['home_page'])
-    if repo_type else generate_lorry_from_tarball(package_name))
+print(str_repo_lorry(package_name, repo_type, info['home_page'])
+    if repo_type else str_tarball_lorry(package_name))
