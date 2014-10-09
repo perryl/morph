@@ -40,6 +40,9 @@ class Tests(unittest.TestCase):
             self.assertEqual(
                 json.loads(lorry)[fake_package_name + '-tarball']['url'], url)
 
+        # TODO: a valid tar
+        # TODO: invalid archive, something that's not a tar
+
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(Tests)
     unittest.TextTestRunner(verbosity=2).run(suite)
