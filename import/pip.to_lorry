@@ -149,8 +149,6 @@ def generate_tarball_lorry(package_name):
     else:
         error("Couldn't find any download urls for package")
 
-    urls = [{'url': 'http://foobar/baz.tar'}]
-
     choice = (ask_user(client, urls, lambda url: url['url'],
                        prompt='Select url: ') if len(urls) > 1 else 0)
     url = urls[choice]['url']
