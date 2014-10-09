@@ -41,7 +41,7 @@ def fetch_package_metadata(package_name):
     return requests.get('%s/%s/json'
                         % (PYPI_URL, package_name)).json()
 
-def is_repo(url):
+def find_repo_type(url):
     vcss = [('git', 'clone'), ('hg', 'clone'),
             ('svn', 'checkout'), ('bzr', 'branch')]
 
@@ -55,9 +55,9 @@ def is_repo(url):
         shutil.rmtree(tempdir)
 
         if p.returncode == 0:
-            return True
+            return vcs
 
-    return False
+    return None
 
 # also we only allow tar urls >.>
 # need a compression flag for bzip I think >.>
@@ -150,6 +150,10 @@ def generate_lorry_from_tarball(package_name):
 
     return make_tarball_lorry(package_name, url)
 
+def str_lorry_from_repo(package_name, repo_type, url):
+    return "%s: %s" % (package_name, json.dumps({'type': repo_type, 'url': url},
+                                                indent=4, sort_keys=True))
+
 if len(sys.argv) != 2:
     print('usage: %s python_package' % sys.argv[0], file=sys.stderr)
     sys.exit(1)
@@ -158,9 +162,7 @@ package_name = sys.argv[1]
 metadata = fetch_package_metadata(package_name)
 info = metadata['info']
 
-if 'home_page' in info:
-    if is_repo(info['home_page']):
-        # lorry this thing
-        print('not implemented yet: lorry from ', info['home_page'])
-    else:
-        print(generate_lorry_from_tarball(package_name))
+repo_type = find_repo_type(info['home_page']) if 'home_page' in info else None
+
+print(str_lorry_from_repo(package_name, repo_type, info['home_page'])
+    if repo_type else generate_lorry_from_tarball(package_name))
