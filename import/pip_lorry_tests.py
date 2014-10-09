@@ -32,15 +32,22 @@ class Tests(unittest.TestCase):
         def make_url(extension):
             return 'http://foobar.baz/%s' % extension
 
+        def get_tarball_lorry_url(name, lorry_json):
+            return json.loads(lorry_json)[name + '-tarball']['url']
+
         fake_package_name = 'name'
         urls = [make_url(extension) for extension in valid_extensions]
 
         for url in urls:
-            lorry = pip_lorry.make_tarball_lorry('name', url)
-            self.assertEqual(
-                json.loads(lorry)[fake_package_name + '-tarball']['url'], url)
+            lorry_json = pip_lorry.make_tarball_lorry('name', url)
+            self.assertEqual(get_tarball_lorry_url(fake_package_name,
+                                                   lorry_json), url)
 
-        # TODO: a valid tar
+        url = 'http://foobar/baz.tar'
+        lorry_json = pip_lorry.make_tarball_lorry('name', url)
+        self.assertEqual(get_tarball_lorry_url(fake_package_name,
+                                               lorry_json), url)
+
         # TODO: invalid archive, something that's not a tar
 
 if __name__ == '__main__':
