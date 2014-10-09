@@ -31,8 +31,11 @@ import xmlrpclib
 PYPI_URL = 'http://pypi.python.org/pypi'
 
 def fetch_package_metadata(package_name):
-    return requests.get('%s/%s/json'
-                        % (PYPI_URL, package_name)).json()
+    try:
+        return requests.get('%s/%s/json' % (PYPI_URL, package_name)).json()
+    except Exception as e:
+        print("Couldn't fetch package metadata: ", e, file=sys.stderr)
+        sys.exit(1)
 
 def find_repo_type(url):
     vcss = [('git', 'clone'), ('hg', 'clone'),
@@ -106,8 +109,12 @@ def filter_urls(urls):
     return filter(allowed_extension, urls)
 
 def str_tarball_lorry(package_name):
-    client = xmlrpclib.ServerProxy(PYPI_URL)
-    releases = client.package_releases(package_name)
+    try:
+        client = xmlrpclib.ServerProxy(PYPI_URL)
+        releases = client.package_releases(package_name)
+    except Exception as e:
+        print("Couldn't fetch release data:", e, file=sys.stderr)
+        sys.exit(1)
 
     if len(releases) == 0:
         print("Couldn't find any releases for packge %s, exiting" % package_name)
@@ -122,7 +129,13 @@ def str_tarball_lorry(package_name):
 
     print('Fetching urls for package %s with version %s'
           % (package_name, release_version))
-    urls = client.release_urls(package_name, release_version)
+
+    try:
+        urls = client.release_urls(package_name, release_version)
+    except Exception as e:
+        print("Couldn't fetch release urls:", e, file=sys.stderr)
+        sys.exit(1)
+
     tarball_urls = filter_urls(urls)
 
     if len(tarball_urls) > 0:
