@@ -159,14 +159,16 @@ def str_repo_lorry(package_name, repo_type, url):
     return json.dumps({package_name.lower(): {'type': repo_type, 'url': url}},
                       indent=4, sort_keys=True)
 
-if len(sys.argv) != 2:
-    error('usage: %s python_package' % sys.argv[0])
+if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        error('usage: %s python_package' % sys.argv[0])
 
-package_name = sys.argv[1]
-metadata = fetch_package_metadata(package_name)
-info = metadata['info']
+    package_name = sys.argv[1]
+    metadata = fetch_package_metadata(package_name)
+    info = metadata['info']
 
-repo_type = find_repo_type(info['home_page']) if 'home_page' in info else None
+    repo_type = (find_repo_type(info['home_page'])
+                 if 'home_page' in info else None)
 
-print(str_repo_lorry(package_name, repo_type, info['home_page'])
-        if repo_type else generate_tarball_lorry(package_name))
+    print(str_repo_lorry(package_name, repo_type, info['home_page'])
+            if repo_type else generate_tarball_lorry(package_name))
