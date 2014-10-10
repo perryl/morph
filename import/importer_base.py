@@ -68,5 +68,5 @@ class ImportExtension(object):
         try:
             self.process_args(sys.argv[1:])
         except ImportException as e:
-            sys.stderr.write('ERROR: %s' % e.message)
+            sys.stderr.write('ERROR: %s\n' % e.message)
             sys.exit(1)

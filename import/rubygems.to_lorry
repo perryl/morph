@@ -118,9 +118,8 @@ class RubyGemLorryGenerator(ImportExtension):
         #   the correct one, but you can never know.
 
         raise GenerateLorryException(
-            "Did not manage to find the upstream source URL for Gem '%s'. "
-            "Please manually create a .lorry file, or add the Gem to "
-            "known-source-uris in rubygems.yaml." % gem_name)
+            "Gem metadata for '%s' does not point to its source code "
+            "repository." % gem_name)
 
     def project_name_from_repo(self, repo_url):
         if repo_url.endswith('/tree/master'):
