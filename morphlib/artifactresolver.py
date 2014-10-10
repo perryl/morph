@@ -82,7 +82,7 @@ class ArtifactResolver(object):
                     self._added_artifacts.add(system)
 
                 resolved_artifacts = self._resolve_system_dependencies(
-                    systems, source, queue)
+                    systems, source)
 
                 for artifact in resolved_artifacts:
                     if not artifact in self._added_artifacts:
@@ -105,7 +105,7 @@ class ArtifactResolver(object):
                         self._added_artifacts.add(stratum)
 
                 resolved_artifacts = self._resolve_stratum_dependencies(
-                    strata, source, queue)
+                    strata, source)
 
                 for artifact in resolved_artifacts:
                     if not artifact in self._added_artifacts:
@@ -126,15 +126,9 @@ class ArtifactResolver(object):
         return artifacts
 
     def _create_initial_queue(self):
-        if all([x.morphology['kind'] == 'chunk' for x in self._source_pool]):
-            return collections.deque(self._source_pool)
-        else:
-            sources = [x for x in self._source_pool
-                       if x.morphology['kind'] != 'chunk']
-            return collections.deque(sources)
+        return collections.deque(self._source_pool)
 
-    def _resolve_system_dependencies(self, systems,
-                                     source, queue): # pragma: no cover
+    def _resolve_system_dependencies(self, systems, source): # pragma: no cover
         artifacts = []
 
         for info in source.morphology['strata']:
@@ -156,11 +150,9 @@ class ArtifactResolver(object):
                             source.add_dependency(stratum_artifact)
                             artifacts.append(stratum_artifact)
 
-                queue.append(stratum_source)
-
         return artifacts
 
-    def _resolve_stratum_dependencies(self, strata, source, queue):
+    def _resolve_stratum_dependencies(self, strata, source):
         artifacts = []
 
         stratum_build_depends = []
@@ -190,8 +182,6 @@ class ArtifactResolver(object):
                             raise MutualDependencyError(stratum, other_stratum)
 
                         source.add_dependency(other_stratum)
-
-                queue.append(other_source)
 
         # 'name' here is the chunk artifact name
         name_to_processed_artifacts = {}

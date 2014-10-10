@@ -187,7 +187,7 @@ def combine_aliases(app):  # pragma: no cover
             elif '=' not in trove_id and trove_id not in alias_map:
                 alias_map[trove_id] = "%s=%s#%s" % (
                     trove_id,
-                    _expand('ssh', trove_id),
+                    _expand('git', trove_id),
                     _expand('ssh', trove_id))
     for repo_alias in repo_aliases:
         m = re.match(repo_pat, repo_alias)
