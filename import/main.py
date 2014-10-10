@@ -370,6 +370,14 @@ class ImportLoop(object):
 
         self.morphloader = morphlib.morphloader.MorphologyLoader()
 
+        self.importers = {}
+
+    def enable_importer(self, kind, extra_args=[]):
+        assert kind not in self.importers
+        self.importers[kind] = {
+            'extra_args': extra_args
+        }
+
     def run(self):
         '''Process the goal package and all of its dependencies.'''
         start_time = time.time()
@@ -538,8 +546,11 @@ class ImportLoop(object):
 
     def _generate_lorry_for_package(self, kind, name):
         tool = '%s.to_lorry' % kind
+        if kind not in self.importers:
+            raise Exception('Importer for %s was not enabled.' % kind)
+        extra_args = self.importers[kind]['extra_args']
         self.app.status('Calling %s to generate lorry for %s', tool, name)
-        lorry_text = run_extension(tool, self.extra_args + [name])
+        lorry_text = run_extension(tool, extra_args + [name])
         try:
             lorry = json.loads(lorry_text)
         except ValueError as e:
@@ -669,11 +680,16 @@ class ImportLoop(object):
     def _generate_chunk_morph_for_package(self, source_repo, kind, name,
                                           version, filename):
         tool = '%s.to_chunk' % kind
+
+        if kind not in self.importers:
+            raise Exception('Importer for %s was not enabled.' % kind)
+        extra_args = self.importers[kind]['extra_args']
+
         self.app.status(
             'Calling %s to generate chunk morph for %s %s', tool, name,
             version)
 
-        args = self.extra_args + [source_repo.dirname, name]
+        args = extra_args + [source_repo.dirname, name]
         if version != 'master':
             args.append(version)
         text = run_extension(tool, args)
@@ -881,13 +897,13 @@ class BaserockImportApplication(cliapp.Application):
         definitions_dir = args[0]
         project_name = args[1]
 
-        ImportLoop(
+        loop = ImportLoop(
             app=self,
-            goal_kind='omnibus',
-            goal_name=args[2],
-            goal_version='master',
-            extra_args=[definitions_dir, project_name]
-        ).run()
+            goal_kind='omnibus', goal_name=args[2], goal_version='master')
+        loop.enable_importer('omnibus',
+                             extra_args=[definitions_dir, project_name])
+        loop.enable_importer('rubygems')
+        loop.run()
 
     def import_rubygems(self, args):
         '''Import one or more RubyGems.'''
@@ -895,12 +911,11 @@ class BaserockImportApplication(cliapp.Application):
             raise cliapp.AppException(
                 'Please pass the name of a RubyGem on the commandline.')
 
-        ImportLoop(
+        loop = ImportLoop(
             app=self,
-            goal_kind='rubygems',
-            goal_name=args[0],
-            goal_version='master'
-        ).run()
+            goal_kind='rubygems', goal_name=args[0], goal_version='master')
+        loop.enable_importer('rubygems')
+        loop.run()
 
 
 app = BaserockImportApplication(progname='import')
