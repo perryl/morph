@@ -15,9 +15,11 @@ build-dependency-whitelist:
 # The following Gems don't provide a source_code_uri in their Gem metadata.
 # Ideally ... they would do.
 known-source-uris:
+  appbundler: https://github.com/opscode/appbundler
   ast: https://github.com/openSUSE/ast
   brass: https://github.com/rubyworks/brass
   coveralls: https://github.com/lemurheavy/coveralls-ruby
+  dep-selector-libgecode: https://github.com/opscode/dep-selector-libgecode
   diff-lcs: https://github.com/halostatue/diff-lcs
   erubis: https://github.com/kwatch/erubis
   fog-brightbox: https://github.com/brightbox/fog-brightbox
