@@ -59,7 +59,14 @@ class Omnibus::Builder
   class GemInstallCommandParser < Gem::Commands::InstallCommand
     def dependency_list_from_commandline(args)
       handle_options args
-      options[:args].collect do |gem_name|
+
+      # `gem install foo*` is sometimes used when installing a locally built
+      # Gem, to avoid needing to know the exact version number that was built.
+      # We only care about remote Gems being installed, so anything with a '*'
+      # in its name can be ignored.
+      gem_names = options[:args].delete_if { |name| name.include?('*') }
+
+      gem_names.collect do |gem_name|
         Bundler::Dependency.new(gem_name, options[:version])
       end
     end
@@ -160,6 +167,24 @@ class OmnibusChunkMorphologyGenerator < Importer::Base
       exit 1
   end
 
+  def resolve_rubygems_deps(requirements)
+    return {} if requirements.empty?
+
+    log.info('Resolving RubyGem requirements with Bundler')
+
+    fake_gemfile = Bundler::Dsl.new
+    fake_gemfile.source('https://rubygems.org')
+
+    requirements.each do |dep|
+      fake_gemfile.gem(dep.name, dep.requirement)
+    end
+
+    definition = fake_gemfile.to_definition('Gemfile.lock', true)
+    resolved_specs = definition.resolve_remotely!
+
+    Hash[resolved_specs.collect { |spec| [spec.name, spec.version.to_s]}]
+  end
+
   def generate_chunk_morph_for_software(project, software, source_dir)
     if software.builder.built_gemspec != nil
       morphology = generate_chunk_morph_for_rubygems_software(software,
@@ -196,9 +221,8 @@ class OmnibusChunkMorphologyGenerator < Importer::Base
       end
     end
 
-    software.builder.manually_installed_rubygems.each do |dep|
-      rubygems_deps[dep.name] = dep.requirement.to_s
-    end
+    gem_requirements= software.builder.manually_installed_rubygems
+    rubygems_deps = resolve_rubygems_deps(gem_requirements)
 
     ## FIXME: will overwrite the deps from rubygems
     morphology.update({
