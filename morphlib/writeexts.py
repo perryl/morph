@@ -223,7 +223,7 @@ class WriteExtension(cliapp.Application):
 
     def mkfs_btrfs(self, location):
         '''Create a btrfs filesystem on the disk.'''
-        self.status(msg='Creating btrfs filesystem')
+        self.status(msg='Creating btrfs filesystem in %s' % location)
         cliapp.runcmd(['mkfs.btrfs', '-L', 'baserock', location])
 
     def get_uuid(self, location):
@@ -572,3 +572,8 @@ class WriteExtension(cliapp.Application):
             logging.error("Error checking SSH connectivity: %s", str(e))
             raise cliapp.AppException(
                 'Unable to SSH to %s: %s' % (ssh_host, e))
+    def is_device(self, location):
+        dev_regex = re.compile("^/dev/((sd|vd|mmcblk|hd)[a-z0-9]+)$")
+        if dev_regex.match(location):
+            return True
+        return False
