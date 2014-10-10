@@ -162,9 +162,9 @@ class OmnibusChunkMorphologyGenerator < Importer::Base
     morphology = YAML::load(text)
     return morphology
   rescue SubprocessError => e
-      error "Tried to import #{software.name} as a RubyGem, got the " \
-            "following error from rubygems.to_chunk: #{e.message}"
-      exit 1
+    error "Tried to import #{software.name} as a RubyGem, got the " \
+          "following error from rubygems.to_chunk: #{e.message}"
+    exit 1
   end
 
   def resolve_rubygems_deps(requirements)
@@ -221,10 +221,9 @@ class OmnibusChunkMorphologyGenerator < Importer::Base
       end
     end
 
-    gem_requirements= software.builder.manually_installed_rubygems
+    gem_requirements = software.builder.manually_installed_rubygems
     rubygems_deps = resolve_rubygems_deps(gem_requirements)
 
-    ## FIXME: will overwrite the deps from rubygems
     morphology.update({
       # Possibly this tool should look at software.build and
       # generate suitable configure, build and install-commands.
@@ -237,9 +236,12 @@ class OmnibusChunkMorphologyGenerator < Importer::Base
       "x-build-dependencies-rubygems" => {},
       "x-runtime-dependencies-rubygems" => rubygems_deps,
     })
+
     if software.description
-      morphology['description'] = software.description
+      morphology['description'] = software.description + '\n\n' +
+        morphology['description']
     end
+
     morphology
   end
 
