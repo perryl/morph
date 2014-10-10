@@ -640,9 +640,7 @@ class ImportLoop(object):
                                     repo_url, named_ref):
         morphology_filename = 'strata/%s/%s-%s.morph' % (
             self.goal_name, name, version)
-        # HACK so omnibus works!
-        #sha1 = source_repo.resolve_ref_to_commit(named_ref)
-        sha1 = 1
+        sha1 = source_repo.resolve_ref_to_commit(named_ref)
 
         def generate_morphology():
             morphology = self._generate_chunk_morph_for_package(
