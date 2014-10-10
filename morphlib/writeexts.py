@@ -22,6 +22,8 @@ import shutil
 import sys
 import time
 import tempfile
+import errno
+import stat
 
 import morphlib
 
@@ -223,7 +225,7 @@ class WriteExtension(cliapp.Application):
 
     def mkfs_btrfs(self, location):
         '''Create a btrfs filesystem on the disk.'''
-        self.status(msg='Creating btrfs filesystem')
+        self.status(msg='Creating btrfs filesystem in %s' % location)
         cliapp.runcmd(['mkfs.btrfs', '-L', 'baserock', location])
 
     def get_uuid(self, location):
@@ -572,3 +574,12 @@ class WriteExtension(cliapp.Application):
             logging.error("Error checking SSH connectivity: %s", str(e))
             raise cliapp.AppException(
                 'Unable to SSH to %s: %s' % (ssh_host, e))
+
+    def is_device(location):
+        try:
+            st = os.stat(location)
+            return stat.S_ISBLK(st.st_mode)
+        except OSError as e:
+            if e.errno == errno.ENOENT:
+                return False
+            raise
