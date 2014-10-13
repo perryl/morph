@@ -74,10 +74,7 @@ class ArtifactResolver(object):
         # rather than have the systems return them.
         if not any(s.morphology['kind'] == 'system'
                    for s in self._source_pool):
-            for stratum in (s for s in strata
-                            if s not in self._added_artifacts):
-                artifacts.append(stratum)
-                self._added_artifacts.add(stratum)
+            artifacts += strata
 
         resolved_artifacts = self._resolve_stratum_dependencies(
             strata, source)
