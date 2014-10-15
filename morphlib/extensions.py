@@ -223,7 +223,9 @@ class ExtensionSubprocess(object):
             def close_read_end():
                 os.close(log_read_fd)
             p = subprocess.Popen(
-                [filename] + args, cwd=cwd, env=new_env,
+                ['unshare', '-m', '--', '/bin/sh', '-c',
+                 'mount --make-rprivate / && exec "$@"', '-', filename] + args,
+                cwd=cwd, env=new_env,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 preexec_fn=close_read_end)
             os.close(log_write_fd)
