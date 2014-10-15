@@ -192,11 +192,10 @@ class StagingArea(object):
         shutil.rmtree(self.dirname)
 
     to_mount = (
-        ('proc',    'proc',  'none'),
         ('dev/shm', 'tmpfs', 'none'),
     )
 
-    def mount_ccachedir(self, source): #pragma: no cover
+    def ccache_dir(self, source): #pragma: no cover
         ccache_dir = self._app.settings['compiler-cache-dir']
         if not os.path.isdir(ccache_dir):
             os.makedirs(ccache_dir)
@@ -223,10 +222,7 @@ class StagingArea(object):
         # to avoid breaking when faced with an empty staging area.
         if not os.path.isdir(ccache_destdir):
             os.makedirs(ccache_destdir)
-        # Mount it into the staging-area
-        self._app.runcmd(['mount', '--bind', ccache_repodir,
-                         ccache_destdir])
-        return ccache_destdir
+        return ccache_repodir
 
     def do_mounts(self, setup_mounts):  # pragma: no cover
         if not setup_mounts:
@@ -257,9 +253,6 @@ class StagingArea(object):
 
         self.do_mounts(setup_mounts)
 
-        if not self._app.settings['no-ccache']:
-            self.mounted.append(self.mount_ccachedir(source))
-
         return builddir, destdir
 
     def chroot_close(self): # pragma: no cover
@@ -284,6 +277,7 @@ class StagingArea(object):
             del kwargs['cwd']
         else:
             cwd = '/'
+        ccache_dir = kwargs.pop('ccache_dir', None)
 
         chroot_dir = self.dirname if self.use_chroot else '/'
         temp_dir = kwargs["env"].get("TMPDIR", "/tmp")
@@ -303,6 +297,18 @@ class StagingArea(object):
                                                do_not_mount_dirs):
             if not os.path.islink(d):
                 real_argv += ['--mount-readonly', self.relative(d)]
+
+        if self.use_chroot:
+            proc_target = os.path.join(self.dirname, 'proc')
+            if not os.path.exists(proc_target):
+                os.makedirs(proc_target)
+            real_argv += ['--mount-proc', self.relative(proc_target)]
+
+        if ccache_dir and not self._app.settings['no-ccache']:
+            ccache_target = os.path.join(
+                    self.dirname, kwargs['env']['CCACHE_DIR'].lstrip('/'))
+            real_argv += ['--mount-bind', ccache_dir,
+                          self.relative(ccache_target)]
 
         real_argv += [chroot_dir]
 

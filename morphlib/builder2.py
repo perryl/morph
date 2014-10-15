@@ -341,6 +341,7 @@ class ChunkBuilder(BuilderBase):
 
         relative_builddir = self.staging_area.relative(builddir)
         relative_destdir = self.staging_area.relative(destdir)
+        ccache_dir = self.staging_area.ccache_dir(self.source)
         extra_env = { 'DESTDIR': relative_destdir }
 
         steps = [
@@ -390,7 +391,8 @@ class ChunkBuilder(BuilderBase):
                                     cwd=relative_builddir,
                                     stdout=stdout or subprocess.PIPE,
                                     stderr=subprocess.STDOUT,
-                                    logfile=logfilepath)
+                                    logfile=logfilepath,
+                                    ccache_dir=ccache_dir)
 
                         if stdout:
                             stdout.flush()
