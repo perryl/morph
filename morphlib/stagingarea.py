@@ -45,7 +45,6 @@ class StagingArea(object):
         self.dirname = dirname
         self.builddirname = None
         self.destdirname = None
-        self.mounted = []
         self._bind_readonly_mount = None
 
         self.use_chroot = use_chroot
@@ -224,24 +223,7 @@ class StagingArea(object):
             os.makedirs(ccache_destdir)
         return ccache_repodir
 
-    def do_mounts(self, setup_mounts):  # pragma: no cover
-        if not setup_mounts:
-            return
-        for mount_point, mount_type, source in self.to_mount:
-            logging.debug('Mounting %s in staging area' % mount_point)
-            path = os.path.join(self.dirname, mount_point)
-            if not os.path.exists(path):
-                os.makedirs(path)
-            morphlib.fsutils.mount(self._app.runcmd, source, path, mount_type)
-            self.mounted.append(path)
-        return
-
-    def do_unmounts(self):  # pragma: no cover
-        for path in reversed(self.mounted):
-            logging.debug('Unmounting %s in staging area' % path)
-            morphlib.fsutils.unmount(self._app.runcmd, path)
-
-    def chroot_open(self, source, setup_mounts): # pragma: no cover
+    def chroot_open(self, source): # pragma: no cover
         '''Setup staging area for use as a chroot.'''
 
         assert self.builddirname == None and self.destdirname == None
@@ -251,18 +233,14 @@ class StagingArea(object):
         self.builddirname = builddir
         self.destdirname = destdir
 
-        self.do_mounts(setup_mounts)
-
         return builddir, destdir
 
     def chroot_close(self): # pragma: no cover
-        '''Undo changes by chroot_open.
+        '''Clean up resources after opening a chroot
 
-        This should be called after the staging area is no longer needed.
+        No resources are currently allocated at open time, so this is a NOOP
 
         '''
-
-        self.do_unmounts()
 
     def runcmd(self, argv, **kwargs):  # pragma: no cover
         '''Run a command in a chroot in the staging area.'''

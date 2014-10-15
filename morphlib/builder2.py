@@ -167,8 +167,7 @@ class BuilderBase(object):
     '''Base class for building artifacts.'''
 
     def __init__(self, app, staging_area, local_artifact_cache,
-                 remote_artifact_cache, source, repo_cache, max_jobs,
-                 setup_mounts):
+                 remote_artifact_cache, source, repo_cache, max_jobs):
         self.app = app
         self.staging_area = staging_area
         self.local_artifact_cache = local_artifact_cache
@@ -177,7 +176,6 @@ class BuilderBase(object):
         self.repo_cache = repo_cache
         self.max_jobs = max_jobs
         self.build_watch = morphlib.stopwatch.Stopwatch()
-        self.setup_mounts = setup_mounts
 
     def save_build_times(self):
         '''Write the times captured by the stopwatch'''
@@ -292,8 +290,7 @@ class ChunkBuilder(BuilderBase):
     def build_and_cache(self):  # pragma: no cover
         with self.build_watch('overall-build'):
 
-            builddir, destdir = self.staging_area.chroot_open(
-                self.source, self.setup_mounts)
+            builddir, destdir = self.staging_area.chroot_open(self.source)
 
             stdout = (self.app.output
                 if self.app.settings['build-log-on-stdout'] else None)
@@ -708,22 +705,20 @@ class Builder(object):  # pragma: no cover
     }
 
     def __init__(self, app, staging_area, local_artifact_cache,
-                 remote_artifact_cache, repo_cache, max_jobs, setup_mounts):
+                 remote_artifact_cache, repo_cache, max_jobs):
         self.app = app
         self.staging_area = staging_area
         self.local_artifact_cache = local_artifact_cache
         self.remote_artifact_cache = remote_artifact_cache
         self.repo_cache = repo_cache
         self.max_jobs = max_jobs
-        self.setup_mounts = setup_mounts
 
     def build_and_cache(self, source):
         kind = source.morphology['kind']
         o = self.classes[kind](self.app, self.staging_area,
                                self.local_artifact_cache,
                                self.remote_artifact_cache, source,
-                               self.repo_cache, self.max_jobs,
-                               self.setup_mounts)
+                               self.repo_cache, self.max_jobs)
         self.app.status(msg='Builder.build: artifact %s with %s' %
                        (source.name, repr(o)),
                        chatty=True)

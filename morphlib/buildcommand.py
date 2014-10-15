@@ -321,7 +321,6 @@ class BuildCommand(object):
         self.cache_artifacts_locally(deps)
 
         use_chroot = False
-        setup_mounts = False
         if source.morphology['kind'] == 'chunk':
             build_mode = source.build_mode
             extra_env = {'PREFIX': source.prefix}
@@ -338,7 +337,6 @@ class BuildCommand(object):
 
             if build_mode == 'staging':
                 use_chroot = True
-                setup_mounts = True
 
             staging_area = self.create_staging_area(build_env,
                                                     use_chroot,
@@ -352,7 +350,7 @@ class BuildCommand(object):
         else:
             staging_area = self.create_staging_area(build_env, False)
 
-        self.build_and_cache(staging_area, source, setup_mounts)
+        self.build_and_cache(staging_area, source)
         self.remove_staging_area(staging_area)
 
         td = datetime.datetime.now() - starttime
@@ -519,7 +517,7 @@ class BuildCommand(object):
         if target_source.build_mode == 'staging':
             morphlib.builder2.ldconfig(self.app.runcmd, staging_area.dirname)
 
-    def build_and_cache(self, staging_area, source, setup_mounts):
+    def build_and_cache(self, staging_area, source):
         '''Build a source and put its artifacts into the local cache.'''
 
         self.app.status(msg='Starting actual build: %(name)s '
@@ -527,7 +525,7 @@ class BuildCommand(object):
                         name=source.name, sha1=source.sha1[:7])
         builder = morphlib.builder2.Builder(
             self.app, staging_area, self.lac, self.rac, self.lrc,
-            self.app.settings['max-jobs'], setup_mounts)
+            self.app.settings['max-jobs'])
         return builder.build_and_cache(source)
 
 class InitiatorBuildCommand(BuildCommand):
