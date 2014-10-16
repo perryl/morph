@@ -118,6 +118,7 @@ def filter_urls(urls):
 
     return filter(allowed_extension, urls)
 
+# TODO: find a nicer way to do this
 def specs_satisfied(version, specs):
     opmap = {'==' : lambda x, y: x == y, '!=' : lambda x, y: x != y,
              '<=' : lambda x, y: x <= y, '>=' : lambda x, y: x >= y,
