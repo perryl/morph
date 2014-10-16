@@ -43,10 +43,13 @@ def fetch_package_metadata(package_name):
         error("Couldn't fetch package metadata: ", e)
 
 def find_repo_type(url):
+    print('Finding repo type for %s' % url)
+
     vcss = [('git', 'clone'), ('hg', 'clone'),
             ('svn', 'checkout'), ('bzr', 'branch')]
 
     for (vcs, vcs_command) in vcss:
+        print('Trying %s %s' % (vcs, vcs_command))
         tempdir = tempfile.mkdtemp()
 
         p = subprocess.Popen([vcs, vcs_command, url], stdout=subprocess.PIPE,
@@ -56,7 +59,10 @@ def find_repo_type(url):
         shutil.rmtree(tempdir)
 
         if p.returncode == 0:
+            print('%s is a %s repo' % (url, vcs))
             return vcs
+
+    print("%s doesn't seem to be a repo" % url)
 
     return None
 
