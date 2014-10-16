@@ -175,6 +175,8 @@ if __name__ == '__main__':
 
     if len(sys.argv) != max_args:
         # TODO explain the format of python requirements
+        # warn the user that they probably want to quote their arg
+        # > < will be interpreted as redirection by the shell
         print('usage: %s requirement'
               % sys.argv[0], file=sys.stderr)
         sys.exit(1)
