@@ -58,7 +58,8 @@ class MorphologyFactory(object):
                         chatty=True)
             try:
                 repo = self._lrc.get_repo(reponame)
-                morph = loader.load_from_string(repo.cat(sha1, filename))
+                morph = loader.load_from_string(repo.cat(sha1, filename),
+                                                filename)
             except IOError:
                 morph = None
                 file_list = repo.ls_tree(sha1)
@@ -69,7 +70,7 @@ class MorphologyFactory(object):
                         chatty=True)
             try:
                 text = self._rrc.cat_file(reponame, sha1, filename)
-                morph = loader.load_from_string(text)
+                morph = loader.load_from_string(text, filename)
             except morphlib.remoterepocache.CatFileError:
                 morph = None
                 file_list = self._rrc.ls_tree(reponame, sha1)

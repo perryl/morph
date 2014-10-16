@@ -18,6 +18,7 @@
 
 import collections
 import logging
+import os
 import warnings
 import yaml
 
@@ -57,6 +58,14 @@ class NotADictionaryError(MorphologySyntaxError):
 
 class MorphologyValidationError(morphlib.Error):
     pass
+
+
+class InvalidNameError(MorphologyValidationError):
+
+    def __init__(self, name, morph_filename, expected_name):
+        self.msg = (
+            'Morphology name %s does not correspond to filename %s, expected '
+            '%s' % (name, morph_filename, expected_name))
 
 
 class UnknownKindError(MorphologyValidationError):
@@ -398,7 +407,7 @@ class MorphologyLoader(object):
 
         return morphlib.morphology.Morphology(obj)
 
-    def load_from_string(self, string, filename='string'):
+    def load_from_string(self, string, filename=None):
         '''Load a morphology from a string.
 
         Return the Morphology object.
@@ -436,8 +445,21 @@ class MorphologyLoader(object):
         with morphlib.savefile.SaveFile(filename, 'w') as f:
             f.write(text)
 
+    def _morphology_name_from_filename(self, filename):
+        '''Calculate expected morphology name from its filename.'''
+        return os.path.splitext(os.path.basename(filename))[0]
+
     def validate(self, morph):
         '''Validate a morphology.'''
+
+        # Check the 'name' field matches the filename. Strange errors can occur
+        # if the name doesn't match the filename and isntead duplicates that of
+        # a different morphology.
+        if morph.filename is not None:
+            expected_name = self._morphology_name_from_filename(morph.filename)
+            if morph['name'] != expected_name:
+                raise InvalidNameError(morph['name'], morph.filename,
+                                       expected_name)
 
         # Validate that the kind field is there.
         self._require_field('kind', morph)
