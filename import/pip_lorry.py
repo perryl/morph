@@ -167,7 +167,8 @@ def str_repo_lorry(package_name, repo_type, url):
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        error('usage: %s python_package' % sys.argv[0])
+        print('usage: %s python_package' % sys.argv[0], file=sys.stderr)
+        sys.exit(1)
 
     package_name = sys.argv[1]
     metadata = fetch_package_metadata(package_name)
