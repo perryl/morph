@@ -52,7 +52,7 @@ def find_repo_type(url):
         p = subprocess.Popen([vcs, vcs_command, url], stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE, cwd=tempdir)
 
-        p.wait()
+        _, _ = p.communicate()
         shutil.rmtree(tempdir)
 
         if p.returncode == 0:
