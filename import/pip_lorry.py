@@ -118,6 +118,13 @@ def filter_urls(urls):
 
     return filter(allowed_extension, urls)
 
+def specs_satisfied(version, specs):
+    opmap = {'==' : lambda x, y: x == y, '!=' : lambda x, y: x != y,
+             '<=' : lambda x, y: x <= y, '>=' : lambda x, y: x >= y,
+             '<': lambda x, y: x < y, '>' : lambda x, y: x > y}
+
+    return all([opmap[op](version, sv) for (op, sv) in specs])
+
 def generate_tarball_lorry(requirement):
     try:
         client = xmlrpclib.ServerProxy(PYPI_URL)
@@ -128,8 +135,11 @@ def generate_tarball_lorry(requirement):
     if len(releases) == 0:
         error("Couldn't find any releases for package %s" % requirement.name)
 
-    # filter releases if package_version is not None
+    releases = [v for v in releases if specs_satisfied(v, requirement.specs)]
 
+    if len(releases) == 0:
+        error("Couldn't find any releases that satisfy version constraints: %s"
+              % requirement.specs)
 
     def get_description(release):
         return client.release_data(requirement.name,
