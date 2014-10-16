@@ -124,6 +124,8 @@ def specs_satisfied(version, specs):
              '<=' : lambda x, y: x <= y, '>=' : lambda x, y: x >= y,
              '<': lambda x, y: x < y, '>' : lambda x, y: x > y}
 
+    TODO: don't just key error if we don't recognise the op
+
     return all([opmap[op](version, sv) for (op, sv) in specs])
 
 def generate_tarball_lorry(requirement):
