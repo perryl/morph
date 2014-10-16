@@ -144,17 +144,12 @@ class WriteExtension(cliapp.Application):
                 'detected in the kernel of the machine that is running Morph.')
 
     def create_local_system(self, temp_root, raw_disk):
-        '''Create a raw system image locally.'''
-        size = self.get_disk_size()
-        if not size:
-            raise cliapp.AppException('DISK_SIZE is not defined')
-        self.create_raw_disk_image(raw_disk, size)
+        ''' Create a system somewhre mountable '''
         try:
             self.mkfs_btrfs(raw_disk)
             mp = self.mount(raw_disk)
         except BaseException:
             sys.stderr.write('Error creating disk image')
-            os.remove(raw_disk)
             raise
         try:
             self.create_btrfs_system_layout(
@@ -163,10 +158,22 @@ class WriteExtension(cliapp.Application):
         except BaseException, e:
             sys.stderr.write('Error creating Btrfs system layout')
             self.unmount(mp)
-            os.remove(raw_disk)
             raise
         else:
             self.unmount(mp)
+
+    def create_local_system_rawdisk(self, temp_root, raw_disk):
+        '''Create a raw system image locally.'''
+        size = self.get_disk_size()
+        if not size:
+           raise cliapp.AppException('DISK_SIZE is not defined')
+        self.create_raw_disk_image(raw_disk, size)
+        try:
+            self.create_local_system(temp_root, raw_disk)
+        except BaseException, e:
+            os.remove(raw_disk)
+            raise
+
 
     def _parse_size(self, size):
         '''Parse a size from a string.
