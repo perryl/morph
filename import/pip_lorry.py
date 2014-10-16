@@ -27,6 +27,8 @@ import shutil
 import tempfile
 import xmlrpclib
 
+import parser.requirements # todo add this as a submodule
+
 PYPI_URL = 'http://pypi.python.org/pypi'
 
 def warn(*args, **kwargs):
@@ -116,18 +118,21 @@ def filter_urls(urls):
 
     return filter(allowed_extension, urls)
 
-def generate_tarball_lorry(package_name):
+def generate_tarball_lorry(requirement):
     try:
         client = xmlrpclib.ServerProxy(PYPI_URL)
-        releases = client.package_releases(package_name)
+        releases = client.package_releases(requirement.name)
     except Exception as e:
         error("Couldn't fetch release data:", e)
 
     if len(releases) == 0:
-        error("Couldn't find any releases for package %s" % package_name)
+        error("Couldn't find any releases for package %s" % requirement.name)
+
+    # filter releases if package_version is not None
+
 
     def get_description(release):
-        return client.release_data(package_name,
+        return client.release_data(requirement.name,
                                    release)['name'] + ' ' + release
 
     choice = (ask_user(client, releases,
@@ -136,10 +141,10 @@ def generate_tarball_lorry(package_name):
     release_version = releases[choice]
 
     print('Fetching urls for package %s with version %s'
-          % (package_name, release_version))
+          % (requirement.name, release_version))
 
     try:
-        urls = client.release_urls(package_name, release_version)
+        urls = client.release_urls(requirement.name, release_version)
     except Exception as e:
         error("Couldn't fetch release urls:", e)
 
@@ -159,23 +164,29 @@ def generate_tarball_lorry(package_name):
                        prompt='Select url: ') if len(urls) > 1 else 0)
     url = urls[choice]['url']
 
-    return make_tarball_lorry(package_name, url)
+    return make_tarball_lorry(requirement.name, url)
 
 def str_repo_lorry(package_name, repo_type, url):
     return json.dumps({package_name.lower(): {'type': repo_type, 'url': url}},
                       indent=4, sort_keys=True)
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print('usage: %s python_package' % sys.argv[0], file=sys.stderr)
+    max_args = 2
+
+    if len(sys.argv) != max_args:
+        # TODO explain the format of python requirements
+        print('usage: %s requirement'
+              % sys.argv[0], file=sys.stderr)
         sys.exit(1)
 
-    package_name = sys.argv[1]
-    metadata = fetch_package_metadata(package_name)
+    # TODO: We could take multiple reqs easily enough
+    req = parser.requirements.parse(sys.argv[1]).next()
+
+    metadata = fetch_package_metadata(req.name)
     info = metadata['info']
 
     repo_type = (find_repo_type(info['home_page'])
                  if 'home_page' in info else None)
 
-    print(str_repo_lorry(package_name, repo_type, info['home_page'])
-            if repo_type else generate_tarball_lorry(package_name))
+    print(str_repo_lorry(req.name, repo_type, info['home_page'])
+            if repo_type else generate_tarball_lorry(req))
