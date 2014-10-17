@@ -120,13 +120,20 @@ def filter_urls(urls):
 
 # TODO: find a nicer way to do this
 def specs_satisfied(version, specs):
+    def mapping_error(op):
+        # We parse ops with requirements-parser, so any invalid user input
+        # should be detected there. This really guards against
+        # the pip developers adding some new operation to a requirement.
+        error("Invalid op in spec: %s" % op)
+
     opmap = {'==' : lambda x, y: x == y, '!=' : lambda x, y: x != y,
              '<=' : lambda x, y: x <= y, '>=' : lambda x, y: x >= y,
              '<': lambda x, y: x < y, '>' : lambda x, y: x > y}
 
-    TODO: don't just key error if we don't recognise the op
+    def get_op_func(op):
+        return opmap[op] if op in opmap else lambda x, y: mapping_error(op)
 
-    return all([opmap[op](version, sv) for (op, sv) in specs])
+    return all([get_op_func(op)(version, sv) for (op, sv) in specs])
 
 def generate_tarball_lorry(requirement):
     try:
