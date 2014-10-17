@@ -118,7 +118,6 @@ def filter_urls(urls):
 
     return filter(allowed_extension, urls)
 
-# TODO: find a nicer way to do this
 def specs_satisfied(version, specs):
     def mapping_error(op):
         # We parse ops with requirements-parser, so any invalid user input
