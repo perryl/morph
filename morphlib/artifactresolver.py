@@ -169,7 +169,7 @@ class ArtifactResolver(object):
                         if other_source.depends_on(stratum):
                             raise MutualDependencyError(stratum, other_stratum)
 
-                        source.add_dependency(other_stratum)
+                    source.add_dependency(other_stratum)
 
         # 'name' here is the chunk artifact name
         name_to_processed_artifacts = {}
