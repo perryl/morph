@@ -67,6 +67,10 @@ class Source(object):
     def basename(self): # pragma: no cover
         return '%s.%s' % (self.cache_key, str(self.morphology['kind']))
 
+    @property
+    def kind(self): #pragma: no cover
+        return self.morphology['kind']
+
     def add_dependency(self, artifact): # pragma: no cover
         if artifact not in self.dependencies:
             self.dependencies.append(artifact)
