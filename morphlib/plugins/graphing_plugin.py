@@ -63,16 +63,11 @@ class GraphingPlugin(cliapp.Plugin):
             self.add_edge(artifact_name, source.name, f)
 
     def add_source_dependencies_to_graph(self, source, deps, f):
-        # Assumption, dependency must be either a source or an artifact
-        def kind(x):
-            return (x.kind if isinstance(x, morphlib.source.Source)
-                else x.source.kind)
-
         for dep in deps:
             if self.app.settings['show-all-edges']:
                 self.add_edge(source.name, dep.name, f)
             elif (source.kind in ['stratum', 'system']
-                  or (not kind(dep) == 'stratum')):
+                  or (not dep.kind == 'stratum')):
                 # We don't want to draw edges between chunks
                 # and the strata they depend on, this dependency
                 # is implicit
