@@ -34,6 +34,10 @@ class Artifact(object):
     def basename(self):  # pragma: no cover
         return '%s.%s' % (self.source.basename(), str(self.name))
 
+    @property
+    def kind(self): #pragma: no cover
+        return self.source.morphology['kind']
+
     def metadata_basename(self, metadata_name):  # pragma: no cover
         return '%s.%s' % (self.basename(), metadata_name)
 
