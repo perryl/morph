@@ -148,9 +148,6 @@ class ArtifactResolver(object):
                 stratum_info.get('ref') or source.original_ref,
                 morphlib.util.sanitise_morphology_path(stratum_info['morph'])):
 
-                # Make every stratum artifact this stratum source produces
-                # depend on every stratum artifact the other stratum source
-                # produces.
                 for sta_name in other_source.split_rules.artifacts:
                     # Strata have split rules for artifacts they don't build,
                     # since they need to know to yield a match to its sibling
