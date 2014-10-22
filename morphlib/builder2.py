@@ -28,6 +28,7 @@ import time
 import traceback
 import subprocess
 import tempfile
+import textwrap
 import gzip
 
 import cliapp
@@ -643,6 +644,53 @@ class SystemBuilder(BuilderBase):  # pragma: no cover
 
         os.chmod(os_release_file, 0644)
 
+    def _chroot_runcmd(self, rootdir, to_mount, env, *args):
+        # We need to do mounts in a different namespace. Unfortunately
+        # this means we have to in-line the mount commands in the
+        # command-line.
+        command = textwrap.dedent(r'''
+        mount --make-rprivate /
+        rootdir="$1"
+        shift
+        ''')
+        cmdargs = [rootdir]
+
+        # We need to mount all the specified mounts in the namespace,
+        # we don't need to unmount them before exiting, as they'll be
+        # unmounted when the namespace is no longer used.
+        command += textwrap.dedent(r'''
+        while true; do
+            case "$1" in
+            --)
+                shift
+                break
+                ;;
+            *)
+                mount_point="$1"
+                mount_type="$2"
+                mount_source="$3"
+                shift 3
+                path="$rootdir/$mount_point"
+                mount -t "$mount_type" "$mount_source" "$path"
+                ;;
+            esac
+        done
+        ''')
+        for mount_opts in to_mount:
+            cmdargs.extend(mount_opts)
+        cmdargs.append('--')
+
+        command += textwrap.dedent(r'''
+        exec chroot "$rootdir" "$@"
+        ''')
+        cmdargs.extend(args)
+
+        # The single - is just a shell convention to fill $0 when using -c,
+        # since ordinarily $0 contains the program name.
+        cmdline = ['unshare', '--mount', '--', 'sh', '-ec', command, '-']
+        cmdline.extend(cmdargs)
+        self.app.runcmd(cmdline, env=env)
+
     def run_system_integration_commands(self, rootdir):  # pragma: no cover
         ''' Run the system integration commands '''
 
@@ -654,44 +702,26 @@ class SystemBuilder(BuilderBase):  # pragma: no cover
             'PATH': '/bin:/usr/bin:/sbin:/usr/sbin'
         }
 
-        self.app.status(msg='Running the system integration commands',
-                        error=True)
+        self.app.status(msg='Running the system integration commands')
 
-        mounted = []
         to_mount = (
             ('proc',    'proc',  'none'),
             ('dev/shm', 'tmpfs', 'none'),
+            ('tmp',     'tmpfs', 'none'),
         )
-
         try:
             for mount_point, mount_type, source in to_mount:
-                logging.debug('Mounting %s in system root filesystem'
-                                  % mount_point)
                 path = os.path.join(rootdir, mount_point)
                 if not os.path.exists(path):
                     os.makedirs(path)
-                morphlib.fsutils.mount(self.app.runcmd, source, path,
-                                       mount_type)
-                mounted.append(path)
-
-            # The single - is just a shell convention to fill $0 when using -c,
-            # since ordinarily $0 contains the program name.
-            # -- is used to indicate the end of options for run-parts,
-            # we don't want SYSTEM_INTEGRATION_PATH to be interpreted
-            # as an option if it happens to begin with a -
-            self.app.runcmd(['chroot', rootdir, 'sh', '-c',
-                'cd / && run-parts -- "$1"', '-', SYSTEM_INTEGRATION_PATH],
-                env=env)
+            for bin in sorted(os.listdir(sys_integration_dir)):
+                self._chroot_runcmd(rootdir, to_mount, env,
+                                    os.path.join(SYSTEM_INTEGRATION_PATH, bin))
         except BaseException, e:
             self.app.status(
                     msg='Error while running system integration commands',
                     error=True)
             raise
-        finally:
-            for mount_path in reversed(mounted):
-                logging.debug('Unmounting %s in system root filesystem'
-                                  % mount_path)
-                morphlib.fsutils.unmount(self.app.runcmd, mount_path)
 
 
 class Builder(object):  # pragma: no cover
