@@ -9,6 +9,36 @@ Morph Building Tests
     THEN morph build the system systems/base-system.morph of the branch master
     FINALLY the git server is shut down
 
+System integrations
+-------------------
+
+`system-integration` is a field in chunk morphologies that allows you to
+have some scripts run at system artifact construction time, because some
+things need to be done after every chunk is built, such as `ldconfig`,
+so every library path in `/etc/ld.so.conf` can be found, and it can look
+up libraries more quickly.
+
+    SCENARIO using system integrations
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    AND the user attempts to build the system systems/test-system.morph in branch master
+    THEN morph succeeded
+
+In our example, we have a system integration that creates /etc/passwd,
+so when we deploy the system, we can check whether it exists.
+
+    GIVEN a cluster called test-cluster.morph in system branch master
+    AND a system in cluster test-cluster.morph in branch master called test-system
+    AND system test-system in cluster test-cluster.morph in branch master builds systems/test-system.morph
+    AND system test-system in cluster test-cluster.morph in branch master has deployment type: tar
+    WHEN the user attempts to deploy the cluster test-cluster.morph in branch master with options test-system.location="$DATADIR/test.tar"
+    THEN morph succeeded
+    AND tarball test.tar contains etc/passwd
+
+Distbuilding
+------------
+
     SCENARIO distbuilding
     ASSUMING the morph-cache-server can be run
     GIVEN a workspace

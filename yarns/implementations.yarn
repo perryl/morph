@@ -300,6 +300,14 @@ another to hold a chunk.
 
     install-commands:
     - copy files
+    system-integration:
+        test-chunk-bins:
+            00-passwd:
+            - |
+              create file /etc/passwd
+              root:x:0:0:Super user:/root:/bin/sh
+              daemon:x:1:1:daemon:/usr/sbin:/bin/sh
+              nobody:x:65534:65534:nobody:/nonexistent:/bin/false
     EOF
 
     install -m644 -D /dev/stdin << 'EOF' "stage2-chunk.morph"
