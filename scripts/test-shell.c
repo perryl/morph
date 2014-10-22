@@ -107,6 +107,17 @@ cleanup:
     return ret;
 }
 
+int copy_file_objects(FILE *source, FILE *target) {
+    char buffer[BUFSIZ];
+    size_t read;
+    do {
+        read = fread(buffer, 1, sizeof(buffer), source);
+        fprintf(stderr, "Read: %*s\n", read, buffer);
+        fwrite(buffer, 1, read, target);
+    } while (!feof(source));
+    return ferror(source) ? -1 : 0;
+}
+
 int main(int argc, char *argv[]) {
     int ret = 1;
     if (argc != 3 || strcmp(argv[1], "-c") != 0) {
@@ -139,6 +150,15 @@ int main(int argc, char *argv[]) {
                     ret = 1;
                     break;
                 }
+            } else if (strstr(line, "create file ") == line) {
+                char const *filename = line + sizeof("create file ") -1;
+                FILE *outfile = fopen(filename, "w");
+                if (copy_file_objects(cmdstream, outfile) < 0) {
+                    ret = 1;
+                    fclose(outfile);
+                    break;
+                }
+                fclose(outfile);
             } else {
                 ret = 127;
                 break;
