@@ -118,53 +118,63 @@ int copy_file_objects(FILE *source, FILE *target) {
     return ferror(source) ? -1 : 0;
 }
 
-int main(int argc, char *argv[]) {
+int run_commands(FILE *cmdstream){
     int ret = 1;
-    if (argc != 3 || strcmp(argv[1], "-c") != 0) {
-        fprintf(stderr, "Usage: %s -c COMMAND\n", argv[0]);
-        return 1;
-    }
-    size_t cmdlen = strlen(argv[2]);
-    FILE *cmdstream = fmemopen(argv[2], cmdlen, "r");
-    {
-        ssize_t read;
-        size_t len = 0;
-        char *line = NULL;
+    ssize_t read;
+    size_t len = 0;
+    char *line = NULL;
 
-        ret = 0;
-        while ((read = getline(&line, &len, cmdstream)) != -1) {
-            if (line[read - 1] == '\n') line[read - 1] = '\0';
-            if (strcmp(line, "copy files") == 0) {
-                /* Recursively copy contents of current dir to DESTDIR */
-                if (nftw(".", copy_entry, 20, FTW_PHYS)) {
-                    ret = 1;
-                    break;
-                }
-            } else if (strcmp(line, "false") == 0 ||
-                       strstr(line, "false ") == line) {
+    ret = 0;
+    while ((read = getline(&line, &len, cmdstream)) != -1) {
+        if (line[read - 1] == '\n') line[read - 1] = '\0';
+        if (strcmp(line, "copy files") == 0) {
+            /* Recursively copy contents of current dir to DESTDIR */
+            if (nftw(".", copy_entry, 20, FTW_PHYS)) {
                 ret = 1;
                 break;
-            } else if (strstr(line, "echo ") == line) {
-                if (puts(line + sizeof("echo ") - 1) == EOF){
-                    perror("echo");
-                    ret = 1;
-                    break;
-                }
-            } else if (strstr(line, "create file ") == line) {
-                char const *filename = line + sizeof("create file ") -1;
-                FILE *outfile = fopen(filename, "w");
-                if (copy_file_objects(cmdstream, outfile) < 0) {
-                    ret = 1;
-                    fclose(outfile);
-                    break;
-                }
-                fclose(outfile);
-            } else {
-                ret = 127;
+            }
+        } else if (strcmp(line, "false") == 0 ||
+                   strstr(line, "false ") == line) {
+            ret = 1;
+            break;
+        } else if (strstr(line, "echo ") == line) {
+            if (puts(line + sizeof("echo ") - 1) == EOF){
+                perror("echo");
+                ret = 1;
                 break;
             }
+        } else if (strstr(line, "create file ") == line) {
+            char const *filename = line + sizeof("create file ") -1;
+            FILE *outfile = fopen(filename, "w");
+            if (copy_file_objects(cmdstream, outfile) < 0) {
+                ret = 1;
+                fclose(outfile);
+                break;
+            }
+            fclose(outfile);
+        } else if (line[0] == '#' || strstr(line, "set ") == line) {
+            /* Comments and set commands are ignored */
+            continue;
+        } else {
+            fprintf(stderr, "Unrecognized command: %s\n", line);
+            ret = 127;
+            break;
         }
-        free(line);
     }
+    free(line);
     return ret;
+}
+
+int main(int argc, char *argv[]) {
+    if (argc == 3 && strcmp(argv[1], "-c") == 0) {
+        size_t cmdlen = strlen(argv[2]);
+        FILE *cmdstream = fmemopen(argv[2], cmdlen, "r");
+        return run_commands(cmdstream);
+    } else if (argc == 2) {
+        FILE *cmdstream = fopen(argv[1], "r");
+        return run_commands(cmdstream);
+    } else {
+        fprintf(stderr, "Usage: %s -c COMMAND|%s SCRIPT\n", argv[0], argv[0]);
+        return 1;
+    }
 }
