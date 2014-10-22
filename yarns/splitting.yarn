@@ -66,6 +66,7 @@ we've successfully excluded it, we won't have those files.
 
     AND tarball test.tar doesn't contain lib/libtest.a
     AND tarball test.tar doesn't contain man/man3/test.3.gz
+    FINALLY the git server is shut down
 
 As a consequence of how dependencies are generated, if we select strata
 to go into our system, such that there are chunk artifacts that are not
