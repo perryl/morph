@@ -22,6 +22,7 @@ import morphlib
 
 class GraphArtifact(object):
     def __init__(self, source):
+        self.name = source.name
         self.source = source
 
 class GraphingPlugin(cliapp.Plugin):
