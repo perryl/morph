@@ -14,7 +14,6 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
-import binascii
 import cliapp
 import ConfigParser
 import logging
@@ -23,10 +22,6 @@ import re
 import string
 import StringIO
 import sys
-import time
-
-
-import cliapp
 
 import morphlib
 
@@ -226,11 +221,6 @@ def check_config_set(runcmd, keys, cwd='.'):
     return found
 
 
-def set_remote(runcmd, gitdir, name, url):
-    '''Set remote with name 'name' use a given url at gitdir'''
-    return gitcmd(runcmd, 'remote', 'set-url', name, url, cwd=gitdir)
-
-
 def copy_repository(runcmd, repo, destdir, is_mirror=True):
     '''Copies a cached repository into a directory using cp.
 
@@ -275,16 +265,6 @@ def copy_repository(runcmd, repo, destdir, is_mirror=True):
     gitcmd(runcmd, 'remote', 'update', 'origin', '--prune', cwd=destdir)
 
 
-def index_has_changes(runcmd, gitdir):
-    '''Returns True if there are no staged changes to commit'''
-    try:
-        gitcmd(runcmd, 'diff-index', '--cached', '--quiet',
-               '--ignore-submodules', 'HEAD', cwd=gitdir)
-    except cliapp.AppException:
-        return True
-    return False
-
-
 def reset_workdir(runcmd, gitdir):
     '''Removes any differences between the current commit '''
     '''and the status of the working directory'''
@@ -311,10 +291,6 @@ def is_valid_sha1(ref):
     '''Checks whether a string is a valid SHA1.'''
 
     return len(ref) == 40 and all(x in string.hexdigits for x in ref)
-
-def rev_parse(runcmd, gitdir, ref):
-    '''Find the sha1 for the given ref'''
-    return gitcmd(runcmd, 'rev-parse', '--verify', ref, cwd=gitdir)[0:40]
 
 
 def gitcmd(runcmd, *args, **kwargs):
