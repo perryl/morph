@@ -57,10 +57,11 @@ class MorphologyFactory(object):
                         chatty=True)
             try:
                 repo = self._lrc.get_repo(reponame)
-                morph = loader.load_from_string(repo.cat(sha1, filename))
+                text = repo.read_file(filename, sha1)
+                morph = loader.load_from_string(text)
             except IOError:
                 morph = None
-                file_list = repo.ls_tree(sha1)
+                file_list = repo.list_files(ref=sha1, recurse=False)
         elif self._rrc is not None:
             self.status(msg="Retrieving %(reponame)s %(sha1)s %(filename)s"
                         " from the remote git cache.",

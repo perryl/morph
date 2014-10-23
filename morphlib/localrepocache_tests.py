@@ -22,6 +22,7 @@ import cliapp
 import fs.memoryfs
 
 import morphlib
+import morphlib.gitdir_tests
 
 
 class FakeApplication(object):
@@ -56,6 +57,7 @@ class LocalRepoCacheTests(unittest.TestCase):
         self.lrc._git = self.fake_git
         self.lrc._fetch = self.not_found
         self.lrc._mkdtemp = self.fake_mkdtemp
+        self.lrc._new_cached_repo_instance = self.new_cached_repo_instance
         self._mkdtemp_count = 0
 
     def fake_git(self, args, **kwargs):
@@ -85,6 +87,11 @@ class LocalRepoCacheTests(unittest.TestCase):
         self._mkdtemp_count += 1
         self.lrc.fs.makedir(dirname+"/"+thing)
         return thing
+
+    def new_cached_repo_instance(self, *args):
+        with morphlib.gitdir_tests.allow_nonexistant_git_repos():
+            return morphlib.cachedrepo.CachedRepo(
+                FakeApplication(), *args)
 
     def not_found(self, url, path):
         raise cliapp.AppException('Not found')

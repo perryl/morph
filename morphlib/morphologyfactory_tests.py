@@ -37,6 +37,7 @@ class FakeRemoteRepoCache(object):
     def ls_tree(self, reponame, sha1):
         return []
 
+
 class FakeLocalRepo(object):
 
     morphologies = {
@@ -115,7 +116,7 @@ class FakeLocalRepo(object):
     def __init__(self):
         self.arch = 'x86_64'
 
-    def cat(self, sha1, filename):
+    def read_file(self, filename, ref):
         if filename in self.morphologies:
             values = {
                 'arch': self.arch,
@@ -129,8 +130,9 @@ class FakeLocalRepo(object):
             }''' % filename[:-len('.morph')]
         return 'text'
 
-    def ls_tree(self, sha1):
+    def list_files(self, ref, recurse):
         return self.morphologies.keys()
+
 
 class FakeLocalRepoCache(object):
 
@@ -163,14 +165,14 @@ class MorphologyFactoryTests(unittest.TestCase):
         return ['chunk.morph']
 
     def nolocalmorph(self, *args):
-        if args[-1].endswith('.morph'):
+        if args[0].endswith('.morph'):
             raise IOError('File not found')
         return 'text'
 
-    def autotoolsbuildsystem(self, *args):
+    def autotoolsbuildsystem(self, *args, **kwargs):
         return ['configure.in']
 
-    def remotemorph(self, *args):
+    def remotemorph(self, *args, **kwargs):
         return ['remote-chunk.morph']
 
     def noremotemorph(self, *args):
@@ -182,7 +184,7 @@ class MorphologyFactoryTests(unittest.TestCase):
         return False
 
     def test_gets_morph_from_local_repo(self):
-        self.lr.ls_tree = self.localmorph
+        self.lr.list_files = self.localmorph
         morph = self.mf.get_morphology('reponame', 'sha1',
                                        'chunk.morph')
         self.assertEqual('chunk', morph['name'])
@@ -195,8 +197,8 @@ class MorphologyFactoryTests(unittest.TestCase):
         self.assertEqual('remote-chunk', morph['name'])
 
     def test_autodetects_local_morphology(self):
-        self.lr.cat = self.nolocalmorph
-        self.lr.ls_tree = self.autotoolsbuildsystem
+        self.lr.read_file = self.nolocalmorph
+        self.lr.list_files = self.autotoolsbuildsystem
         morph = self.mf.get_morphology('reponame', 'sha1',
                                        'assumed-local.morph')
         self.assertEqual('assumed-local', morph['name'])
@@ -210,7 +212,7 @@ class MorphologyFactoryTests(unittest.TestCase):
         self.assertEqual('assumed-remote', morph['name'])
 
     def test_raises_error_when_no_local_morph(self):
-        self.lr.cat = self.nolocalfile
+        self.lr.read_file = self.nolocalfile
         self.assertRaises(MorphologyNotFoundError, self.mf.get_morphology,
                           'reponame', 'sha1', 'unreached.morph')
 
@@ -225,14 +227,14 @@ class MorphologyFactoryTests(unittest.TestCase):
                           'reponame', 'sha1', 'name-mismatch.morph')
 
     def test_looks_locally_with_no_remote(self):
-        self.lr.ls_tree = self.localmorph
+        self.lr.list_files = self.localmorph
         morph = self.lmf.get_morphology('reponame', 'sha1',
                                         'chunk.morph')
         self.assertEqual('chunk', morph['name'])
 
     def test_autodetects_locally_with_no_remote(self):
-        self.lr.cat = self.nolocalmorph
-        self.lr.ls_tree = self.autotoolsbuildsystem
+        self.lr.read_file = self.nolocalmorph
+        self.lr.list_files = self.autotoolsbuildsystem
         morph = self.mf.get_morphology('reponame', 'sha1',
                                         'assumed-local.morph')
         self.assertEqual('assumed-local', morph['name'])

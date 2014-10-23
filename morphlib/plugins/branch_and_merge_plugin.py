@@ -174,7 +174,7 @@ class BranchAndMergePlugin(cliapp.Plugin):
         cached_repo = lrc.get_updated_repo(root_url)
 
         # Check the git branch exists.
-        cached_repo.resolve_ref(system_branch)
+        cached_repo.resolve_ref_to_commit(system_branch)
 
         with self._initializing_system_branch(
             ws, root_url, system_branch, cached_repo, base_ref) as (sb, gd):
@@ -233,7 +233,7 @@ class BranchAndMergePlugin(cliapp.Plugin):
                 (system_branch, root_url))
 
         # Make sure the base_ref exists.
-        cached_repo.resolve_ref(base_ref)
+        cached_repo.resolve_ref_to_commit(base_ref)
 
         with self._initializing_system_branch(
             ws, root_url, system_branch, cached_repo, base_ref) as (sb, gd):

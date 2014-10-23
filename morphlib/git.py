@@ -275,15 +275,6 @@ def copy_repository(runcmd, repo, destdir, is_mirror=True):
     gitcmd(runcmd, 'remote', 'update', 'origin', '--prune', cwd=destdir)
 
 
-def checkout_ref(runcmd, gitdir, ref):
-    '''Checks out a specific ref/SHA1 in a git working tree.'''
-    gitcmd(runcmd, 'checkout', ref, cwd=gitdir)
-    gd = morphlib.gitdir.GitDirectory(gitdir)
-    if gd.has_fat():
-        gd.fat_init()
-        gd.fat_pull()
-
-
 def index_has_changes(runcmd, gitdir):
     '''Returns True if there are no staged changes to commit'''
     try:

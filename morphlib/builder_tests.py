@@ -20,6 +20,7 @@ import StringIO
 import unittest
 
 import morphlib
+import morphlib.gitdir_tests
 
 
 class FakeBuildSystem(object):
@@ -50,8 +51,9 @@ class FakeSource(object):
         }
         self.name = 'a'
 
-        self.repo = morphlib.cachedrepo.CachedRepo(FakeApp(), 'repo',
-                                                   'url', 'path')
+        with morphlib.gitdir_tests.allow_nonexistant_git_repos():
+            self.repo = morphlib.cachedrepo.CachedRepo(
+                FakeApp(), 'repo', 'url', 'path')
         self.repo_name = 'url'
         self.original_ref = 'e'
         self.sha1 = 'f'

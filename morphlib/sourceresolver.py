@@ -71,7 +71,8 @@ class SourceResolver(object):
                 repo.update()
             # If the user passed --no-git-update, and the ref is a SHA1 not
             # available locally, this call will raise an exception.
-            absref, tree = repo.resolve_ref(ref)
+            absref = repo.resolve_ref_to_commit(ref)
+            tree = repo.resolve_ref_to_tree(absref)
         elif self.rrc is not None:
             try:
                 absref, tree = self.rrc.resolve_ref(reponame, ref)
@@ -91,7 +92,8 @@ class SourceResolver(object):
                 repo.update()
             else:
                 repo = self.lrc.get_repo(reponame)
-            absref, tree = repo.resolve_ref(ref)
+            absref = repo.resolve_ref_to_commit(ref)
+            tree = repo.resolve_ref_to_tree(absref)
         return absref, tree
 
     def traverse_morphs(self, definitions_repo, definitions_ref,

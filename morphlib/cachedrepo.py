@@ -15,24 +15,9 @@
 
 
 import cliapp
-import logging
 import os
 
 import morphlib
-
-
-class InvalidReferenceError(cliapp.AppException):
-
-    def __init__(self, repo, ref):
-        cliapp.AppException.__init__(
-            self, 'Ref %s is an invalid reference for repo %s' % (ref, repo))
-
-
-class UnresolvedNamedReferenceError(cliapp.AppException):
-
-    def __init__(self, repo, ref):
-        cliapp.AppException.__init__(
-            self, 'Ref %s is not a SHA1 ref for repo %s' % (ref, repo))
 
 
 class CheckoutDirectoryExistsError(cliapp.AppException):
@@ -105,63 +90,52 @@ class CachedRepo(object):
         self.is_mirror = not url.startswith('file://')
         self.already_updated = False
 
-    def ref_exists(self, ref):
+        self._gitdir = morphlib.gitdir.GitDirectory(path)
+
+    def ref_exists(self, ref):  # pragma: no cover
         '''Returns True if the given ref exists in the repo'''
+        return self._gitdir.ref_exists(ref)
 
-        try:
-            self._rev_parse(ref)
-        except cliapp.AppException:
-            return False
-        return True
+    def resolve_ref_to_commit(self, ref):  # pragma: no cover
+        '''Resolve a named ref to a commit SHA1.
 
-    def resolve_ref(self, ref):
-        '''Attempts to resolve a ref into its SHA1 and tree SHA1.
+        Raises gitdir.InvalidRefError if the ref does not exist.
 
-        Raises an InvalidReferenceError if the ref is not found in the
+        '''
+        return self._gitdir.resolve_ref_to_commit(ref)
+
+    def resolve_ref_to_tree(self, ref):  # pragma: no cover
+        '''Resolve a named ref to a tree SHA1.
+
+        Raises gitdir.InvalidRefError if the ref does not exist.
+
+        '''
+        return self._gitdir.resolve_ref_to_tree(ref)
+
+    def read_file(self, filename, ref):  # pragma: no cover
+        '''Attempts to read a file from a given ref.
+
+        Raises a gitdir.InvalidRefError if the ref is not found in the
+        repository. Raises an IOError if the requested file is not found in
+        the ref.
+
+        '''
+        return self._gitdir.read_file(filename, ref)
+
+    def list_files(self, ref, recurse=True):  # pragma: no cover
+        '''Return filenames found in the tree pointed to by the given ref.
+
+        Returns a gitdir.InvalidRefError if the ref is not found in the
         repository.
 
         '''
-
-        try:
-            absref = self._rev_parse(ref)
-        except cliapp.AppException:
-            raise InvalidReferenceError(self, ref)
-
-        try:
-            tree = self._show_tree_hash(absref)
-        except cliapp.AppException:
-            raise InvalidReferenceError(self, ref)
-
-        return absref, tree
-
-    def cat(self, ref, filename):
-        '''Attempts to read a file given a SHA1 ref.
-
-        Raises an UnresolvedNamedReferenceError if the ref is not a SHA1
-        ref. Raises an InvalidReferenceError if the SHA1 ref is not found
-        in the repository. Raises an IOError if the requested file is not
-        found in the ref.
-
-        '''
-
-        if not morphlib.git.is_valid_sha1(ref):
-            raise UnresolvedNamedReferenceError(self, ref)
-        try:
-            sha1 = self._rev_parse(ref)
-        except cliapp.AppException:
-            raise InvalidReferenceError(self, ref)
-
-        try:
-            return self._cat_file(sha1, filename)
-        except cliapp.AppException:
-            raise IOError('File %s does not exist in ref %s of repo %s' %
-                          (filename, ref, self))
+        return self._gitdir.list_files(ref, recurse)
 
     def clone_checkout(self, ref, target_dir):
         '''Clone from the cache into the target path and check out a given ref.
 
         Raises a CheckoutDirectoryExistsError if the target
-        directory already exists. Raises an InvalidReferenceError if the
+        directory already exists. Raises a gitdir.InvalidRefError if the
         ref is not found in the repository. Raises a CheckoutError if
         something else goes wrong while copying the repository or checking
         out the SHA1 ref.
@@ -171,14 +145,14 @@ class CachedRepo(object):
         if os.path.exists(target_dir):
             raise CheckoutDirectoryExistsError(self, target_dir)
 
-        self.resolve_ref(ref)
+        self._gitdir.resolve_ref_to_commit(ref)
 
         self._clone_into(target_dir, ref)
 
     def checkout(self, ref, target_dir):
         '''Unpacks the repository in a directory and checks out a commit ref.
 
-        Raises an InvalidReferenceError if the ref is not found in the
+        Raises an gitdir.InvalidRefError if the ref is not found in the
         repository. Raises a CopyError if something goes wrong with the copy
         of the repository. Raises a CheckoutError if something else goes wrong
         while copying the repository or checking out the SHA1 ref.
@@ -193,25 +167,7 @@ class CachedRepo(object):
         # take care to turn the copy into something as good as a real clone.
         self._copy_repository(self.path, target_dir)
 
-        self._checkout_ref(ref, target_dir)
-
-    def ls_tree(self, ref):
-        '''Return file names found in root tree. Does not recurse to subtrees.
-
-        Raises an UnresolvedNamedReferenceError if the ref is not a SHA1
-        ref. Raises an InvalidReferenceError if the SHA1 ref is not found
-        in the repository.
-
-        '''
-
-        if not morphlib.git.is_valid_sha1(ref):
-            raise UnresolvedNamedReferenceError(self, ref)
-        try:
-            sha1 = self._rev_parse(ref)
-        except cliapp.AppException:
-            raise InvalidReferenceError(self, ref)
-
-        return self._ls_tree(sha1)
+        self._checkout_ref_in_clone(ref, target_dir)
 
     def requires_update_for_ref(self, ref):
         '''Returns False if there's no need to update this cached repo.
@@ -232,7 +188,7 @@ class CachedRepo(object):
         # Named refs that are valid SHA1s will confuse this code.
         ref_can_change = not morphlib.git.is_valid_sha1(ref)
 
-        if ref_can_change or not self.ref_exists(ref):
+        if ref_can_change or not self._gitdir.ref_exists(ref):
             return True
         else:
             return False
@@ -249,9 +205,10 @@ class CachedRepo(object):
             return
 
         try:
-            self._update()
+            self._gitdir.update_remotes(
+                echo_stderr=self.app.settings['verbose'])
             self.already_updated = True
-        except cliapp.AppException, e:
+        except cliapp.AppException:
             raise UpdateError(self)
 
     def _runcmd(self, *args, **kwargs):  # pragma: no cover
@@ -259,27 +216,11 @@ class CachedRepo(object):
             kwargs['cwd'] = self.path
         return self.app.runcmd(*args, **kwargs)
 
-    def _rev_parse(self, ref):  # pragma: no cover
-        return morphlib.git.gitcmd(self._runcmd, 'rev-parse', '--verify',
-                                   '%s^{commit}' % ref)[0:40]
-
-    def _show_tree_hash(self, absref):  # pragma: no cover
-        return morphlib.git.gitcmd(self._runcmd, 'rev-parse', '--verify',
-                                   '%s^{tree}' % absref).strip()
-
-    def _ls_tree(self, ref):  # pragma: no cover
-        result = morphlib.git.gitcmd(self._runcmd, 'ls-tree',
-                                     '--name-only', ref)
-        return result.split('\n')
-
-    def _cat_file(self, ref, filename):  # pragma: no cover
-        return morphlib.git.gitcmd(self._runcmd, 'cat-file', 'blob',
-                                   '%s:%s' % (ref, filename))
-
-    def _clone_into(self, target_dir, ref):  #pragma: no cover
+    def _clone_into(self, target_dir, ref):  # pragma: no cover
         '''Actually perform the clone'''
         try:
-            morphlib.git.clone_into(self._runcmd, self.path, target_dir, ref)
+            morphlib.git.clone_into(self._runcmd, self.path, target_dir,
+                                    ref)
         except cliapp.AppException:
             raise CloneError(self, target_dir)
 
@@ -290,16 +231,15 @@ class CachedRepo(object):
         except cliapp.AppException:
             raise CopyError(self, target_dir)
 
-    def _checkout_ref(self, ref, target_dir):  # pragma: no cover
+    def _checkout_ref_in_clone(self, ref, clone_dir):  # pragma: no cover
+        # This is a separate GitDirectory instance. Don't confuse it with the
+        # internal ._gitdir attribute!
+        working_gitdir = morphlib.gitdir.GitDirectory(clone_dir)
         try:
-            morphlib.git.checkout_ref(self._runcmd, target_dir, ref)
-        except cliapp.AppException:
-            raise CheckoutError(self, ref, target_dir)
-
-    def _update(self):  # pragma: no cover
-        morphlib.git.gitcmd(self._runcmd, 'remote', 'update',
-                            'origin', '--prune',
-                            echo_stderr=self.app.settings['verbose'])
+            working_gitdir.checkout(ref)
+        except cliapp.AppException as e:
+            raise CheckoutError(self, ref, clone_dir)
+        return working_gitdir
 
     def __str__(self):  # pragma: no cover
         return self.url

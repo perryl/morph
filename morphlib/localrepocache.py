@@ -225,6 +225,11 @@ class LocalRepoCache(object):
         self.fs.rename(target, path)
         return self.get_repo(reponame)
 
+    def _new_cached_repo_instance(self, reponame, repourl,
+                                  path):  # pragma: no cover
+        return morphlib.cachedrepo.CachedRepo(
+            self._app, reponame, repourl, path)
+
     def get_repo(self, reponame):
         '''Return an object representing a cached repository.'''
 
@@ -234,8 +239,7 @@ class LocalRepoCache(object):
             repourl = self._resolver.pull_url(reponame)
             path = self._cache_name(repourl)
             if self.fs.exists(path):
-                repo = morphlib.cachedrepo.CachedRepo(self._app, reponame,
-                                                      repourl, path)
+                repo = self._new_cached_repo_instance(reponame, repourl, path)
                 self._cached_repo_objects[reponame] = repo
                 return repo
         raise NotCached(reponame)

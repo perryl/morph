@@ -16,6 +16,7 @@
 # =*= License: GPL-2 =*=
 
 
+import contextlib
 import datetime
 import os
 import shutil
@@ -23,6 +24,26 @@ import tempfile
 import unittest
 
 import morphlib
+
+
+@contextlib.contextmanager
+def monkeypatch(obj, attr, new_value):
+    old_value = getattr(obj, attr)
+    setattr(obj, attr, new_value)
+    yield
+    setattr(obj, attr, old_value)
+
+
+def allow_nonexistant_git_repos():
+    '''Disable the gitdir._ensure_is_git_repo() function.
+
+    This is used in other unit tests to avoid needing to run 'git init' at the
+    start of each test. A library like 'mock' would be a better solution for
+    this problem.
+
+    '''
+    return monkeypatch(
+        morphlib.gitdir.GitDirectory, '_ensure_is_git_repo', lambda x: None)
 
 
 class GitDirectoryTests(unittest.TestCase):
@@ -153,6 +174,12 @@ class GitDirectoryContentsTests(unittest.TestCase):
         gd = morphlib.gitdir.GitDirectory(self.dirname)
         self.assertRaises(morphlib.gitdir.InvalidRefError,
                           gd.read_file, 'bar', 'no-such-ref')
+
+    def test_read_raises_io_error(self):
+        for gitdir in (self.dirname, self.mirror):
+            gd = morphlib.gitdir.GitDirectory(gitdir)
+            self.assertRaises(IOError,
+                              gd.read_file, 'non-existant-file', 'HEAD')
 
     def test_HEAD(self):
         gd = morphlib.gitdir.GitDirectory(self.dirname)

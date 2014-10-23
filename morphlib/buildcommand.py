@@ -399,13 +399,13 @@ class BuildCommand(object):
             source.repo = self.lrc.get_repo(repo_name)
             try:
                 sha1 = source.sha1
-                source.repo.resolve_ref(sha1)
+                source.repo.resolve_ref_to_commit(sha1)
                 self.app.status(msg='Not updating git repository '
                                     '%(repo_name)s because it '
                                     'already contains sha1 %(sha1)s',
                                 chatty=True, repo_name=repo_name,
                                 sha1=sha1)
-            except morphlib.cachedrepo.InvalidReferenceError:
+            except morphlib.gitdir.InvalidRefError:
                 self.app.status(msg='Updating %(repo_name)s',
                                 repo_name=repo_name)
                 source.repo.update()

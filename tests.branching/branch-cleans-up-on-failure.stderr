@@ -1,1 +1,1 @@
-ERROR: Ref invalid-ref is an invalid reference for repo file://TMP/morphs
+ERROR: Git directory TMP/morphs has no commit at ref invalid-ref^{commit}.
