@@ -25,6 +25,12 @@ class GraphArtifact(object):
         self.name = source.name
         self.source = source
 
+    def __hash__(self):
+        return hash(self.name)
+
+    def __eq__(self, other):
+        return self.name == other.name
+
 class GraphingPlugin(cliapp.Plugin):
 
     def enable(self):
