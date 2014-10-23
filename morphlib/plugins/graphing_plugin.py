@@ -190,8 +190,8 @@ all the sources in the devel system.
         sources = set(a.source for a in artifact.walk()
                        if a.source.kind != 'stratum')
 
-        assert  all([True for source in sources if source.kind == 'chunk']) \
-                ,'expected only chunk sources'
+        if not all(True for source in sources if source.kind == 'chunk'):
+            raise morphlib.Error('Expected only chunk sources')
 
         for source in sources:
             if source in foreign_chunks:
