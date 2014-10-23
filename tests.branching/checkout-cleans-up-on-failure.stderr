@@ -1,1 +1,1 @@
-ERROR: Ref i/do/not/exist is an invalid reference for repo file://TMP/morphs
+ERROR: Git directory TMP/morphs has no commit at ref i/do/not/exist^{commit}.

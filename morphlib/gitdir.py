@@ -444,8 +444,7 @@ class GitDirectory(object):
 
     def get_blob_contents(self, blob_id): # pragma: no cover
         '''Get file contents from git by ID'''
-        return morphlib.git.gitcmd(self._runcmd, 'cat-file', 'blob',
-                                   blob_id)
+        return morphlib.git.gitcmd(self._runcmd, 'cat-file', 'blob', blob_id)
 
     def get_commit_contents(self, commit_id): # pragma: no cover
         '''Get commit contents from git by ID'''
@@ -485,15 +484,16 @@ class GitDirectory(object):
         '''
         return Remote(self, *args, **kwargs)
 
-    def update_remotes(self): # pragma: no cover
+    def update_remotes(self, echo_stderr=False): # pragma: no cover
         '''Run "git remote update --prune".'''
-        morphlib.git.gitcmd(self._runcmd, 'remote', 'update', '--prune')
+        morphlib.git.gitcmd(self._runcmd, 'remote', 'update', '--prune',
+                            echo_stderr=echo_stderr)
 
     def is_bare(self):
         '''Determine whether the repository has no work tree (is bare)'''
         return self.get_config('core.bare') == 'true'
 
-    def list_files(self, ref=None):
+    def list_files(self, ref=None, recurse=True):
         '''Return an iterable of the files in the repository.
 
         If `ref` is specified, list files at that ref, otherwise
@@ -506,9 +506,9 @@ class GitDirectory(object):
         if ref is None and self.is_bare():
             raise NoWorkingTreeError(self)
         if ref is None:
-            return self._list_files_in_work_tree()
+            return self._list_files_in_work_tree(recurse)
         else:
-            return self._list_files_in_ref(ref)
+            return self._list_files_in_ref(ref, recurse)
 
     def _rev_parse(self, ref):
         try:
@@ -559,31 +559,49 @@ class GitDirectory(object):
         except InvalidRefError:
             return False
 
-    def _list_files_in_work_tree(self):
+    def _list_files_in_work_tree(self, recurse=True):
         for dirpath, subdirs, filenames in os.walk(self.dirname):
-            if dirpath == self.dirname and '.git' in subdirs:
+            if not recurse:  # pragma: no cover
+                subdirs[:] = []
+            elif dirpath == self.dirname and '.git' in subdirs:
                 subdirs.remove('.git')
             for filename in filenames:
                 filepath = os.path.join(dirpath, filename)
                 yield os.path.relpath(filepath, start=self.dirname)
 
-    def _list_files_in_ref(self, ref):
+    def _list_files_in_ref(self, ref, recurse=True):
         tree = self.resolve_ref_to_tree(ref)
-        output = morphlib.git.gitcmd(self._runcmd, 'ls-tree',
-                                     '--name-only', '-rz', tree)
+
+        command = ['ls-tree', '--name-only', '-z']
+        if recurse:
+            command.append('-r')
+        command.append(tree)
+
+        output = morphlib.git.gitcmd(self._runcmd, *command)
         # ls-tree appends \0 instead of interspersing, so we need to
         # strip the trailing \0 before splitting
         paths = output.strip('\0').split('\0')
         return paths
 
     def read_file(self, filename, ref=None):
+        '''Attempts to read a file, from the working tree or a given ref.
+
+        Raises an InvalidRefError if the ref is not found in the repository.
+        Raises an IOError if the requested file is not found in the ref.
+
+        '''
+
         if ref is None and self.is_bare():
             raise NoWorkingTreeError(self)
         if ref is None:
             with open(os.path.join(self.dirname, filename)) as f:
                 return f.read()
         tree = self.resolve_ref_to_tree(ref)
-        return self.get_file_from_ref(tree, filename)
+        try:
+            return self.get_file_from_ref(tree, filename)
+        except cliapp.AppException:
+            raise IOError('File %s does not exist in ref %s of repo %s' %
+                          (filename, ref, self))
 
     def is_symlink(self, filename, ref=None):
         if ref is None and self.is_bare():

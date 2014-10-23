@@ -51,7 +51,7 @@ class ProjectVersionGuesser(object):
             if self.lrc.has_repo(repo):
                 repository = self.lrc.get_repo(repo)
                 for filename in filenames:
-                    yield filename, repository.cat(ref, filename)
+                    yield filename, repository.read_file(filename, ref)
             elif self.rrc:
                 for filename in filenames:
                     yield filename, self.rrc.cat_file(repo, ref, filename)
@@ -153,7 +153,7 @@ class VersionGuesser(object):
                 repository = self.lrc.get_repo(repo)
                 if not self.app.settings['no-git-update']:
                     repository.update()
-                tree = repository.ls_tree(ref)
+                tree = repository.list_files(ref=ref, recurse=False)
             elif self.rrc:
                 repository = None
                 tree = self.rrc.ls_tree(repo, ref)

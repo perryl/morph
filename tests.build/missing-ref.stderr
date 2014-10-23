@@ -1,1 +1,1 @@
-ERROR: Ref non-existent-branch is an invalid reference for repo file://TMP/morphs-repo
+ERROR: Git directory TMP/morphs-repo has no commit at ref non-existent-branch^{commit}.
