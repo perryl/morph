@@ -52,3 +52,7 @@ distbuild/timer_event_source.py
 distbuild/worker_build_scheduler.py
 # Not unit tested, since it needs a full system branch
 morphlib/buildbranch.py
+
+# Requires rather a lot of fake data in order to be unit tested; better to
+# leave it to the functional tests.
+morphlib/sourceresolver.py

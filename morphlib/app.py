@@ -15,13 +15,11 @@
 
 
 import cliapp
-import collections
 import logging
 import os
 import sys
 import time
 import urlparse
-import warnings
 import extensions
 
 import morphlib
@@ -289,135 +287,6 @@ class Morph(cliapp.Application):
             yield (args[0], args[1],
                    morphlib.util.sanitise_morphology_path(args[2]))
             args = args[3:]
-
-    def create_source_pool(self, lrc, rrc, repo, ref, filename,
-                           original_ref=None):
-        pool = morphlib.sourcepool.SourcePool()
-
-        def add_to_pool(reponame, ref, filename, absref, tree, morphology):
-            sources = morphlib.source.make_sources(reponame, ref,
-                                                   filename, absref,
-                                                   tree, morphology)
-            for source in sources:
-                pool.add(source)
-
-        self.traverse_morphs(repo, ref, [filename], lrc, rrc,
-                             update=not self.settings['no-git-update'],
-                             visit=add_to_pool,
-                             definitions_original_ref=original_ref)
-        return pool
-
-    def resolve_ref(self, lrc, rrc, reponame, ref, update=True):
-        '''Resolves commit and tree sha1s of the ref in a repo and returns it.
-
-        If update is True then this has the side-effect of updating
-        or cloning the repository into the local repo cache.
-        '''
-        absref = None
-
-        if lrc.has_repo(reponame):
-            repo = lrc.get_repo(reponame)
-            if update and repo.requires_update_for_ref(ref):
-                self.status(msg='Updating cached git repository %(reponame)s '
-                            'for ref %(ref)s', reponame=reponame, ref=ref)
-                repo.update()
-            # If the user passed --no-git-update, and the ref is a SHA1 not
-            # available locally, this call will raise an exception.
-            absref, tree = repo.resolve_ref(ref)
-        elif rrc is not None:
-            try:
-                absref, tree = rrc.resolve_ref(reponame, ref)
-                if absref is not None:
-                    self.status(msg='Resolved %(reponame)s %(ref)s via remote '
-                                'repo cache',
-                                reponame=reponame,
-                                ref=ref,
-                                chatty=True)
-            except BaseException, e:
-                logging.warning('Caught (and ignored) exception: %s' % str(e))
-        if absref is None:
-            if update:
-                self.status(msg='Caching git repository %(reponame)s',
-                            reponame=reponame)
-                repo = lrc.cache_repo(reponame)
-                repo.update()
-            else:
-                repo = lrc.get_repo(reponame)
-            absref, tree = repo.resolve_ref(ref)
-        return absref, tree
-
-    def traverse_morphs(self, definitions_repo, definitions_ref,
-                        system_filenames, lrc, rrc, update=True,
-                        visit=lambda rn, rf, fn, arf, m: None,
-                        definitions_original_ref=None):
-        morph_factory = morphlib.morphologyfactory.MorphologyFactory(
-            lrc, rrc, self.status)
-        definitions_queue = collections.deque(system_filenames)
-        chunk_in_definitions_repo_queue = []
-        chunk_in_source_repo_queue = []
-        resolved_refs = {}
-        resolved_morphologies = {}
-
-        # Resolve the (repo, ref) pair for the definitions repo, cache result.
-        definitions_absref, definitions_tree = self.resolve_ref(
-            lrc, rrc, definitions_repo, definitions_ref, update)
-
-        if definitions_original_ref:
-            definitions_ref = definitions_original_ref
-
-        while definitions_queue:
-            filename = definitions_queue.popleft()
-
-            key = (definitions_repo, definitions_absref, filename)
-            if not key in resolved_morphologies:
-                resolved_morphologies[key] = morph_factory.get_morphology(*key)
-            morphology = resolved_morphologies[key]
-
-            visit(definitions_repo, definitions_ref, filename,
-                  definitions_absref, definitions_tree, morphology)
-            if morphology['kind'] == 'cluster':
-                raise cliapp.AppException(
-                    "Cannot build a morphology of type 'cluster'.")
-            elif morphology['kind'] == 'system':
-                definitions_queue.extend(
-                    morphlib.util.sanitise_morphology_path(s['morph'])
-                    for s in morphology['strata'])
-            elif morphology['kind'] == 'stratum':
-                if morphology['build-depends']:
-                    definitions_queue.extend(
-                        morphlib.util.sanitise_morphology_path(s['morph'])
-                        for s in morphology['build-depends'])
-                for c in morphology['chunks']:
-                    if 'morph' not in c:
-                        path = morphlib.util.sanitise_morphology_path(
-                            c.get('morph', c['name']))
-                        chunk_in_source_repo_queue.append(
-                            (c['repo'], c['ref'], path))
-                        continue
-                    chunk_in_definitions_repo_queue.append(
-                        (c['repo'], c['ref'], c['morph']))
-
-        for repo, ref, filename in chunk_in_definitions_repo_queue:
-            if (repo, ref) not in resolved_refs:
-                resolved_refs[repo, ref] = self.resolve_ref(
-                    lrc, rrc, repo, ref, update)
-            absref, tree = resolved_refs[repo, ref]
-            key = (definitions_repo, definitions_absref, filename)
-            if not key in resolved_morphologies:
-                resolved_morphologies[key] = morph_factory.get_morphology(*key)
-            morphology = resolved_morphologies[key]
-            visit(repo, ref, filename, absref, tree, morphology)
-
-        for repo, ref, filename in chunk_in_source_repo_queue:
-            if (repo, ref) not in resolved_refs:
-                resolved_refs[repo, ref] = self.resolve_ref(
-                    lrc, rrc, repo, ref, update)
-            absref, tree = resolved_refs[repo, ref]
-            key = (repo, absref, filename)
-            if key not in resolved_morphologies:
-                resolved_morphologies[key] = morph_factory.get_morphology(*key)
-            morphology = resolved_morphologies[key]
-            visit(repo, ref, filename, absref, tree, morphology)
 
     def cache_repo_and_submodules(self, cache, url, ref, done):
         subs_to_process = set()

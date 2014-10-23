@@ -94,8 +94,8 @@ class BuildCommand(object):
 
         '''
         self.app.status(msg='Creating source pool', chatty=True)
-        srcpool = self.app.create_source_pool(
-            self.lrc, self.rrc, repo_name, ref, filename,
+        srcpool = morphlib.sourceresolver.create_source_pool(
+            self.app, self.lrc, self.rrc, repo_name, ref, filename,
             original_ref=original_ref)
 
         return srcpool

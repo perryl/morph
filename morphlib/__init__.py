@@ -79,6 +79,7 @@ import repoaliasresolver
 import savefile
 import source
 import sourcepool
+import sourceresolver
 import stagingarea
 import stopwatch
 import sysbranchdir
