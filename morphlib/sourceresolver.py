@@ -25,13 +25,16 @@ import morphlib
 class SourceResolver(object):
     '''Provides a way of resolving the graph of sources for a given system.'''
 
-    def __init__(self, lrc, rrc, status_cb):
-        self.lrc = lrc
-        self.rrc = rrc
+    def __init__(self, local_repo_cache, remote_repo_cache, update_repos,
+                 status_cb=None):
+        self.lrc = local_repo_cache
+        self.rrc = remote_repo_cache
+
+        self.update = update_repos
 
         self.status = status_cb
 
-    def resolve_ref(self, reponame, ref, update=True):
+    def resolve_ref(self, reponame, ref):
         '''Resolves commit and tree sha1s of the ref in a repo and returns it.
 
         If update is True then this has the side-effect of updating
@@ -41,7 +44,7 @@ class SourceResolver(object):
 
         if self.lrc.has_repo(reponame):
             repo = self.lrc.get_repo(reponame)
-            if update and repo.requires_update_for_ref(ref):
+            if self.update and repo.requires_update_for_ref(ref):
                 self.status(msg='Updating cached git repository %(reponame)s '
                             'for ref %(ref)s', reponame=reponame, ref=ref)
                 repo.update()
@@ -60,7 +63,7 @@ class SourceResolver(object):
             except BaseException, e:
                 logging.warning('Caught (and ignored) exception: %s' % str(e))
         if absref is None:
-            if update:
+            if self.update:
                 self.status(msg='Caching git repository %(reponame)s',
                             reponame=reponame)
                 repo = self.lrc.cache_repo(reponame)
@@ -71,7 +74,7 @@ class SourceResolver(object):
         return absref, tree
 
     def traverse_morphs(self, definitions_repo, definitions_ref,
-                        system_filenames, update=True,
+                        system_filenames,
                         visit=lambda rn, rf, fn, arf, m: None,
                         definitions_original_ref=None):
         morph_factory = morphlib.morphologyfactory.MorphologyFactory(
@@ -84,7 +87,7 @@ class SourceResolver(object):
 
         # Resolve the (repo, ref) pair for the definitions repo, cache result.
         definitions_absref, definitions_tree = self.resolve_ref(
-            definitions_repo, definitions_ref, update)
+            definitions_repo, definitions_ref)
 
         if definitions_original_ref:
             definitions_ref = definitions_original_ref
@@ -123,7 +126,7 @@ class SourceResolver(object):
 
         for repo, ref, filename in chunk_in_definitions_repo_queue:
             if (repo, ref) not in resolved_refs:
-                resolved_refs[repo, ref] = self.resolve_ref(repo, ref, update)
+                resolved_refs[repo, ref] = self.resolve_ref(repo, ref)
             absref, tree = resolved_refs[repo, ref]
             key = (definitions_repo, definitions_absref, filename)
             if not key in resolved_morphologies:
@@ -133,7 +136,7 @@ class SourceResolver(object):
 
         for repo, ref, filename in chunk_in_source_repo_queue:
             if (repo, ref) not in resolved_refs:
-                resolved_refs[repo, ref] = self.resolve_ref(repo, ref, update)
+                resolved_refs[repo, ref] = self.resolve_ref(repo, ref)
             absref, tree = resolved_refs[repo, ref]
             key = (repo, absref, filename)
             if key not in resolved_morphologies:
@@ -167,9 +170,9 @@ def create_source_pool(app, lrc, rrc, repo, ref, filename,
         for source in sources:
             pool.add(source)
 
-    resolver = SourceResolver(lrc, rrc, app.status)
+    update_repos = not app.settings['no-git-update']
+    resolver = SourceResolver(lrc, rrc, update_repos, app.status)
     resolver.traverse_morphs(repo, ref, [filename],
-                             update=not app.settings['no-git-update'],
                              visit=add_to_pool,
                              definitions_original_ref=original_ref)
     return pool
