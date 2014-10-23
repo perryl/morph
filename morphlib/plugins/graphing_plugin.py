@@ -150,13 +150,13 @@ all the sources in the devel system.
 
         with open(dot_filename, 'w') as f:
             f.write('digraph "%s" {\n' % dot_filename)
-            sources = set([a.source for a in root_artifact.walk()])
+            sources = set(a.source for a in root_artifact.walk())
 
             for source in sources:
                 self.add_source_to_graph(source, f)
 
-                deps = set([GraphArtifact(a.source)
-                            for a in source.dependencies])
+                deps = set(GraphArtifact(a.source)
+                            for a in source.dependencies)
                 self.add_source_dependencies_to_graph(source, deps, f)
 
             f.write('}\n')
@@ -187,8 +187,8 @@ all the sources in the devel system.
         self.add_source_dependencies_to_graph(
             artifact.source, artifact.source.dependencies, f)
 
-        sources = set([a.source for a in artifact.walk()
-                       if a.source.kind != 'stratum'])
+        sources = set(a.source for a in artifact.walk()
+                       if a.source.kind != 'stratum')
 
         assert  all([True for source in sources if source.kind == 'chunk']) \
                 ,'expected only chunk sources'
