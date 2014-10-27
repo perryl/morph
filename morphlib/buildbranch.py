@@ -267,6 +267,10 @@ class BuildBranch(object):
         build_ref, index = self._to_push[self._root]
         return build_ref
 
+    @property
+    def root_build_commit(self):
+        return self._root.resolve_ref_to_commit(self.root_build_ref)
+
     def close(self):
         '''Clean up any resources acquired during operation.'''
         # TODO: This is a common pattern for our context managers,
@@ -328,6 +332,7 @@ def pushed_build_branch(bb, loader, changes_need_pushing, name, email,
                            remote=remote.get_push_url(), chatty=True)
             bb.push_build_branches(push_cb=report_push)
 
-            yield bb.root_repo_url, bb.root_build_ref, bb.root_build_ref
+            yield bb.root_repo_url, bb.root_build_commit, bb.root_build_ref
         else:
-            yield bb.root_local_repo_url, bb.root_build_ref, bb.root_build_ref
+            yield (bb.root_local_repo_url, bb.root_build_commit,
+                                           bb.root_build_ref)
