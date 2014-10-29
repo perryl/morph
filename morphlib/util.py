@@ -18,6 +18,7 @@ import itertools
 import os
 import re
 import subprocess
+import textwrap
 
 import fs.osfs
 
@@ -512,3 +513,86 @@ def get_data(relative_path): # pragma: no cover
 
     with open(get_data_path(relative_path)) as f:
         return f.read()
+
+
+def unshared_cmdline(*args, **kwargs): # pragma: no cover
+    '''unshare and mount before running a specified command.'''
+    root = kwargs.pop('root', '/')
+    mounts = kwargs.pop('mounts', ())
+    # We need to do mounts in a different namespace. Unfortunately
+    # this means we have to in-line the mount commands in the
+    # command-line.
+    command = textwrap.dedent(r'''
+    mount --make-rprivate /
+    root="$1"
+    shift
+    ''')
+    cmdargs = [root]
+
+    # We need to mount all the specified mounts in the namespace,
+    # we don't need to unmount them before exiting, as they'll be
+    # unmounted when the namespace is no longer used.
+    command += textwrap.dedent(r'''
+    while true; do
+        case "$1" in
+        --)
+            shift
+            break
+            ;;
+        *)
+            mount_point="$1"
+            mount_type="$2"
+            mount_source="$3"
+            shift 3
+            path="$root/$mount_point"
+            mount -t "$mount_type" "$mount_source" "$path"
+            ;;
+        esac
+    done
+    ''')
+    for mount_point, mount_type, source in mounts:
+        path = os.path.join(root, mount_point)
+        if not os.path.exists(path):
+            os.makedirs(path)
+        cmdargs.extend((mount_point, mount_type, source))
+    cmdargs.append('--')
+
+    command += textwrap.dedent(r'''
+    exec "$@"
+    ''')
+    cmdargs.extend(args)
+
+    # The single - is just a shell convention to fill $0 when using -c,
+    # since ordinarily $0 contains the program name.
+    cmdline = ['unshare', '--mount', '--', 'sh', '-ec', command, '-']
+    cmdline.extend(cmdargs)
+    return cmdline
+
+
+def containerised_cmdline(*args, **kwargs): # pragma: no cover
+    cwd = kwargs.pop('cwd', '.')
+    root = kwargs.pop('root', '/')
+    if not root.endswith('/'):
+        root += '/'
+    binds = kwargs.pop('binds', ())
+    mount_proc = kwargs.pop('mount_proc', False)
+    unshare_net = kwargs.pop('unshare_net', False)
+    writable_paths = kwargs.pop('writable_paths', (root,))
+
+    cmdargs = ['linux-user-chroot', '--chdir', cwd]
+    if unshare_net:
+        cmdargs.append('--unshare-net')
+    for src, dst in binds:
+        cmdargs.extend(('--mount-bind', src, os.path.relpath(dst, root)))
+    for d in morphlib.fsutils.invert_paths(os.walk(root), writable_paths):
+        if not os.path.islink(d):
+            cmdargs.extend(('--mount-readonly', os.path.relpath(d, root)))
+    if mount_proc:
+        proc_target = os.path.join(root, 'proc')
+        if not os.path.exists(proc_target):
+            os.makedirs(proc_target)
+        # linux-user-chroot's mount target paths are relative to the chroot
+        cmdargs.extend(('--mount-proc', 'proc'))
+    cmdargs.append(root)
+    cmdargs.extend(args)
+    return unshared_cmdline(*cmdargs, root=root, **kwargs)
