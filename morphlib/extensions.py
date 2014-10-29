@@ -223,10 +223,7 @@ class ExtensionSubprocess(object):
             def close_read_end():
                 os.close(log_read_fd)
             p = subprocess.Popen(
-                # We unshare and mount --make-rprivate so mounts done by write
-                # extensions can't interfere with the rest of the system.
-                ['unshare', '-m', '--', '/bin/sh', '-c',
-                 'mount --make-rprivate / && exec "$@"', '-', filename] + args,
+                morphlib.util.unshared_cmdline(filename, *args),
                 cwd=cwd, env=new_env,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 preexec_fn=close_read_end)
