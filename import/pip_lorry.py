@@ -27,7 +27,10 @@ import shutil
 import tempfile
 import xmlrpclib
 
-import parser.requirements # todo add this as a submodule
+#import parser.requirements # todo add this as a submodule
+# i don't know what i was going on about here
+
+import requirements
 
 PYPI_URL = 'http://pypi.python.org/pypi'
 
@@ -201,7 +204,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # TODO: We could take multiple reqs easily enough
-    req = parser.requirements.parse(sys.argv[1]).next()
+    req = requirements.parse(sys.argv[1]).next()
 
     metadata = fetch_package_metadata(req.name)
     info = metadata['info']
