@@ -151,19 +151,27 @@ class ArtifactResolver(object):
                 stratum_info.get('ref') or source.original_ref,
                 morphlib.util.sanitise_morphology_path(stratum_info['morph'])):
 
+                dependencies = []
+                if 'artifact' in stratum_info:
+                    dependencies.append(stratum_info['artifact'])
+                elif 'artifacts' in stratum_info:
+                    dependencies.extend(stratum_info['artifacts'])
+                else:
+                    dependencies.extend(other_source.split_rules.artifacts)
+
                 # Make every stratum artifact this stratum source produces
                 # depend on every stratum artifact the other stratum source
                 # produces.
-                for sta_name in other_source.split_rules.artifacts:
+                for sta_name in dependencies:
                     # Strata have split rules for artifacts they don't build,
                     # since they need to know to yield a match to its sibling
                     if sta_name not in other_source.artifacts:
                         continue
                     other_stratum = other_source.artifacts[sta_name]
-
-                    stratum_build_depends.append(other_stratum)
-
-                    artifacts.append(other_stratum)
+                    if other_stratum not in stratum_build_depends:
+                        stratum_build_depends.append(other_stratum)
+                    if other_stratum not in artifacts:
+                        artifacts.append(other_stratum)
 
                     for stratum in strata:
                         if other_source.depends_on(stratum):
