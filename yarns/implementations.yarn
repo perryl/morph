@@ -240,8 +240,6 @@ another to hold a chunk.
     kind: system
     arch: $arch
     strata:
-    - name: build-essential
-      morph: strata/build-essential.morph
     - name: core
       morph: strata/core.morph
     EOF
@@ -381,8 +379,6 @@ have a morphology using the test architecture.
     kind: system
     name: $name
     strata:
-    -   name: build-essential
-        morph: strata/build-essential.morph
     -   name: core
         morph: strata/core.morph
     EOF
@@ -402,8 +398,6 @@ You need an architecture to build a system, we don't default to the host archite
     kind: system
     name: $name
     strata:
-    -   name: build-essential
-        morph: strata/build-essential.morph
     -   name: core
         morph: strata/core.morph
     EOF
@@ -546,8 +540,6 @@ print-architecture` to get a value appropriate for morph.
     kind: system
     name: $name
     strata:
-    -   name: build-essential
-        morph: strata/build-essential.morph
     -   name: core
         morph: strata/core.morph
     EOF
