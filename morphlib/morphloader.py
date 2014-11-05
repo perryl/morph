@@ -17,6 +17,7 @@
 
 
 import collections
+import itertools
 import logging
 import warnings
 import yaml
@@ -101,6 +102,14 @@ class ObsoleteFieldsError(MorphologyValidationError):
     def __init__(self, fields, morph_filename):
         self.msg = (
            'Morphology %s uses obsolete fields: %s' % 
+           (morph_filename, ' '.join(fields)))
+
+
+class IncompatibeFieldsError(MorphologyValidationError): # pragma: no cover
+
+    def __init__(self, fields, morph_filename):
+        self.msg = (
+           'Morphology %s uses incompatible fields: %s' %
            (morph_filename, ' '.join(fields)))
 
 
@@ -567,7 +576,7 @@ class MorphologyLoader(object):
                     morph['name'], chunk_name, morph.filename)
 
         # Validate run-depends if specified
-        if 'run-depends' in morph:
+        if 'run-depends' in morph: # pragma: no cover
             rundep_map = morph['run-depends']
             if not isinstance(rundep_map, dict):
                 raise InvalidTypeError(
@@ -660,12 +669,34 @@ class MorphologyLoader(object):
         warnings.warn(MorphologyObsoleteFieldWarning(morphology, spec, field),
                       stacklevel=2)
 
+    obsolete_stratum_spec_fields = ('repo', 'ref')
+    incompatible_stratum_spec_fields = (('artifact', 'artifacts'),)
+    required_stratum_spec_fields = ()
+    optional_stratum_spec_fields = ('name', 'morph')
+    known_stratum_spec_fields = set(itertools.chain(
+        obsolete_stratum_spec_fields,
+        itertools.chain.from_iterable(incompatible_stratum_spec_fields),
+        required_stratum_spec_fields, optional_stratum_spec_fields))
     @classmethod
     def _validate_stratum_specs_fields(cls, morphology, specs):
         for spec in specs:
-            for obsolete_field in ('repo', 'ref'):
+            for obsolete_field in cls.obsolete_stratum_spec_fields:
                 if obsolete_field in spec:
                     cls._warn_obsolete_field(morphology, spec, obsolete_field)
+            for incompatible_fields in cls.incompatible_stratum_spec_fields:
+                if len([field for field in
+                        cls.incompatible_stratum_spec_fields
+                        if field in spec]) > 1: # pragma: no cover
+                    raise IncompatibleFieldsError(incompatible_fields,
+                                                  morphology.filename)
+            missing_fields = set(f for f in cls.required_stratum_spec_fields
+                                 if f not in spec)
+            if missing_fields: # pragma: no cover
+                raise MissingFieldError(' or '.join(missing_fields),
+                                        morphology.filename)
+            unrecognised = set(f for f in spec
+                               if f not in cls.known_stratum_spec_fields)
+
 
     def _require_field(self, field, morphology):
         if field not in morphology:
