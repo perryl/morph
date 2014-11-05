@@ -500,7 +500,7 @@ class MorphologyLoader(object):
             names.add(name)
 
         # Validate stratum spec fields
-        self._validate_stratum_specs_fields(morph, 'strata')
+        self._validate_stratum_specs_fields(morph, morph.get('strata') or [])
 
         # We allow the ARMv7 little-endian architecture to be specified
         # as armv7 and armv7l. Normalise.
@@ -551,7 +551,8 @@ class MorphologyLoader(object):
                     morph['name'], morph.filename)
 
         # Validate build-dependencies if specified
-        self._validate_stratum_specs_fields(morph, 'build-depends')
+        self._validate_stratum_specs_fields(morph,
+                                            morph.get('build-depends') or [])
 
         # Require build-dependencies for each chunk.
         for spec in morph['chunks']:
@@ -564,6 +565,16 @@ class MorphologyLoader(object):
             else:
                 raise NoBuildDependenciesError(
                     morph['name'], chunk_name, morph.filename)
+
+        # Validate run-depends if specified
+        if 'run-depends' in morph:
+            rundep_map = morph['run-depends']
+            if not isinstance(rundep_map, dict):
+                raise InvalidTypeError(
+                    'run-depends', dict, type(rundep_map),
+                    morph['name'])
+            for rundeps in rundep_map.itervalues():
+                self._validate_stratum_specs_fields(morph, rundeps)
 
     @classmethod
     def _validate_chunk(cls, morphology):
@@ -650,8 +661,8 @@ class MorphologyLoader(object):
                       stacklevel=2)
 
     @classmethod
-    def _validate_stratum_specs_fields(cls, morphology, specs_field):
-        for spec in morphology.get(specs_field, None) or []:
+    def _validate_stratum_specs_fields(cls, morphology, specs):
+        for spec in specs:
             for obsolete_field in ('repo', 'ref'):
                 if obsolete_field in spec:
                     cls._warn_obsolete_field(morphology, spec, obsolete_field)
