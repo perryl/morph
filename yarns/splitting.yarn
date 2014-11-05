@@ -130,6 +130,14 @@ Implementations
     kind: stratum
     build-depends:
     - morph: strata/build-essential.morph
+    run-depends:
+      $name-runtime:
+      - morph: strata/build-essential.morph
+        artifact: build-essential-runtime
+      $name-devel:
+      - artifact: $name-runtime
+      - morph: strata/build-essential.morph
+        artifact: build-essential-devel
     products:
     - artifact: $name-devel
       include:

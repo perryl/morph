@@ -249,6 +249,9 @@ another to hold a chunk.
     install -m644 -D /dev/stdin << EOF "strata/build-essential.morph"
     name: build-essential
     kind: stratum
+    run-depends:
+      build-essential-devel:
+      - artifact: build-essential-runtime
     chunks:
     -   name: stage1-chunk
         repo: test:bootstrap-chunk
@@ -269,6 +272,14 @@ another to hold a chunk.
     kind: stratum
     build-depends:
     - morph: strata/build-essential.morph
+    run-depends:
+      core-runtime:
+      - morph: strata/build-essential.morph
+        artifact: build-essential-runtime
+      core-devel:
+      - artifact: core-runtime
+      - morph: strata/build-essential.morph
+        artifact: build-essential-devel
     chunks:
     -   name: test-chunk
         morph: test-chunk.morph
