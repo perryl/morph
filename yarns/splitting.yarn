@@ -216,5 +216,8 @@ Implementations
       build-depends:
       - test-chunk
     EOF
+    "$SRCDIR/scripts/edit-morph" add-stratum-run-depend \
+        "$DATADIR/gits/morphs/$MATCH_1" "$MATCH_2" \
+        strata/build-essential.morph build-essential-runtime
     run_in "$DATADIR/gits/morphs" git add "$MATCH_1"
     run_in "$DATADIR/gits/morphs" git commit -m "add $MATCH_2 to stratum"

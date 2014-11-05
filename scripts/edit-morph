@@ -205,6 +205,17 @@ class EditMorph(cliapp.Application):
         with self._open_yaml(file_path) as d:
             d['products'] = yaml.load(match_rules)
 
+    def cmd_add_stratum_run_depend(self,
+        (file_path, artifact, dep_path, dep_artifact)):
+        '''Add a rule to a stratum's runtime depends
+
+        Usage: FILE_PATH MY_ARTIFACT DEP_PATH DEP_ARTIFACT
+
+        '''
+        with self._open_yaml(file_path) as d:
+            d.setdefault('run-depends', {}).setdefault(artifact, []).append(
+                            {'morph': dep_path, 'artifact': dep_artifact})
+
     @classmethod
     def _splice_cluster_system(cls, syslist, syspath):
         sysname = syspath[0]
