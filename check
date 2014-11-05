@@ -132,7 +132,11 @@ fi
 
 if "$run_yarns" && command -v yarn > /dev/null
 then
-    yarn --env "PYTHONPATH=$PYTHONPATH" -s yarns/morph.shell-lib yarns/*.yarn
+    if yarn --max-jobs 3 2>&1 >/dev/null | grep -q 'no such option'; then
+        yarn --env "PYTHONPATH=$PYTHONPATH" -s yarns/morph.shell-lib yarns/*.yarn
+    else
+        yarn --max-jobs="$(nproc)" --env "PYTHONPATH=$PYTHONPATH" -s yarns/morph.shell-lib yarns/*.yarn
+    fi
 fi
 
 # cmdtest tests.
