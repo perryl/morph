@@ -363,6 +363,7 @@ class MorphologyLoader(object):
             'chunks': [],
             'description': '',
             'build-depends': [],
+            'run-depends': {},
             'products': [],
         },
         'system': {

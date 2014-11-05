@@ -674,6 +674,7 @@ build-system: dummy
                 'name': 'foo',
                 'description': '',
                 'build-depends': [],
+                'run-depends': {},
                 'chunks': [
                     {
                         'name': 'bar',
