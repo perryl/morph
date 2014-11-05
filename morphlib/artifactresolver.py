@@ -116,14 +116,48 @@ class ArtifactResolver(object):
 
         return artifacts
 
+    def _recursive_rundeps(self, morphology_path, artifact, visited=None):
+        if visited is None:
+            visited = set()
+        visited.add((morphology_path, artifact))
+        rundep_map = artifact.source.morphology.get('run-depends', {})
+        rundep_spec_list = rundep_map.get(artifact.name, [])
+        for rundep_spec in rundep_spec_list: # pragma: no cover
+            dep_morph_path = rundep_spec.get('morph', morphology_path)
+            rundep_sources = self._source_pool.lookup(
+                rundep_spec.get('repo') or artifact.source.repo_name,
+                rundep_spec.get('ref') or artifact.source.original_ref,
+                dep_morph_path)
+            if 'artifact' in rundep_spec:
+                artifact_names = (rundep_spec['artifact'],)
+            elif 'artifacts' in rundep_spec:
+                artifact_names = rundep_spec['artifacts']
+            else:
+                artifact_names = (
+                    itertools.chain.from_iterable(
+                        s.artifacts for s in rundep_sources))
+            artifact_names = list(artifact_names)
+            for rundep_artifact_name in artifact_names:
+                for rundep_source in rundep_sources:
+                    if rundep_artifact_name in rundep_source.artifacts:
+                        rundep = rundep_source.artifacts[rundep_artifact_name]
+                        if (dep_morph_path, rundep) not in visited:
+                            for subrundep in self._recursive_rundeps(
+                                                 dep_morph_path, rundep,
+                                                 visited):
+                                yield subrundep
+                        yield rundep
+
     def _resolve_system_dependencies(self, systems, source): # pragma: no cover
         artifacts = []
 
         for info in source.morphology['strata']:
+            morphology_path = (
+                morphlib.util.sanitise_morphology_path(info['morph']))
             for stratum_source in self._source_pool.lookup(
                 info.get('repo') or source.repo_name,
                 info.get('ref') or source.original_ref,
-                morphlib.util.sanitise_morphology_path(info['morph'])):
+                morphology_path):
 
                 stratum_morph_name = stratum_source.morphology['name']
 
@@ -138,6 +172,11 @@ class ArtifactResolver(object):
                             source.add_dependency(stratum_artifact)
                             artifacts.append(stratum_artifact)
 
+                            rundeps = self._recursive_rundeps(morphology_path,
+                                                              stratum_artifact)
+                            for run_dep in rundeps:
+                                source.add_dependency(run_dep)
+
         return artifacts
 
     def _resolve_stratum_dependencies(self, strata, source):
@@ -146,15 +185,17 @@ class ArtifactResolver(object):
         stratum_build_depends = []
 
         for stratum_info in source.morphology.get('build-depends') or []:
+            morphology_path = (
+                morphlib.util.sanitise_morphology_path(stratum_info['morph']))
             for other_source in self._source_pool.lookup(
                 stratum_info.get('repo') or source.repo_name,
                 stratum_info.get('ref') or source.original_ref,
-                morphlib.util.sanitise_morphology_path(stratum_info['morph'])):
+                morphology_path):
 
                 dependencies = []
-                if 'artifact' in stratum_info:
+                if 'artifact' in stratum_info: # pragma: no cover
                     dependencies.append(stratum_info['artifact'])
-                elif 'artifacts' in stratum_info:
+                elif 'artifacts' in stratum_info: # pragma: no cover
                     dependencies.extend(stratum_info['artifacts'])
                 else:
                     dependencies.extend(other_source.split_rules.artifacts)
@@ -177,7 +218,14 @@ class ArtifactResolver(object):
                         if other_source.depends_on(stratum):
                             raise MutualDependencyError(stratum, other_stratum)
 
-                        source.add_dependency(other_stratum)
+                    source.add_dependency(other_stratum)
+
+                    rundeps = self._recursive_rundeps(morphology_path,
+                                                      other_stratum)
+                    for run_dep in rundeps: # pragma: no cover
+                        if run_dep not in artifacts:
+                            artifacts.append(run_dep)
+                        source.add_dependency(run_dep)
 
         # 'name' here is the chunk artifact name
         name_to_processed_artifacts = {}
