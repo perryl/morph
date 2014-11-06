@@ -23,7 +23,28 @@ import morphlib
 
 
 class SourceResolver(object):
-    '''Provides a way of resolving the graph of sources for a given system.'''
+    '''Provides a way of resolving the graph of sources for a given system.
+
+    There are two levels of caching involved in resolving the sources to build.
+
+    The canonical source for each source is specified in the build-command
+    (for strata and systems) or in the stratum morphology (for chunks). It will
+    be either a normal URL, or a keyed URL using a repo-alias like
+    'baserock:baserock/definitions'.
+
+    The 'remote repo cache' is a Baserock Trove system. It functions as a
+    normal Git server, but in addition it runs a service on port 8080 called
+    'morph-cache-server' which can resolve refs, list their contents and read
+    specific files from the repos it holds. This allows the SourceResolver to
+    work out how to build something without cloning the whole repo. (If a local
+    build of that source ends up being necessary then it will get cloned into
+    the local cache later on).
+
+    The second layer of caching is the local repository cache, which mirrors
+    entire repositories in $cachedir/gits. If a repo is not in the remote repo
+    cache then it must be present in the local repo cache.
+
+    '''
 
     def __init__(self, local_repo_cache, remote_repo_cache, update_repos,
                  status_cb=None):
