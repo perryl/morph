@@ -17,15 +17,69 @@
 import cliapp
 
 import collections
+import cPickle
+import json
 import logging
+import os
 
 import morphlib
+import pylru
+
+
+class PickleCacheManager(object):
+    '''Cache manager for PyLRU that reads and writes to Pickle files.
+
+    The 'pickle' format is less than ideal in many ways and is actually
+    slower than JSON in Python. However, the data we need to cache is keyed
+    by tuples and in JSON a dict can only be keyed with strings. For now,
+    using 'pickle' seems to be the least worst option.
+
+    '''
+
+    def __init__(self, filename, size):
+        self.filename = filename
+        self.size = size
+
+    def _populate_cache_from_file(self, filename, cache):
+        try:
+            with open(filename, 'r') as f:
+                data = cPickle.load(f)
+            for key, value in data.iteritems():
+                cache[str(key)] = value
+        except (EOFError, IOError, cPickle.PickleError) as e:
+            logging.warning('Failed to load cache %s: %s', self.filename, e)
+
+    def load_cache(self):
+        '''Create a pylru.lrucache object prepopulated with saved data.'''
+        cache = pylru.lrucache(self.size)
+        # There should be a more efficient way to do this, by hooking into
+        # the json module directly.
+        if os.path.exists(self.filename):
+            self._populate_cache_from_file(self.filename, cache)
+        return cache
+
+    def save_cache(self, cache):
+        '''Save the data from a pylru.lrucache object to disk.
+
+        Any changes that have been made by other instances or processes since
+        load_cache() was called will be overwritten.
+
+        '''
+        data = {}
+        for key, value in cache.items():
+            data[key] = value
+        try:
+            with open(self.filename, 'w') as f:
+                cPickle.dump(data, f)
+        except (IOError, cPickle.PickleError) as E:
+            logging.warning('Failed to save cache to %s: %s', self.filename, e)
 
 
 class SourceResolver(object):
     '''Provides a way of resolving the graph of sources for a given system.
 
-    There are two levels of caching involved in resolving the sources to build.
+    There are three levels of caching involved in resolving the sources to
+    build.
 
     The canonical source for each source is specified in the build-command
     (for strata and systems) or in the stratum morphology (for chunks). It will
@@ -44,12 +98,29 @@ class SourceResolver(object):
     entire repositories in $cachedir/gits. If a repo is not in the remote repo
     cache then it must be present in the local repo cache.
 
+    The third layer of caching is a simple commit SHA1 -> tree SHA mapping. It
+    turns out that even if all repos are available locally, running
+    'git rev-parse' on hundreds of repos requires a lot of IO and can take
+    several minutes. Likewise, on a slow network connection it is time
+    consuming to keep querying the remote repo cache. This third layer of
+    caching works around both of those issues.
+
+    The need for 3 levels of caching highlights design inconsistencies in
+    Baserock, but for now it is worth the effort to maintain this code to save
+    users from waiting 7 minutes each time that they want to build. The level 3
+    cache is fairly simple because commits are immutable, so there is no danger
+    of this cache being stale as long as it is indexed by commit SHA1. Due to
+    the policy in Baserock of always using a commit SHA1 (rather than a named
+    ref) in the system definitions, it makes repeated builds of a system very
+    fast as no resolution needs to be done at all.
+
     '''
 
-    def __init__(self, local_repo_cache, remote_repo_cache, update_repos,
-                 status_cb=None):
+    def __init__(self, local_repo_cache, remote_repo_cache,
+                 tree_cache_manager, update_repos, status_cb=None):
         self.lrc = local_repo_cache
         self.rrc = remote_repo_cache
+        self.tree_cache_manager = tree_cache_manager
 
         self.update = update_repos
 
@@ -107,7 +178,9 @@ class SourceResolver(object):
         chunk_in_source_repo_queue = []
 
         resolved_commits = {}
-        resolved_trees = {}
+
+        resolved_trees = self.tree_cache_manager.load_cache()
+
         resolved_morphologies = {}
 
         # Resolve the (repo, ref) pair for the definitions repo, cache result.
@@ -175,6 +248,8 @@ class SourceResolver(object):
             morphology = resolved_morphologies[key]
             visit(repo, ref, filename, absref, tree, morphology)
 
+        self.tree_cache_manager.save_cache(resolved_trees)
+
 
 def create_source_pool(app, lrc, rrc, repo, ref, filename,
                        original_ref=None):
@@ -202,7 +277,12 @@ def create_source_pool(app, lrc, rrc, repo, ref, filename,
             pool.add(source)
 
     update_repos = not app.settings['no-git-update']
-    resolver = SourceResolver(lrc, rrc, update_repos, app.status)
+
+    tree_cache_manager = PickleCacheManager(
+        os.path.join(app.settings['cachedir'], 'trees.cache.pickle'), 10000)
+
+    resolver = SourceResolver(lrc, rrc, tree_cache_manager, update_repos,
+                              app.status)
     resolver.traverse_morphs(repo, ref, [filename],
                              visit=add_to_pool,
                              definitions_original_ref=original_ref)
