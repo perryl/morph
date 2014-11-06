@@ -96,6 +96,7 @@ class BuildCommand(object):
         self.app.status(msg='Creating source pool', chatty=True)
         srcpool = morphlib.sourceresolver.create_source_pool(
             self.lrc, self.rrc, repo_name, ref, filename,
+            cachedir=self.app.settings['cachedir'],
             original_ref=original_ref,
             update_repos=not self.app.settings['no-git-update'],
             status_cb=self.app.status)
