@@ -145,10 +145,7 @@ class WriteExtension(cliapp.Application):
 
     def create_local_system(self, temp_root, raw_disk):
         '''Create a raw system image locally.'''
-        size = self.get_disk_size()
-        if not size:
-            raise cliapp.AppException('DISK_SIZE is not defined')
-        self.create_raw_disk_image(raw_disk, size)
+        self.create_raw_disk_image(raw_disk)
         try:
             self.mkfs_btrfs(raw_disk)
             mp = self.mount(raw_disk)
@@ -212,9 +209,12 @@ class WriteExtension(cliapp.Application):
         '''Parse the virtual cpu count from environment.'''
         return self._parse_size_from_environment('VCPUS', '1')
 
-    def create_raw_disk_image(self, filename, size):
+    def create_raw_disk_image(self, filename):
         '''Create a raw disk image.'''
 
+        size = self.get_disk_size()
+        if not size:
+            raise cliapp.AppException('DISK_SIZE is not defined')
         self.status(msg='Creating empty disk image')
         with open(filename, 'wb') as f:
             if size > 0:
