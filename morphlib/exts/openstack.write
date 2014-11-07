@@ -68,6 +68,7 @@ class OpenStackWriteExtension(morphlib.writeexts.WriteExtension):
 
         fd, raw_disk = tempfile.mkstemp()
         os.close(fd)
+        self.create_raw_disk_image(raw_disk)
         self.create_local_system(temp_root, raw_disk)
         self.status(msg='Temporary disk image has been created at %s' 
                     % raw_disk)

@@ -145,7 +145,6 @@ class WriteExtension(cliapp.Application):
 
     def create_local_system(self, temp_root, raw_disk):
         '''Create a raw system image locally.'''
-        self.create_raw_disk_image(raw_disk)
         try:
             self.mkfs_btrfs(raw_disk)
             mp = self.mount(raw_disk)
