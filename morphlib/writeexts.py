@@ -571,7 +571,7 @@ class WriteExtension(cliapp.Application):
             logging.error("Error checking SSH connectivity: %s", str(e))
             raise cliapp.AppException(
                 'Unable to SSH to %s: %s' % (ssh_host, e))
-    def deploying_to_device(self, location):
+    def is_device(self, location):
         dev_regex = re.compile("^/dev/((sd|vd|mmcblk|hd)[a-z0-9]+)$")
         if dev_regex.match(location):
             return true
