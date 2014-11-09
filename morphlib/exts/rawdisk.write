@@ -43,11 +43,12 @@ class RawDiskWriteExtension(morphlib.writeexts.WriteExtension):
             raise cliapp.AppException('Wrong number of command line args')
         
         temp_root, location = args
-        if os.path.isfile(location):
+        if os.path.isfile(location) and not self.is_device(location):
             self.upgrade_local_system(location, temp_root)
         else:
             try:
-                self.create_raw_disk_image(location)
+                if not self.is_device(location):
+                    self.create_raw_disk_image(location)
                 self.create_local_system(temp_root, location)
                 self.status(msg='Disk image has been created at %s' % location)
             except Exception:
