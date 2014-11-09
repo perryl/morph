@@ -574,5 +574,5 @@ class WriteExtension(cliapp.Application):
     def is_device(self, location):
         dev_regex = re.compile("^/dev/((sd|vd|mmcblk|hd)[a-z0-9]+)$")
         if dev_regex.match(location):
-            return true
-        return false
+            return True
+        return False
