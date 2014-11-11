@@ -145,17 +145,6 @@ class WriteExtension(cliapp.Application):
                 'Error: Btrfs is required for this deployment, but was not '
                 'detected in the kernel of the machine that is running Morph.')
 
-    def create_local_system(self, temp_root, raw_disk):
-        '''Create a raw system image locally.'''
-
-        self.create_filesytem(raw_disk)
-        try:
-            self.format_btrfs(raw_disk)
-            self.create_system(temp_root, raw_disk)
-        except BaseException, e:
-            os.remove(raw_disk)
-            raise
-
     def create_filesytem(self, raw_disk):
         size = self.get_disk_size()
         if not size:
