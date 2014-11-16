@@ -20,6 +20,7 @@ import cliapp
 import os
 import urlparse
 import uuid
+import logging
 
 import morphlib
 
@@ -97,11 +98,30 @@ class SystemBranchDirectory(object):
         # Replace colons with slashes.
         relative = '/'.join(relative.split(':'))
 
-        # Remove anyleading slashes, or os.path.join below will only
+        # Remove anyleading slashes, or os.path.join will only
         # use the relative part (since it's absolute, not relative).
         relative = relative.lstrip('/')
 
-        return os.path.join(self.root_directory, relative)
+        return relative
+
+    def relative_to_root_repo(self, path): # pragma: no cover
+        ''' Takes a path and the root repo's url and returns a path
+            relative to the root repo'''
+
+        root_repo_dir = self._fabricate_git_directory_name(
+                            self.root_repository_url)
+
+        commonprefix = os.path.commonprefix([self.root_directory,
+                                            '/' + root_repo_dir])
+
+        if commonprefix == self.root_directory:
+            root_repo_dir = os.path.join('/', root_repo_dir)
+        else:
+            root_repo_dir = os.path.join(self.root_directory, root_repo_dir)
+
+        logging.debug('Repo with url %s is found at %s'
+                      % (self.root_repository_url, root_repo_dir))
+        return os.path.relpath(os.path.abspath(path), root_repo_dir)
 
     def get_git_directory_name(self, repo_url):
         '''Return directory pathname for a given git repository.
@@ -119,8 +139,10 @@ class SystemBranchDirectory(object):
 
         '''
         found_repo = self._find_git_directory(repo_url)
+
         if not found_repo:
-            return self._fabricate_git_directory_name(repo_url)
+            git_dir_name = self._fabricate_git_directory_name(repo_url)
+            return os.path.join(self.root_directory, git_dir_name)
         return found_repo
 
     def get_filename(self, repo_url, relative):
