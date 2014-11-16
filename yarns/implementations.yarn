@@ -899,6 +899,14 @@ Implementations for building systems
     cd "$DATADIR/workspace/$MATCH_2/test/morphs"
     run_morph build "$MATCH_1"
 
+    IMPLEMENTS WHEN from the directory (\S+) the user attempts to morph build the system (\S+)
+    cd "$DATADIR/$MATCH_1"
+    attempt_morph build "$MATCH_2"
+
+    IMPLEMENTS WHEN from the directory (\S+) the user attempts to morph build the system using the absolute path to (\S+)
+    cd "$DATADIR/$MATCH_1"
+    attempt_morph build "$(pwd)/$MATCH_2"
+
 Implementations for tarball inspection
 --------------------------------------
 
