@@ -703,7 +703,7 @@ Implementation sections for building
 ====================================
 
     IMPLEMENTS WHEN the user (attempts to )?((dist)?build)s? the system (\S+) in branch (\S+)
-    cd "$DATADIR/workspace/$MATCH_5"
+    cd "$DATADIR/workspace/$MATCH_5/test/morphs"
     set "$MATCH_2" "$MATCH_4"
     if [ "$MATCH_1" != "attempts to " ]; then run_morph "$@"
     else attempt_morph "$@"; fi
@@ -712,7 +712,7 @@ Implementation sections for cross-bootstraping
 ==============================================
 
     IMPLEMENTS THEN the user cross-bootstraps the system (\S+) in branch (\S+) of repo (\S+) to the arch (\S+)
-    cd "$DATADIR/workspace/$MATCH_2"
+    cd "$DATADIR/workspace/$MATCH_2/test/morphs"
     set -- cross-bootstrap "$MATCH_4" "$MATCH_3" "$MATCH_2" "$MATCH_1"
     run_morph "$@"
 
@@ -734,7 +734,7 @@ them, so they can be added to the end of the implements section.
     else attempt_morph "$@"; fi
 
     IMPLEMENTS WHEN the user (attempts to deploy|deploys) (.*) from cluster (\S+) in branch (\S+)
-    cd "$DATADIR/workspace/$MATCH_4"
+    cd "$DATADIR/workspace/$MATCH_4/test/morphs"
     set -- deploy "$MATCH_3"
     systems=$(echo "$MATCH_2" | sed -e 's/, /\n/g' -e 's/ and /\n/g')
     set -- "$@" $systems
@@ -742,7 +742,7 @@ them, so they can be added to the end of the implements section.
     else attempt_morph "$@"; fi
 
     IMPLEMENTS WHEN the user (attempts to upgrade|upgrades) the (system|cluster) (\S+) in branch (\S+)( with options (.*))?
-    cd "$DATADIR/workspace/$MATCH_4"
+    cd "$DATADIR/workspace/$MATCH_4/test/morphs"
     set -- upgrade "$MATCH_3"
     if [ "$MATCH_5" != '' ]; then
         # eval used so word splitting in the text is preserved
@@ -892,11 +892,11 @@ Implementations for building systems
 ------------------------------------
 
     IMPLEMENTS THEN morph ((dist)?build) the system (\S+) of the (branch|tag) (\S+)
-    cd "$DATADIR/workspace/$MATCH_5"
+    cd "$DATADIR/workspace/$MATCH_5/test/morphs"
     run_morph "$MATCH_1" "$MATCH_3"
 
     IMPLEMENTS WHEN the user builds (\S+) of the (\S+) (branch|tag)
-    cd "$DATADIR/workspace/$MATCH_2"
+    cd "$DATADIR/workspace/$MATCH_2/test/morphs"
     run_morph build "$MATCH_1"
 
 Implementations for tarball inspection
