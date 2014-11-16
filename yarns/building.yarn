@@ -9,6 +9,30 @@ Morph Building Tests
     THEN morph build the system systems/base-system.morph of the branch master
     FINALLY the git server is shut down
 
+    SCENARIO build system with relative path
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    AND the user creates an uncommitted system morphology called systems/base-system.morph for our architecture in system branch master
+    THEN from directory workspace/master/test/morphs/systems morph build the system base-system.morph
+    FINALLY the git server is shut down
+
+    SCENARIO build system with relative path (second variant)
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    AND the user creates an uncommitted system morphology called systems/base-system.morph for our architecture in system branch master
+    THEN from directory workspace/master/test/morphs/systems morph build the system ../systems/base-system.morph
+    FINALLY the git server is shut down
+
+    SCENARIO build system with absolute path
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    AND the user creates an uncommitted system morphology called systems/base-system.morph for our architecture in system branch master
+    THEN from directory workspace/master/test/morphs/systems morph build the system using the absolute path to base-system.morph
+    FINALLY the git server is shut down
+
 System integrations
 -------------------
 
