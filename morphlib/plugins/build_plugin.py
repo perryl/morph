@@ -17,6 +17,7 @@
 import cliapp
 import contextlib
 import uuid
+import logging
 
 import morphlib
 
@@ -158,10 +159,13 @@ class BuildPlugin(cliapp.Plugin):
             self.app.settings['cachedir'],
             self.app.settings['cachedir-min-space'])
 
-        system_filename = morphlib.util.sanitise_morphology_path(args[0])
-
         ws = morphlib.workspace.open('.')
         sb = morphlib.sysbranchdir.open_from_within('.')
+
+        system_filename = morphlib.util.sanitise_morphology_path(args[0])
+        system_filename = sb.relative_to_root_repo(system_filename)
+
+        logging.debug('System branch is %s' % sb.root_directory)
 
         build_uuid = uuid.uuid4().hex
 
