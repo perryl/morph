@@ -107,6 +107,11 @@ class SystemBranchDirectory(object):
 
         return os.path.join(self.root_directory, relative)
 
+    def relative_to_root_repo(self, path): # pragma: no cover
+        gitdirpath = self.get_git_directory_name(self.root_repository_url)
+
+        return os.path.relpath(os.path.abspath(path), gitdirpath)
+
     def get_git_directory_name(self, repo_url):
         '''Return directory pathname for a given git repository.
 
@@ -123,6 +128,7 @@ class SystemBranchDirectory(object):
 
         '''
         found_repo = self._find_git_directory(repo_url)
+
         if not found_repo:
             return self._fabricate_git_directory_name(repo_url)
         return found_repo
