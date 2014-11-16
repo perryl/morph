@@ -17,6 +17,7 @@
 import cliapp
 import contextlib
 import uuid
+import logging
 
 import morphlib
 
@@ -163,6 +164,8 @@ class BuildPlugin(cliapp.Plugin):
         ws = morphlib.workspace.open('.')
         sb = morphlib.sysbranchdir.open_from_within('.')
 
+        logging.debug('System branch is %s' % sb.root_directory)
+
         build_uuid = uuid.uuid4().hex
 
         if self.use_distbuild:
@@ -192,5 +195,7 @@ class BuildPlugin(cliapp.Plugin):
                 name=name, email=email, build_uuid=build_uuid,
                 status=self.app.status)
         with pbb as (repo, commit, original_ref):
+            system_filename = sb.relative_to_root_repo(system_filename, repo)
+
             build_command.build(repo, commit, system_filename,
                                 original_ref=original_ref)
