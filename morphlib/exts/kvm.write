@@ -62,14 +62,16 @@ class KvmPlusSshWriteExtension(morphlib.writeexts.WriteExtension):
         
         fd, raw_disk = tempfile.mkstemp()
         os.close(fd)
-        self.create_local_system(temp_root, raw_disk)
-        
         try:
+            self.create_filesytem(raw_disk)
+            self.format_btrfs(raw_disk)
+            self.create_system(temp_root, raw_disk)
             self.transfer(raw_disk, ssh_host, vm_path)
             self.create_libvirt_guest(ssh_host, vm_name, vm_path, autostart)
         except BaseException:
             sys.stderr.write('Error deploying to libvirt')
-            os.remove(raw_disk)
+            if os.path.exists(raw_disk):
+                os.remove(raw_disk)
             cliapp.ssh_runcmd(ssh_host, ['rm', '-f', vm_path])
             raise
         else:

@@ -68,16 +68,19 @@ class VirtualBoxPlusSshWriteExtension(morphlib.writeexts.WriteExtension):
 
         fd, raw_disk = tempfile.mkstemp()
         os.close(fd)
-        self.create_local_system(temp_root, raw_disk)
-
         try:
+            self.create_filesytem(raw_disk)
+            self.format_btrfs(raw_disk)
+            self.create_system(temp_root, raw_disk)
+
             self.transfer_and_convert_to_vdi(
                 raw_disk, ssh_host, vdi_path)
             self.create_virtualbox_guest(ssh_host, vm_name, vdi_path,
                                          autostart, vagrant)
         except BaseException:
             sys.stderr.write('Error deploying to VirtualBox')
-            os.remove(raw_disk)
+            if os.path.exists(raw_disk):
+                os.remove(raw_disk)
             cliapp.ssh_runcmd(ssh_host, ['rm', '-f', vdi_path])
             raise
         else:

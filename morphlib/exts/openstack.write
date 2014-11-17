@@ -68,13 +68,21 @@ class OpenStackWriteExtension(morphlib.writeexts.WriteExtension):
 
         fd, raw_disk = tempfile.mkstemp()
         os.close(fd)
-        self.create_local_system(temp_root, raw_disk)
-        self.status(msg='Temporary disk image has been created at %s' 
-                    % raw_disk)
 
-        self.set_extlinux_root_to_virtio(raw_disk)
+        try:
+            self.create_filesytem(raw_disk)
+            self.format_btrfs(raw_disk)
+            self.create_system(temp_root, raw_disk)
+            self.status(msg='Temporary disk image has been created at %s'
+                        % raw_disk)
 
-        self.configure_openstack_image(raw_disk, location, os_params)
+            self.set_extlinux_root_to_virtio(raw_disk)
+
+            self.configure_openstack_image(raw_disk, location, os_params)
+        except BaseException:
+            sys.stderr.write('Error deploying to OpenStack')
+            if os.path.exists(raw_disk):
+                os.remove(raw_disk)
 
     def set_extlinux_root_to_virtio(self, raw_disk):
         '''Re-configures extlinux to use virtio disks'''
