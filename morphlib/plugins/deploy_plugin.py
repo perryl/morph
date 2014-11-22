@@ -281,10 +281,11 @@ class DeployPlugin(cliapp.Plugin):
             self.app.settings['tempdir-min-space'],
             '/', 0)
 
-        cluster_filename = morphlib.util.sanitise_morphology_path(args[0])
-
         ws = morphlib.workspace.open('.')
         sb = morphlib.sysbranchdir.open_from_within('.')
+
+        cluster_filename = morphlib.util.sanitise_morphology_path(args[0])
+        cluster_filename = sb.relative_to_root_repo(cluster_filename)
 
         build_uuid = uuid.uuid4().hex
 
@@ -297,6 +298,7 @@ class DeployPlugin(cliapp.Plugin):
         build_ref_prefix = self.app.settings['build-ref-prefix']
         root_repo_dir = morphlib.gitdir.GitDirectory(
             sb.get_git_directory_name(sb.root_repository_url))
+
         cluster_text = root_repo_dir.read_file(cluster_filename)
         cluster_morphology = loader.load_from_string(cluster_text,
                                                      filename=cluster_filename)
