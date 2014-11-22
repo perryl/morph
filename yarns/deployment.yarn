@@ -24,6 +24,33 @@ Morph Deployment Tests
     THEN morph succeeded
     FINALLY the git server is shut down
 
+    SCENARIO deploying a cluster using a relative path
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    AND the user builds the system systems/test-system.morph in branch master
+    AND from directory workspace/master/test/morphs/clusters the user attempts to deploy the cluster test-cluster.morph in branch master
+    THEN morph succeeded
+    FINALLY the git server is shut down
+
+    SCENARIO deploying a cluster using a relative path (second variant)
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    AND the user builds the system systems/test-system.morph in branch master
+    AND from directory workspace/master/test/morphs/clusters the user attempts to deploy the cluster ../clusters/test-cluster.morph in branch master
+    THEN morph succeeded
+    FINALLY the git server is shut down
+
+    SCENARIO deploying a cluster using an absolute path
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    AND the user builds the system systems/test-system.morph in branch master
+    AND from directory workspace/master/test/morphs/clusters the user attempts to deploy the cluster using the absolute path to test-cluster.morph in branch master
+    THEN morph succeeded
+    FINALLY the git server is shut down
+
 Some deployment types support upgrades, but some do not and Morph needs to make
 this clear.
 
