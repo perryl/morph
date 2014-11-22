@@ -247,6 +247,19 @@ another to hold a chunk.
       morph: strata/core.morph
     EOF
 
+    mkdir "$DATADIR/gits/morphs/clusters"
+    cd "$DATADIR/gits/morphs"
+    install -m644 -D /dev/stdin << EOF "clusters/test-cluster.morph"
+    name: test-cluster
+    kind: cluster
+    systems:
+    - morph: systems/test-system.morph
+      deploy:
+        test-system:
+          type: tar
+          location: test.tar
+    EOF
+
     install -m644 -D /dev/stdin << EOF "strata/build-essential.morph"
     name: build-essential
     kind: stratum
@@ -723,14 +736,26 @@ Defaults are set in the cluster morphology, so we can deploy without
 setting any extra parameters, but we also need to be able to override
 them, so they can be added to the end of the implements section.
 
-    IMPLEMENTS WHEN the user (attempts to deploy|deploys) the (system|cluster) (\S+) in branch (\S+)( with options (.*))?
-    cd "$DATADIR/workspace/$MATCH_4"
-    set -- deploy "$MATCH_3"
-    if [ "$MATCH_5" != '' ]; then
-        # eval used so word splitting in the text is preserved
-        eval set -- '"$@"' $MATCH_6
+    IMPLEMENTS WHEN (from directory (\S+) )?the user (attempts to deploy|deploys) the (system|cluster) (using the absolute path to )?(\S+) in branch (\S+)( with options (.*))?
+    if [ "$MATCH_1" != "" ]
+    then
+        cd "$DATADIR/$MATCH_2"
+    else
+        cd "$DATADIR/workspace/$MATCH_7/test/morphs"
     fi
-    if [ $MATCH_1 == "deploys" ]; then run_morph "$@"
+
+    if [ "$MATCH_5" != "" ]
+    then
+        set -- deploy "$(pwd)/$MATCH_6"
+    else
+        set -- deploy "$MATCH_6"
+    fi
+
+    if [ "$MATCH_8" != '' ]; then
+        # eval used so word splitting in the text is preserved
+        eval set -- '"$@"' $MATCH_9
+    fi
+    if [ $MATCH_3 == "deploys" ]; then run_morph "$@"
     else attempt_morph "$@"; fi
 
     IMPLEMENTS WHEN the user (attempts to deploy|deploys) (.*) from cluster (\S+) in branch (\S+)
