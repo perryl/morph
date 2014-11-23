@@ -755,7 +755,7 @@ them, so they can be added to the end of the implements section.
         # eval used so word splitting in the text is preserved
         eval set -- '"$@"' $MATCH_9
     fi
-    if [ $MATCH_3 == "deploys" ]; then run_morph "$@"
+    if [ "$MATCH_3" == "deploys" ]; then run_morph "$@"
     else attempt_morph "$@"; fi
 
     IMPLEMENTS WHEN the user (attempts to deploy|deploys) (.*) from cluster (\S+) in branch (\S+)
@@ -763,7 +763,7 @@ them, so they can be added to the end of the implements section.
     set -- deploy "$MATCH_3"
     systems=$(echo "$MATCH_2" | sed -e 's/, /\n/g' -e 's/ and /\n/g')
     set -- "$@" $systems
-    if [ $MATCH_1 == "deploys" ]; then run_morph "$@"
+    if [ "$MATCH_1" == "deploys" ]; then run_morph "$@"
     else attempt_morph "$@"; fi
 
     IMPLEMENTS WHEN the user (attempts to upgrade|upgrades) the (system|cluster) (\S+) in branch (\S+)( with options (.*))?
@@ -773,7 +773,7 @@ them, so they can be added to the end of the implements section.
         # eval used so word splitting in the text is preserved
         eval set -- '"$@"' $MATCH_6
     fi
-    if [ $MATCH_1 == "upgrades" ]; then run_morph "$@"
+    if [ "$MATCH_1" == "upgrades" ]; then run_morph "$@"
     else attempt_morph "$@"; fi
 
 Implementations sections for reading error messages
