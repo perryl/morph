@@ -104,11 +104,12 @@ class SystemBranchDirectory(object):
 
         return relative
 
-    def relative_to_root_repo(self, path, root_repo_url): # pragma: no cover
+    def relative_to_root_repo(self, path): # pragma: no cover
         ''' Takes a path and the root repo's url and returns a path
             relative to the root repo'''
 
-        root_repo_dir = self._fabricate_git_directory_name(root_repo_url)
+        root_repo_dir = self._fabricate_git_directory_name(
+                            self.root_repository_url)
 
         commonprefix = os.path.commonprefix([self.root_directory,
                                             '/' + root_repo_dir])
@@ -119,7 +120,7 @@ class SystemBranchDirectory(object):
             root_repo_dir = os.path.join(self.root_directory, root_repo_dir)
 
         logging.debug('Repo with url %s is found at %s'
-                      % (root_repo_url, root_repo_dir))
+                      % (self.root_repository_url, root_repo_dir))
         return os.path.relpath(os.path.abspath(path), root_repo_dir)
 
     def get_git_directory_name(self, repo_url):
