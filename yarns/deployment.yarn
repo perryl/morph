@@ -5,6 +5,7 @@ Morph Deployment Tests
     GIVEN a workspace
     AND a git server
     WHEN the user checks out the system branch called master
+    AND the user builds the system systems/test-system.morph in branch master
     AND the user attempts to deploy the system systems/test-system.morph in branch master
     THEN morph failed
     AND the deploy error message includes the string "morph deployment commands are only supported for cluster morphologies"
@@ -14,13 +15,8 @@ Morph Deployment Tests
     GIVEN a workspace
     AND a git server
     WHEN the user checks out the system branch called master
-    GIVEN a cluster called test-cluster.morph in system branch master
-    AND a system in cluster test-cluster.morph in branch master called test-system
-    AND system test-system in cluster test-cluster.morph in branch master builds systems/test-system.morph
-    AND system test-system in cluster test-cluster.morph in branch master has deployment type: tar
-    AND system test-system in cluster test-cluster.morph in branch master has deployment location: test.tar
-    WHEN the user builds the system systems/test-system.morph in branch master
-    AND the user attempts to deploy the cluster test-cluster.morph in branch master
+    AND the user builds the system systems/test-system.morph in branch master
+    AND the user attempts to deploy the cluster clusters/test-cluster.morph in branch master
     THEN morph succeeded
     FINALLY the git server is shut down
 
@@ -58,13 +54,8 @@ this clear.
     GIVEN a workspace
     AND a git server
     WHEN the user checks out the system branch called master
-    GIVEN a cluster called test-cluster.morph in system branch master
-    AND a system in cluster test-cluster.morph in branch master called test-system
-    AND system test-system in cluster test-cluster.morph in branch master builds systems/test-system.morph
-    AND system test-system in cluster test-cluster.morph in branch master has deployment type: tar
-    AND system test-system in cluster test-cluster.morph in branch master has deployment location: test.tar
-    WHEN the user builds the system systems/test-system.morph in branch master
-    AND the user attempts to upgrade the cluster test-cluster.morph in branch master
+    AND the user builds the system systems/test-system.morph in branch master
+    AND the user attempts to upgrade the cluster clusters/test-cluster.morph in branch master
     THEN morph failed
     FINALLY the git server is shut down
 
