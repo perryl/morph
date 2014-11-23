@@ -285,8 +285,7 @@ class DeployPlugin(cliapp.Plugin):
         sb = morphlib.sysbranchdir.open_from_within('.')
 
         cluster_filename = morphlib.util.sanitise_morphology_path(args[0])
-        cluster_filename = sb.relative_to_root_repo(cluster_filename,
-                                                    sb.root_repository_url)
+        cluster_filename = sb.relative_to_root_repo(cluster_filename)
 
         build_uuid = uuid.uuid4().hex
 
