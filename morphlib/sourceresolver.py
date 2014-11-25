@@ -272,26 +272,15 @@ class SourceResolver(object):
         loader.set_defaults(morph)
         return morph
 
-    def traverse_morphs(self, definitions_repo, definitions_ref,
-                        system_filenames,
-                        visit=lambda rn, rf, fn, arf, m: None,
-                        definitions_original_ref=None):
+    def _process_definitions_with_children(self, system_filenames,
+                                           definitions_repo,
+                                           definitions_ref,
+                                           definitions_absref,
+                                           definitions_tree,
+                                           visit):
         definitions_queue = collections.deque(system_filenames)
         chunk_in_definitions_repo_queue = []
         chunk_in_source_repo_queue = []
-
-        self._resolved_trees = self.tree_cache_manager.load_cache()
-
-        # Resolve the (repo, ref) pair for the definitions repo, cache result.
-        definitions_absref, definitions_tree = self._resolve_ref(
-            definitions_repo, definitions_ref)
-
-        if definitions_original_ref:
-            definitions_ref = definitions_original_ref
-
-        # First, process the system and its stratum morphologies. These will
-        # all live in the same Git repository, and will point to various chunk
-        # morphologies.
 
         while definitions_queue:
             filename = definitions_queue.popleft()
@@ -324,47 +313,71 @@ class SourceResolver(object):
                     chunk_in_definitions_repo_queue.append(
                         (c['repo'], c['ref'], c['morph']))
 
-        # Now process all the chunks involved in the build. First those with
-        # morphologies in definitions.git, and then (for compatibility reasons
-        # only) those with the morphology in the chunk's source repository.
+        return chunk_in_definitions_repo_queue, chunk_in_source_repo_queue
 
-        def process_chunk(repo, ref, filename):
-            absref, tree = self._resolve_ref(repo, ref)
+    def process_chunk(self, repo, ref, filename, visit):
+        absref, tree = self._resolve_ref(repo, ref)
 
-            key = (repo, ref, filename)
-            morph_name = os.path.splitext(os.path.basename(filename))[0]
+        key = (repo, ref, filename)
+        morph_name = os.path.splitext(os.path.basename(filename))[0]
 
-            morphology = None
-            buildsystem = None
+        morphology = None
+        buildsystem = None
 
-            if key in self._resolved_buildsystems:
-                buildsystem = self._resolved_buildsystems[key]
+        if key in self._resolved_buildsystems:
+            buildsystem = self._resolved_buildsystems[key]
 
+        if buildsystem is None:
+            # The morpholoies aren't locally cached, so a morphology
+            # for a chunk kept in the chunk repo will be read every time.
+            # So, always keep your chunk morphs in your definitions repo.
+            morphology = self._get_morphology(*key)
+
+        if morphology is None:
             if buildsystem is None:
-                # The morpholoies aren't locally cached, so a morphology
-                # for a chunk kept in the chunk repo will be read every time.
-                # So, always keep your chunk morphs in your definitions repo.
-                morphology = self._get_morphology(*key)
+                buildsystem = self._detect_build_system(*key)
+            if buildsystem is None:
+                raise MorphologyNotFoundError(filename)
+            else:
+                morphology = self._create_morphology_for_build_system(
+                    buildsystem, morph_name)
+                self._resolved_morphologies[key] = morphology
 
-            if morphology is None:
-                if buildsystem is None:
-                    buildsystem = self._detect_build_system(*key)
-                if buildsystem is None:
-                    raise MorphologyNotFoundError(filename)
-                else:
-                    morphology = self._create_morphology_for_build_system(
-                        buildsystem, morph_name)
-                    self._resolved_morphologies[key] = morphology
+        visit(repo, ref, filename, absref, tree, morphology)
 
-            visit(repo, ref, filename, absref, tree, morphology)
+    def traverse_morphs(self, definitions_repo, definitions_ref,
+                        system_filenames,
+                        visit=lambda rn, rf, fn, arf, m: None,
+                        definitions_original_ref=None):
+        self._resolved_trees = self.tree_cache_manager.load_cache()
 
-        for repo, ref, filename in chunk_in_definitions_repo_queue:
-            process_chunk(repo, ref, filename)
+        # Resolve the (repo, ref) pair for the definitions repo, cache result.
+        definitions_absref, definitions_tree = self._resolve_ref(
+            definitions_repo, definitions_ref)
 
-        for repo, ref, filename in chunk_in_source_repo_queue:
-            process_chunk(repo, ref, filename)
+        if definitions_original_ref:
+            definitions_ref = definitions_original_ref
 
-    self.tree_cache_manager.save_cache(self._resolved_trees)
+        try:
+            # First, process the system and its stratum morphologies. These
+            # will all live in the same Git repository, and will point to
+            # various chunk morphologies.
+            chunk_in_definitions_repo_queue, chunk_in_source_repo_queue = \
+                self._process_definitions_with_children(
+                    system_filenames, definitions_repo, definitions_ref,
+                    definitions_absref, definitions_tree, visit)
+
+            # Now process all the chunks involved in the build. First those
+            # with morphologies in definitions.git, and then (for compatibility
+            # reasons only) those with the morphology in the chunk's source
+            # repository.
+            for repo, ref, filename in chunk_in_definitions_repo_queue:
+                self._process_chunk(repo, ref, filename, visit)
+
+            for repo, ref, filename in chunk_in_source_repo_queue:
+                self._process_chunk(repo, ref, filename, visit)
+        finally:
+            self.tree_cache_manager.save_cache(self._resolved_trees)
 
 
 def create_source_pool(lrc, rrc, repo, ref, filename, cachedir,
@@ -397,7 +410,8 @@ def create_source_pool(lrc, rrc, repo, ref, filename, cachedir,
     tree_cache_manager = PickleCacheManager(
         os.path.join(cachedir, 'trees.cache.pickle'), tree_cache_size)
 
-    resolver = SourceResolver(lrc, rrc, tree_cache_manager, update_repos, status_cb)
+    resolver = SourceResolver(lrc, rrc, tree_cache_manager, update_repos,
+                              status_cb)
     resolver.traverse_morphs(repo, ref, [filename],
                              visit=add_to_pool,
                              definitions_original_ref=original_ref)
