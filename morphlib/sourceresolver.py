@@ -281,7 +281,9 @@ def create_source_pool(lrc, rrc, repo, ref, filename, cachedir,
 
     update_repos = not app.settings['no-git-update']
 
-    tree_cache_manager = PickleCacheManager(os.path.join(cachedir, 10000))
+    tree_cache_size = 10000
+    tree_cache_manager = PickleCacheManager(
+        os.path.join(cachedir, 'trees.cache.pickle'), tree_cache_size)
 
     resolver = SourceResolver(lrc, rrc, tree_cache_manager, update_repos, status_cb)
     resolver.traverse_morphs(repo, ref, [filename],
