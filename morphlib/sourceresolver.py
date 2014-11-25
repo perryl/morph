@@ -1,4 +1,4 @@
-# Copyright (C) 2014  Codethink Limited
+# Copyright (C) 2014-2015  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,8 +18,26 @@ import cliapp
 
 import collections
 import logging
+import os
 
 import morphlib
+
+
+class SourceResolverError(cliapp.AppException):
+    pass
+
+
+class MorphologyNotFoundError(SourceResolverError):
+    def __init__(self, filename):
+        SourceResolverError.__init__(
+            self, "Couldn't find morphology: %s" % filename)
+
+
+class NotcachedError(SourceResolverError):
+    def __init__(self, repo_name):
+        SourceResolverError.__init__(
+            self, "Repository %s is not cached locally and there is no "
+                  "remote cache specified" % repo_name)
 
 
 class SourceResolver(object):
@@ -52,8 +70,10 @@ class SourceResolver(object):
         self.rrc = remote_repo_cache
 
         self.update = update_repos
-
         self.status = status_cb
+
+        self._resolved_trees = {}
+        self._resolved_morphologies = {}
 
     def resolve_ref(self, reponame, ref):
         '''Resolves commit and tree sha1s of the ref in a repo and returns it.
@@ -96,12 +116,57 @@ class SourceResolver(object):
             tree = repo.resolve_ref_to_tree(absref)
         return absref, tree
 
+    def _get_morphology(self, reponame, sha1, filename):
+        '''Read the morphology at the specified location.'''
+        key = (reponame, sha1, filename)
+        if key in self._resolved_morphologies:
+            return self._resolved_morphologies[key]
+
+        morph_name = os.path.splitext(os.path.basename(filename))[0]
+        loader = morphlib.morphloader.MorphologyLoader()
+        if self.lrc.has_repo(reponame):
+            self.status(msg="Looking for %s in local repo cache" % filename,
+                        chatty=True)
+            try:
+                repo = self.lrc.get_repo(reponame)
+                text = repo.read_file(filename, sha1)
+                morph = loader.load_from_string(text)
+            except IOError:
+                morph = None
+                file_list = repo.list_files(ref=sha1, recurse=False)
+        elif self.rrc is not None:
+            self.status(msg="Retrieving %(reponame)s %(sha1)s %(filename)s"
+                        " from the remote git cache.",
+                        reponame=reponame, sha1=sha1, filename=filename,
+                        chatty=True)
+            try:
+                text = self.rrc.cat_file(reponame, sha1, filename)
+                morph = loader.load_from_string(text)
+            except morphlib.remoterepocache.CatFileError:
+                morph = None
+                file_list = self.rrc.ls_tree(reponame, sha1)
+        else:
+            raise NotcachedError(reponame)
+
+        if morph is None:
+            self.status(msg="File %s doesn't exist: attempting to infer "
+                            "chunk morph from repo's build system"
+                        % filename, chatty=True)
+            bs = morphlib.buildsystem.detect_build_system(file_list)
+            if bs is None:
+                raise MorphologyNotFoundError(filename)
+            morph = bs.get_morphology(morph_name)
+            loader.validate(morph)
+            loader.set_commands(morph)
+            loader.set_defaults(morph)
+
+        self._resolved_morphologies[key] = morph
+        return morph
+
     def traverse_morphs(self, definitions_repo, definitions_ref,
                         system_filenames,
                         visit=lambda rn, rf, fn, arf, m: None,
                         definitions_original_ref=None):
-        morph_factory = morphlib.morphologyfactory.MorphologyFactory(
-            self.lrc, self.rrc, self.status)
         definitions_queue = collections.deque(system_filenames)
         chunk_in_definitions_repo_queue = []
         chunk_in_source_repo_queue = []
@@ -120,10 +185,8 @@ class SourceResolver(object):
         while definitions_queue:
             filename = definitions_queue.popleft()
 
-            key = (definitions_repo, definitions_absref, filename)
-            if not key in resolved_morphologies:
-                resolved_morphologies[key] = morph_factory.get_morphology(*key)
-            morphology = resolved_morphologies[key]
+            morphology = self._get_morphology(
+                definitions_repo, definitions_absref, filename)
 
             visit(definitions_repo, definitions_ref, filename,
                   definitions_absref, definitions_tree, morphology)
@@ -157,9 +220,7 @@ class SourceResolver(object):
             absref = resolved_commits[repo, ref]
             tree = resolved_trees[repo, absref]
             key = (definitions_repo, definitions_absref, filename)
-            if not key in resolved_morphologies:
-                resolved_morphologies[key] = morph_factory.get_morphology(*key)
-            morphology = resolved_morphologies[key]
+            morphology = self._get_morphology(*key)
             visit(repo, ref, filename, absref, tree, morphology)
 
         for repo, ref, filename in chunk_in_source_repo_queue:
@@ -170,9 +231,7 @@ class SourceResolver(object):
             absref = resolved_commits[repo, ref]
             tree = resolved_trees[repo, absref]
             key = (repo, absref, filename)
-            if key not in resolved_morphologies:
-                resolved_morphologies[key] = morph_factory.get_morphology(*key)
-            morphology = resolved_morphologies[key]
+            morphology = self._get_morphology(*key)
             visit(repo, ref, filename, absref, tree, morphology)
 
 
