@@ -18,7 +18,6 @@ import cliapp
 
 import collections
 import cPickle
-import json
 import logging
 import os
 
@@ -71,7 +70,7 @@ class PickleCacheManager(object):
         try:
             with open(self.filename, 'w') as f:
                 cPickle.dump(data, f)
-        except (IOError, cPickle.PickleError) as E:
+        except (IOError, cPickle.PickleError) as e:
             logging.warning('Failed to save cache to %s: %s', self.filename, e)
 
 
@@ -159,7 +158,7 @@ class SourceResolver(object):
         # The Baserock reference definitions use absolute refs so, and, if the
         # absref is cached, we can short-circuit all this code.
         if (reponame, ref) in self._resolved_trees:
-            return ref, self._resolved_trees[absref]
+            return ref, self._resolved_trees[ref]
 
         if self.lrc.has_repo(reponame):
             repo = self.lrc.get_repo(reponame)
@@ -197,12 +196,15 @@ class SourceResolver(object):
         return absref, tree
 
     def _get_morphology(self, reponame, sha1, filename):
-        '''Read the morphology at the specified location.'''
+        '''Read the morphology at the specified location.
+
+        Returns None if the file does not exist in the specified commit.
+
+        '''
         key = (reponame, sha1, filename)
         if key in self._resolved_morphologies:
             return self._resolved_morphologies[key]
 
-        morph_name = os.path.splitext(os.path.basename(filename))[0]
         loader = morphlib.morphloader.MorphologyLoader()
         if self._lrc.has_repo(reponame):
             self.status(msg="Looking for %s in local repo cache" % filename,
@@ -213,10 +215,9 @@ class SourceResolver(object):
                 morph = loader.load_from_string(text)
             except IOError:
                 morph = None
-                file_list = repo.list_files(ref=sha1, recurse=False)
         elif self._rrc is not None:
-            self.status(msg="Retrieving %(reponame)s %(sha1)s %(filename)s"
-                        " from the remote git cache.",
+            self.status(msg="Looking for %(reponame)s %(sha1)s %(filename)s"
+                        " in the remote git cache.",
                         reponame=reponame, sha1=sha1, filename=filename,
                         chatty=True)
             try:
@@ -224,23 +225,51 @@ class SourceResolver(object):
                 morph = loader.load_from_string(text)
             except morphlib.remoterepocache.CatFileError:
                 morph = None
-                file_list = self._rrc.ls_tree(reponame, sha1)
         else:
+            # We assume that _resolve_ref() must have already been called and
+            # so the repo in question would have been made available already
+            # if it had been possible.
             raise NotcachedError(reponame)
 
-        if morph is None:
-            self.status(msg="File %s doesn't exist: attempting to infer "
-                            "chunk morph from repo's build system"
-                        % filename, chatty=True)
-            bs = morphlib.buildsystem.detect_build_system(file_list)
-            if bs is None:
-                raise MorphologyNotFoundError(filename)
-            morph = bs.get_morphology(morph_name)
-            loader.validate(morph)
-            loader.set_commands(morph)
-            loader.set_defaults(morph)
-
+        loader.validate(morph)
+        loader.set_commands(morph)
+        loader.set_defaults(morph)
         self._resolved_morphologies[morph] = morph
+        return morph
+
+    def _detect_build_system(self, reponame, sha1, expected_filename):
+        '''Attempt to detect buildsystem of the given commit.
+
+        Returns None if no known build system was be detected.
+
+        '''
+        self.status(msg="File %s doesn't exist: attempting to infer "
+                        "chunk morph from repo's build system" %
+                    expected_filename, chatty=True)
+
+        if self._lrc.has_repo(reponame):
+            repo = self._lrc.get_repo(reponame)
+            file_list = repo.list_files(ref=sha1, recurse=False)
+        elif self._rrc is not None:
+            file_list = self._rrc.ls_tree(reponame, sha1)
+        else:
+            # We assume that _resolve_ref() must have already been called and
+            # so the repo in question would have been made available already
+            # if it had been possible.
+            raise NotcachedError(reponame)
+
+        # FIXME: needs to be a name
+        buildsystem = morphlib.buildsystem.detect_build_system(file_list)
+        return buildsystem.name
+
+    def _create_morphology_for_build_system(self, buildsystem_name,
+                                            morph_name):
+        bs = morphlib.buildsystem.lookup_build_system(buildsystem_name)
+        loader = morphlib.morphloader.MorphologyLoader()
+        morph = bs.get_morphology(morph_name)
+        loader.validate(morph)
+        loader.set_commands(morph)
+        loader.set_defaults(morph)
         return morph
 
     def traverse_morphs(self, definitions_repo, definitions_ref,
@@ -250,8 +279,6 @@ class SourceResolver(object):
         definitions_queue = collections.deque(system_filenames)
         chunk_in_definitions_repo_queue = []
         chunk_in_source_repo_queue = []
-
-        resolved_commits = {}
 
         self._resolved_trees = self.tree_cache_manager.load_cache()
 
@@ -303,17 +330,41 @@ class SourceResolver(object):
 
         def process_chunk(repo, ref, filename):
             absref, tree = self._resolve_ref(repo, ref)
-            key = (definitions_repo, definitions_absref, filename)
-            morphology = self._get_morphology(*key)
+
+            key = (repo, ref, filename)
+            morph_name = os.path.splitext(os.path.basename(filename))[0]
+
+            morphology = None
+            buildsystem = None
+
+            if key in self._resolved_buildsystems:
+                buildsystem = self._resolved_buildsystems[key]
+
+            if buildsystem is None:
+                # The morpholoies aren't locally cached, so a morphology
+                # for a chunk kept in the chunk repo will be read every time.
+                # So, always keep your chunk morphs in your definitions repo.
+                morphology = self._get_morphology(*key)
+
+            if morphology is None:
+                if buildsystem is None:
+                    buildsystem = self._detect_build_system(*key)
+                if buildsystem is None:
+                    raise MorphologyNotFoundError(filename)
+                else:
+                    morphology = self._create_morphology_for_build_system(
+                        buildsystem, morph_name)
+                    self._resolved_morphologies[key] = morphology
+
             visit(repo, ref, filename, absref, tree, morphology)
 
         for repo, ref, filename in chunk_in_definitions_repo_queue:
-            process_chunk_repo(repo, ref, filename)
+            process_chunk(repo, ref, filename)
 
         for repo, ref, filename in chunk_in_source_repo_queue:
-            process_chunk_repo(repo, ref, filename)
+            process_chunk(repo, ref, filename)
 
-        self.tree_cache_manager.save_cache(self._resolved_trees)
+    self.tree_cache_manager.save_cache(self._resolved_trees)
 
 
 def create_source_pool(lrc, rrc, repo, ref, filename, cachedir,
@@ -341,8 +392,6 @@ def create_source_pool(lrc, rrc, repo, ref, filename, cachedir,
                                                tree, morphology)
         for source in sources:
             pool.add(source)
-
-    update_repos = not app.settings['no-git-update']
 
     tree_cache_size = 10000
     tree_cache_manager = PickleCacheManager(
