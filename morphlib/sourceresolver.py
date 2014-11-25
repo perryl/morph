@@ -123,16 +123,25 @@ class SourceResolver(object):
         self.tree_cache_manager = tree_cache_manager
 
         self.update = update_repos
-
         self.status = status_cb
 
-    def resolve_ref(self, reponame, ref):
+        self._resolved_trees = {}
+
+    def _resolve_ref(self, reponame, ref):
         '''Resolves commit and tree sha1s of the ref in a repo and returns it.
 
-        If update is True then this has the side-effect of updating
-        or cloning the repository into the local repo cache.
+        If update is True then this has the side-effect of updating or cloning
+        the repository into the local repo cache.
+
+        This function is complex due to the 3 layers of caching described in
+        the SourceResolver docstring.
+
         '''
-        absref = None
+
+        # The Baserock reference definitions use absolute refs so, and, if the
+        # absref is cached, we can short-circuit all this code.
+        if (reponame, ref) in self._resolved_trees:
+            return ref, self._resolved_trees[absref]
 
         if self.lrc.has_repo(reponame):
             repo = self.lrc.get_repo(reponame)
@@ -162,6 +171,8 @@ class SourceResolver(object):
                 repo = self.lrc.cache_repo(reponame)
                 repo.update()
             else:
+                # This is likely to raise an exception, because if the local
+                # repo cache had the repo we'd have already resolved the ref.
                 repo = self.lrc.get_repo(reponame)
             absref = repo.resolve_ref_to_commit(ref)
             tree = repo.resolve_ref_to_tree(absref)
@@ -179,12 +190,12 @@ class SourceResolver(object):
 
         resolved_commits = {}
 
-        resolved_trees = self.tree_cache_manager.load_cache()
+        self._resolved_trees = self.tree_cache_manager.load_cache()
 
         resolved_morphologies = {}
 
         # Resolve the (repo, ref) pair for the definitions repo, cache result.
-        definitions_absref, definitions_tree = self.resolve_ref(
+        definitions_absref, definitions_tree = self._resolve_ref(
             definitions_repo, definitions_ref)
 
         if definitions_original_ref:
@@ -232,12 +243,7 @@ class SourceResolver(object):
         # only) those with the morphology in the chunk's source repository.
 
         def process_chunk(repo, ref, filename):
-            if (repo, ref) not in resolved_trees:
-                commit_sha1, tree_sha1 = self.resolve_ref(repo, ref)
-                resolved_commits[repo, ref] = commit_sha1
-                resolved_trees[repo, commit_sha1] = tree_sha1
-            absref = resolved_commits[repo, ref]
-            tree = resolved_trees[repo, absref]
+            absref, tree = self._resolve_ref(repo, ref)
             key = (definitions_repo, definitions_absref, filename)
             if not key in resolved_morphologies:
                 resolved_morphologies[key] = morph_factory.get_morphology(*key)
@@ -250,7 +256,7 @@ class SourceResolver(object):
         for repo, ref, filename in chunk_in_source_repo_queue:
             process_chunk_repo(repo, ref, filename)
 
-        self.tree_cache_manager.save_cache(resolved_trees)
+        self.tree_cache_manager.save_cache(self._resolved_trees)
 
 
 def create_source_pool(lrc, rrc, repo, ref, filename, cachedir,
