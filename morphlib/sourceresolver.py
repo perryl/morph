@@ -190,6 +190,10 @@ class SourceResolver(object):
         if definitions_original_ref:
             definitions_ref = definitions_original_ref
 
+        # First, process the system and its stratum morphologies. These will
+        # all live in the same Git repository, and will point to various chunk
+        # morphologies.
+
         while definitions_queue:
             filename = definitions_queue.popleft()
 
@@ -200,6 +204,7 @@ class SourceResolver(object):
 
             visit(definitions_repo, definitions_ref, filename,
                   definitions_absref, definitions_tree, morphology)
+
             if morphology['kind'] == 'cluster':
                 raise cliapp.AppException(
                     "Cannot build a morphology of type 'cluster'.")
@@ -222,7 +227,11 @@ class SourceResolver(object):
                     chunk_in_definitions_repo_queue.append(
                         (c['repo'], c['ref'], c['morph']))
 
-        for repo, ref, filename in chunk_in_definitions_repo_queue:
+        # Now process all the chunks involved in the build. First those with
+        # morphologies in definitions.git, and then (for compatibility reasons
+        # only) those with the morphology in the chunk's source repository.
+
+        def process_chunk(repo, ref, filename):
             if (repo, ref) not in resolved_trees:
                 commit_sha1, tree_sha1 = self.resolve_ref(repo, ref)
                 resolved_commits[repo, ref] = commit_sha1
@@ -235,18 +244,11 @@ class SourceResolver(object):
             morphology = resolved_morphologies[key]
             visit(repo, ref, filename, absref, tree, morphology)
 
+        for repo, ref, filename in chunk_in_definitions_repo_queue:
+            process_chunk_repo(repo, ref, filename)
+
         for repo, ref, filename in chunk_in_source_repo_queue:
-            if (repo, ref) not in resolved_trees:
-                commit_sha1, tree_sha1 = self.resolve_ref(repo, ref)
-                resolved_commits[repo, ref] = commit_sha1
-                resolved_trees[repo, commit_sha1] = tree_sha1
-            absref = resolved_commits[repo, ref]
-            tree = resolved_trees[repo, absref]
-            key = (repo, absref, filename)
-            if key not in resolved_morphologies:
-                resolved_morphologies[key] = morph_factory.get_morphology(*key)
-            morphology = resolved_morphologies[key]
-            visit(repo, ref, filename, absref, tree, morphology)
+            process_chunk_repo(repo, ref, filename)
 
         self.tree_cache_manager.save_cache(resolved_trees)
 
