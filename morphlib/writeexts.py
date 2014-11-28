@@ -149,12 +149,9 @@ class WriteExtension(cliapp.Application):
     def create_local_system(self, temp_root, raw_disk):
         '''Create a raw system image locally.'''
 
-        try:
-            with self.disk_image_created(location):
-                self.format_btrfs(location)
-                self.create_system(temp_root, location)
-        except BaseException, e:
-            raise
+        with self.disk_image_created(location):
+            self.format_btrfs(location)
+            self.create_system(temp_root, location)
 
     @contextlib.contextmanager
     def disk_image_created(self, location):
