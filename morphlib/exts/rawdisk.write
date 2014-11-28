@@ -50,10 +50,14 @@ class RawDiskWriteExtension(morphlib.writeexts.WriteExtension):
         else:
             try:
                 if not self.is_device(location):
-                    self.create_diskimage(location)
-                self.format_btrfs(location)
-                self.create_system(temp_root, location)
-                self.status(msg='Disk image has been created at %s' % location)
+                    with self.disk_image_created(location):
+                        self.format_btrfs(location)
+                        self.create_system(temp_root, location)
+                    self.status(msg='Disk image has been created at %s' % location)
+                else:
+                    self.format_btrfs(location)
+                    self.create_system(temp_root, location)
+                    self.status(msg='System deployed to %s' % location)
             except Exception:
                 self.status(msg='Failure to create disk image at %s' %
                                  location)
