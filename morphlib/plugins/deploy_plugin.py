@@ -524,9 +524,10 @@ class DeployPlugin(cliapp.Plugin):
                     artifact, root_repo_dir, deployment_type, location, env)
             metadata_path = os.path.join(
                     system_tree, 'baserock', 'deployment.meta')
+
             with morphlib.savefile.SaveFile(metadata_path, 'w') as f:
-                json.dump(metadata, f, indent=4,
-                          sort_keys=True, encoding='unicode-escape')
+                json.dump(metadata, f, indent=4, sort_keys=True,
+                          cls=morphlib.util.SafeishJSONEncoder)
             return system_tree
         except Exception:
             shutil.rmtree(system_tree)

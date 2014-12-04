@@ -14,6 +14,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
+import json
 import os
 import shutil
 import tempfile
@@ -136,3 +137,12 @@ class IterTrickleTests(unittest.TestCase):
     def test_truncated_final_sequence(self):
         self.assertEqual(list(morphlib.util.iter_trickle("barquux", 3)),
                          [["b", "a", "r"], ["q", "u", "u"], ["x"]])
+
+
+class SafeishJSONEncoderTests(unittest.TestCase):
+
+    def _encode(self, obj):
+        return json.dumps(obj, cls=morphlib.util.SafeishJSONEncoder):w
+
+    def test_non_ascii_characters(self):
+        j

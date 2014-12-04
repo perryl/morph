@@ -626,3 +626,43 @@ def containerised_cmdline(args, cwd='.', root='/', binds=(),
     cmdargs.append(root)
     cmdargs.extend(args)
     return unshared_cmdline(cmdargs, root=root, **kwargs)
+
+
+class SafeishJSONEncoder(json.JSONEncoder):
+    '''JSON encoder that replaces invalid UTF-8 sequences with a placeholder.
+
+    Morph receives string inputs from the host system from a few places.
+    Filenames and environment variables are the main ones. These inputs are not
+    restricted on what character encoding they can use, and can contain random
+    binary data if the user wishes.
+
+    When we write strings to JSON files they must be valid Unicode.
+
+    The default Python JSON encoder takes an 'encoding' parameter, defaulting
+    to UTF-8. This parameter tells it "you can assume all of the strings you're
+    given are valid in this encoding." Since we pass it filenames and
+    environment variables, that may not be true, and the program aborts with
+    UnicodeDecodeError if so. You can pass encoding='unicode-escape', but that
+    will break if there are any invalid escape sequences in the string: so
+    '\u' cannot be encoded, for example!
+
+    This class filters the input strings so that any sequence of bytes that is
+    not valid UTF-8 will be replaced with 'REPLACEMENT CHARACTER' (U+FFFD).
+    This is a lossy transformation! Hence this is a 'safeish' (won't cause the
+    program to crash) rather than a 'safe' (won't lose any information)
+    encoder.
+
+    Note that for YAML we use the yaml.safe_dump() function, which causes any
+    strings that aren't representable as Unicode to be encoded as base-64 using
+    the YAML !!binary operator. This means no information will be lost.
+
+    '''
+
+    def _replace_non_utf8_sequences_with_placeholder(self, obj):
+        return codecs.decode(obj, 'utf-8', 'replace')
+
+    def encode(self, obj):
+        if isinstance(obj, str):
+            return self._replace_non_utf8_sequences_with_placeholder(obj)
+        else:
+            return json.JSONEncoder.encode(self, obj)
