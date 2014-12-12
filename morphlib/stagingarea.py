@@ -274,9 +274,11 @@ class StagingArea(object):
         else:
             binds = ()
 
+        mounts = [(os.path.join(self.dirname, target), type, source)
+                  for target, type, source in self.to_mount]
         cmdline = morphlib.util.containerised_cmdline(
                     argv, cwd=kwargs.pop('cwd', '/'),
-                    root=chroot_dir, mounts=self.to_mount,
+                    root=chroot_dir, mounts=mounts,
                     binds=binds, mount_proc=mount_proc,
                     writable_paths=do_not_mount_dirs)
         try:
