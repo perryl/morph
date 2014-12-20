@@ -91,4 +91,9 @@ import yamlparse
 
 import writeexts
 
+import cache
+import definitions
+import repos
+import yapp
+
 import app  # this needs to be last

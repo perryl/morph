@@ -17,6 +17,7 @@
 import cliapp
 import contextlib
 import uuid
+import os
 
 import morphlib
 
@@ -26,6 +27,8 @@ class BuildPlugin(cliapp.Plugin):
     def enable(self):
         self.app.add_subcommand('build-morphology', self.build_morphology,
                                 arg_synopsis='(REPO REF FILENAME)...')
+        self.app.add_subcommand('assemble', self.assemble,
+                                arg_synopsis='DEFINITION')
         self.app.add_subcommand('build', self.build,
                                 arg_synopsis='SYSTEM')
         self.app.add_subcommand('distbuild-morphology',
@@ -37,6 +40,12 @@ class BuildPlugin(cliapp.Plugin):
 
     def disable(self):
         self.use_distbuild = False
+
+    def assemble(self, args):
+        build_command = morphlib.buildcommand.BuildCommand(self.app)
+        path, target = os.path.split(args[0])
+        target = target.replace('.morph', '')
+        build_command.assemble(target)
 
     def distbuild_morphology(self, args):
         '''Distbuild a system, outside of a system branch.

@@ -50,6 +50,31 @@ class BuildCommand(object):
         self.lac, self.rac = self.new_artifact_caches()
         self.lrc, self.rrc = self.new_repo_caches()
 
+    def assemble(self, target):
+        defs = morphlib.definitions.Definitions()
+        this = defs.get(target)
+        if defs.lookup(this, 'repo') != [] and defs.lookup(this, 'tree') == []:
+            this['tree'] = repos.get_tree(this)
+
+        if morphlib.cache.get_cache(this):
+            yapp.log(this, 'Cache found', morphlib.cache.get_cache(this))
+            return
+
+        with yapp.timer(this, 'Starting assembly'):
+            build_env = BuildEnvironment(yapp.settings)
+            stage = StagingArea(this, build_env)
+            for dependency in defs.lookup(this, 'build-depends'):
+                assemble(defs.get(dependency))
+                stage.install_artifact(dependency)
+
+            # if we're distbuilding, wait here for all dependencies to complete
+            # how do we know when that happens?
+
+            for component in defs.lookup(this, 'contents'):
+                assemble(defs.get(component))
+
+            build(this)
+
     def build(self, repo_name, ref, filename, original_ref=None):
         '''Build a given system morphology.'''
 
