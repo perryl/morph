@@ -97,7 +97,7 @@ class SourceResolver(object):
     There are three levels of caching involved in resolving the sources to
     build.
 
-    The canonical source for each source is specified in the build-command
+    The canonical repo for each source is specified in the build-command
     (for strata and systems) or in the stratum morphology (for chunks). It will
     be either a normal URL, or a keyed URL using a repo-alias like
     'baserock:baserock/definitions'.
