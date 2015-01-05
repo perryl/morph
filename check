@@ -94,12 +94,6 @@ export PYTHONPATH
 
 if "$run_style" && [ -d .git ];
 then
-    echo "Checking copyright statements"
-    if ! (git ls-files --cached -z |
-          xargs -0r scripts/check-copyright-year); then
-        exit 1
-    fi
-
     echo 'Checking source code for silliness'
     if ! (git ls-files --cached |
           grep -v '\.gz$' |

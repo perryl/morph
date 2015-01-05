@@ -68,7 +68,6 @@ import gitindex
 import localartifactcache
 import localrepocache
 import mountableimage
-import morphologyfactory
 import morphologyfinder
 import morphology
 import morphloader

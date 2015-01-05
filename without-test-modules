@@ -56,3 +56,6 @@ morphlib/buildbranch.py
 # Requires rather a lot of fake data in order to be unit tested; better to
 # leave it to the functional tests.
 morphlib/sourceresolver.py
+
+# from outside (temporary)
+morphlib/pylru.py

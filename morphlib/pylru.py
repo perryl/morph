@@ -519,7 +519,8 @@ class lrudecorator(object):
 
     def __call__(self, func):
         def wrapped(*args, **kwargs):
-            kwtuple = tuple((key, kwargs[key]) for key in sorted(kwargs.keys()))
+            kwtuple = tuple((key, kwargs[key]) for key in
+                    sorted(kwargs.keys()))
             key = (args, kwtuple)
             try:
                 return self.cache[key]
