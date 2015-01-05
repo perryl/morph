@@ -218,13 +218,13 @@ class SourceResolver(object):
                 morph = loader.load_from_string(text)
             except IOError:
                 morph = None
-        elif self._rrc is not None:
+        elif self.rrc is not None:
             self.status(msg="Looking for %(reponame)s %(sha1)s %(filename)s"
                         " in the remote git cache.",
                         reponame=reponame, sha1=sha1, filename=filename,
                         chatty=True)
             try:
-                text = self._rrc.cat_file(reponame, sha1, filename)
+                text = self.rrc.cat_file(reponame, sha1, filename)
                 morph = loader.load_from_string(text)
             except morphlib.remoterepocache.CatFileError:
                 morph = None
@@ -256,8 +256,8 @@ class SourceResolver(object):
         if self.lrc.has_repo(reponame):
             repo = self.lrc.get_repo(reponame)
             file_list = repo.list_files(ref=sha1, recurse=False)
-        elif self._rrc is not None:
-            file_list = self._rrc.ls_tree(reponame, sha1)
+        elif self.rrc is not None:
+            file_list = self.rrc.ls_tree(reponame, sha1)
         else:
             # We assume that _resolve_ref() must have already been called and
             # so the repo in question would have been made available already
