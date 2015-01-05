@@ -294,8 +294,8 @@ class SourceResolver(object):
                                            definitions_tree,
                                            visit):
         definitions_queue = collections.deque(system_filenames)
-        chunk_in_definitions_repo_queue = []
-        chunk_in_source_repo_queue = []
+        chunk_in_definitions_repo_queue = set()
+        chunk_in_source_repo_queue = set()
 
         while definitions_queue:
             filename = definitions_queue.popleft()
@@ -325,10 +325,10 @@ class SourceResolver(object):
                     if 'morph' not in c:
                         path = morphlib.util.sanitise_morphology_path(
                             c.get('morph', c['name']))
-                        chunk_in_source_repo_queue.append(
+                        chunk_in_source_repo_queue.add(
                             (c['repo'], c['ref'], path))
                         continue
-                    chunk_in_definitions_repo_queue.append(
+                    chunk_in_definitions_repo_queue.add(
                         (c['repo'], c['ref'], c['morph']))
 
         return chunk_in_definitions_repo_queue, chunk_in_source_repo_queue
