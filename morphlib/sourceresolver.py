@@ -143,6 +143,7 @@ class SourceResolver(object):
 
         self._resolved_trees = {}
         self._resolved_morphologies = {}
+        self._resolved_buildsystems = {}
 
     def _resolve_ref(self, reponame, ref):
         '''Resolves commit and tree sha1s of the ref in a repo and returns it.
@@ -160,6 +161,7 @@ class SourceResolver(object):
         if (reponame, ref) in self._resolved_trees:
             return ref, self._resolved_trees[ref]
 
+        absref = None
         if self.lrc.has_repo(reponame):
             repo = self.lrc.get_repo(reponame)
             if self.update and repo.requires_update_for_ref(ref):
@@ -206,11 +208,12 @@ class SourceResolver(object):
             return self._resolved_morphologies[key]
 
         loader = morphlib.morphloader.MorphologyLoader()
-        if self._lrc.has_repo(reponame):
-            self.status(msg="Looking for %s in local repo cache" % filename,
-                        chatty=True)
+        if self.lrc.has_repo(reponame):
+            self.status(msg="Looking for %(reponame)s:%(filename)s in local "
+                            "repo cache",
+                        reponame=reponame, filename=filename, chatty=True)
             try:
-                repo = self._lrc.get_repo(reponame)
+                repo = self.lrc.get_repo(reponame)
                 text = repo.read_file(filename, sha1)
                 morph = loader.load_from_string(text)
             except IOError:
@@ -231,11 +234,14 @@ class SourceResolver(object):
             # if it had been possible.
             raise NotcachedError(reponame)
 
-        loader.validate(morph)
-        loader.set_commands(morph)
-        loader.set_defaults(morph)
-        self._resolved_morphologies[morph] = morph
-        return morph
+        if morph is None:
+            return None
+        else:
+            loader.validate(morph)
+            loader.set_commands(morph)
+            loader.set_defaults(morph)
+            self._resolved_morphologies[key] = morph
+            return morph
 
     def _detect_build_system(self, reponame, sha1, expected_filename):
         '''Attempt to detect buildsystem of the given commit.
@@ -247,8 +253,8 @@ class SourceResolver(object):
                         "chunk morph from repo's build system" %
                     expected_filename, chatty=True)
 
-        if self._lrc.has_repo(reponame):
-            repo = self._lrc.get_repo(reponame)
+        if self.lrc.has_repo(reponame):
+            repo = self.lrc.get_repo(reponame)
             file_list = repo.list_files(ref=sha1, recurse=False)
         elif self._rrc is not None:
             file_list = self._rrc.ls_tree(reponame, sha1)
@@ -260,6 +266,15 @@ class SourceResolver(object):
 
         # FIXME: needs to be a name
         buildsystem = morphlib.buildsystem.detect_build_system(file_list)
+
+        if buildsystem is None:
+            # It might surprise you to discover that if we can't autodetect a
+            # build system, we raise MorphologyNotFoundError. Users are
+            # required to provide a morphology for any chunk where Morph can't
+            # infer the build instructions automatically, so this is the right
+            # error.
+            raise MorphologyNotFoundError(expected_filename)
+
         return buildsystem.name
 
     def _create_morphology_for_build_system(self, buildsystem_name,
@@ -287,6 +302,9 @@ class SourceResolver(object):
 
             morphology = self._get_morphology(
                 definitions_repo, definitions_absref, filename)
+
+            if morphology is None:
+                raise MorphologyNotFoundError(filename)
 
             visit(definitions_repo, definitions_ref, filename,
                   definitions_absref, definitions_tree, morphology)
@@ -372,10 +390,11 @@ class SourceResolver(object):
             # reasons only) those with the morphology in the chunk's source
             # repository.
             for repo, ref, filename in chunk_in_definitions_repo_queue:
-                self._process_chunk(repo, ref, filename, visit)
+                self.process_chunk(definitions_repo, definitions_ref, filename,
+                                   visit)
 
             for repo, ref, filename in chunk_in_source_repo_queue:
-                self._process_chunk(repo, ref, filename, visit)
+                self.process_chunk(repo, ref, filename, visit)
         finally:
             self.tree_cache_manager.save_cache(self._resolved_trees)
 
