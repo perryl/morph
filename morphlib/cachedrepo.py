@@ -15,7 +15,9 @@
 
 
 import cliapp
+
 import os
+import tempfile
 
 import morphlib
 
@@ -168,6 +170,29 @@ class CachedRepo(object):
         self._copy_repository(self.path, target_dir)
 
         self._checkout_ref_in_clone(ref, target_dir)
+
+    def extract_commit(self, ref, target_dir):
+        # FIXME: surely this should do what 'checkout' does, and 'checkout'
+        # should be called something else? Or maybe there's no speed benefit
+        # to this function and it shouldn't exist in the first place? Or the
+        # other 'checkout' shouldn't exist?
+        '''Extract files from a given commit into target_dir.
+
+        This is different to a 'checkout': a checkout assumes a working tree
+        associated with a repository. Here, the repository is immutable (it's
+        in the cache) and we just want to look at the files in a quick way
+        (quicker than going 'git cat-file everything').
+
+        This is really fast so it's cool really.
+
+        '''
+        if not os.path.exists(target_dir):
+            os.path.makedirs(target_dirs)
+
+        with tempfile.NamedTemporaryFile() as index_file:
+            index = self._gitdir.get_index(index_file=index_file.name)
+            index.set_to_tree(ref)
+            index.checkout(working_tree=target_dir)
 
     def requires_update_for_ref(self, ref):
         '''Returns False if there's no need to update this cached repo.
