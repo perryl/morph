@@ -44,7 +44,7 @@ class PickleCacheManager(object):
             with open(filename, 'r') as f:
                 data = cPickle.load(f)
             for key, value in data.iteritems():
-                cache[str(key)] = value
+                cache[key] = value
         except (EOFError, IOError, cPickle.PickleError) as e:
             logging.warning('Failed to load cache %s: %s', self.filename, e)
 
@@ -133,10 +133,12 @@ class SourceResolver(object):
     '''
 
     def __init__(self, local_repo_cache, remote_repo_cache,
-                 tree_cache_manager, update_repos, status_cb=None):
+                 tree_cache_manager, buildsystem_cache_manager, update_repos,
+                 status_cb=None):
         self.lrc = local_repo_cache
         self.rrc = remote_repo_cache
         self.tree_cache_manager = tree_cache_manager
+        self.buildsystem_cache_manager = buildsystem_cache_manager
 
         self.update = update_repos
         self.status = status_cb
@@ -335,36 +337,34 @@ class SourceResolver(object):
 
     def process_chunk(self, definition_repo, definition_ref, chunk_repo,
                       chunk_ref, filename, visit):
-        # In the SourceResolver object, info on this chunk is keyed by the
-        # repo & ref of the morphology (which is usually
-        # baserock:baserock/definitions, but may be upstream:whatever if it
-        # still has a chunk morph in its chunk repo). In the SourcePool object
-        # the sources are keyed by repo & ref of the source itself. Sorry! :(
-        key = (definition_repo, definition_ref, filename)
+        definition_key = (definition_repo, definition_ref, filename)
+        chunk_key = (chunk_repo, chunk_ref, filename)
+
         morph_name = os.path.splitext(os.path.basename(filename))[0]
 
         morphology = None
         buildsystem = None
 
-        if key in self._resolved_buildsystems:
-            buildsystem = self._resolved_buildsystems[key]
+        if chunk_key in self._resolved_buildsystems:
+            buildsystem = self._resolved_buildsystems[chunk_key]
 
         if buildsystem is None:
             # The morphologies aren't locally cached, so a morphology
             # for a chunk kept in the chunk repo will be read every time.
             # So, always keep your chunk morphs in your definitions repo,
             # not in the chunk repo!
-            morphology = self._get_morphology(*key)
+            morphology = self._get_morphology(*definition_key)
 
         if morphology is None:
             if buildsystem is None:
-                buildsystem = self._detect_build_system(*key)
+                buildsystem = self._detect_build_system(*chunk_key)
             if buildsystem is None:
                 raise MorphologyNotFoundError(filename)
             else:
+                self._resolved_buildsystems[chunk_key] = buildsystem
                 morphology = self._create_morphology_for_build_system(
                     buildsystem, morph_name)
-                self._resolved_morphologies[key] = morphology
+                self._resolved_morphologies[definition_key] = morphology
 
         absref, tree = self._resolve_ref(chunk_repo, chunk_ref)
         visit(chunk_repo, chunk_ref, filename, absref, tree, morphology)
@@ -374,6 +374,8 @@ class SourceResolver(object):
                         visit=lambda rn, rf, fn, arf, m: None,
                         definitions_original_ref=None):
         self._resolved_trees = self.tree_cache_manager.load_cache()
+        self._resolved_buildsystems = \
+            self.buildsystem_cache_manager.load_cache()
 
         # Resolve the (repo, ref) pair for the definitions repo, cache result.
         definitions_absref, definitions_tree = self._resolve_ref(
@@ -403,6 +405,7 @@ class SourceResolver(object):
                 self.process_chunk(repo, ref, repo, ref, filename, visit)
         finally:
             self.tree_cache_manager.save_cache(self._resolved_trees)
+            self.buildsystem_cache_manager.save_cache(self._resolved_buildsystems)
 
 
 def create_source_pool(lrc, rrc, repo, ref, filename, cachedir,
@@ -435,7 +438,13 @@ def create_source_pool(lrc, rrc, repo, ref, filename, cachedir,
     tree_cache_manager = PickleCacheManager(
         os.path.join(cachedir, 'trees.cache.pickle'), tree_cache_size)
 
-    resolver = SourceResolver(lrc, rrc, tree_cache_manager, update_repos,
+    buildsystem_cache_size = 1000
+    buildsystem_cache_manager = PickleCacheManager(
+        os.path.join(cachedir, 'detected-chunk-buildsystems.cache.pickle'),
+        buildsystem_cache_size)
+
+    resolver = SourceResolver(lrc, rrc, tree_cache_manager,
+                              buildsystem_cache_manager, update_repos,
                               status_cb)
     resolver.traverse_morphs(repo, ref, [filename],
                              visit=add_to_pool,
