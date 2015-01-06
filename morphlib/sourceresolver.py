@@ -333,10 +333,14 @@ class SourceResolver(object):
 
         return chunk_in_definitions_repo_queue, chunk_in_source_repo_queue
 
-    def process_chunk(self, repo, ref, filename, visit):
-        absref, tree = self._resolve_ref(repo, ref)
-
-        key = (repo, ref, filename)
+    def process_chunk(self, definition_repo, definition_ref, chunk_repo,
+                      chunk_ref, filename, visit):
+        # In the SourceResolver object, info on this chunk is keyed by the
+        # repo & ref of the morphology (which is usually
+        # baserock:baserock/definitions, but may be upstream:whatever if it
+        # still has a chunk morph in its chunk repo). In the SourcePool object
+        # the sources are keyed by repo & ref of the source itself. Sorry! :(
+        key = (definition_repo, definition_ref, filename)
         morph_name = os.path.splitext(os.path.basename(filename))[0]
 
         morphology = None
@@ -346,9 +350,10 @@ class SourceResolver(object):
             buildsystem = self._resolved_buildsystems[key]
 
         if buildsystem is None:
-            # The morpholoies aren't locally cached, so a morphology
+            # The morphologies aren't locally cached, so a morphology
             # for a chunk kept in the chunk repo will be read every time.
-            # So, always keep your chunk morphs in your definitions repo.
+            # So, always keep your chunk morphs in your definitions repo,
+            # not in the chunk repo!
             morphology = self._get_morphology(*key)
 
         if morphology is None:
@@ -361,7 +366,8 @@ class SourceResolver(object):
                     buildsystem, morph_name)
                 self._resolved_morphologies[key] = morphology
 
-        visit(repo, ref, filename, absref, tree, morphology)
+        absref, tree = self._resolve_ref(chunk_repo, chunk_ref)
+        visit(chunk_repo, chunk_ref, filename, absref, tree, morphology)
 
     def traverse_morphs(self, definitions_repo, definitions_ref,
                         system_filenames,
@@ -390,11 +396,11 @@ class SourceResolver(object):
             # reasons only) those with the morphology in the chunk's source
             # repository.
             for repo, ref, filename in chunk_in_definitions_repo_queue:
-                self.process_chunk(definitions_repo, definitions_ref, filename,
-                                   visit)
+                self.process_chunk(definitions_repo, definitions_ref, repo,
+                                   ref, filename, visit)
 
             for repo, ref, filename in chunk_in_source_repo_queue:
-                self.process_chunk(repo, ref, filename, visit)
+                self.process_chunk(repo, ref, repo, ref, filename, visit)
         finally:
             self.tree_cache_manager.save_cache(self._resolved_trees)
 
