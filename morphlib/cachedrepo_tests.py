@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2014  Codethink Limited
+# Copyright (C) 2012-2015  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,6 +31,21 @@ class FakeApplication(object):
         self.settings = {
             'verbose': True
         }
+
+
+class FakeIndex(object):
+
+    def __init__(self, index_file):
+        self.index_file = index_file
+        self.ref = None
+
+    def set_to_tree(self, ref):
+        self.ref = ref
+
+    def checkout(self, working_tree=None):
+        if working_tree:
+            with open(os.path.join(working_tree, 'foo.morph'), 'w') as f:
+                f.write('contents of foo.morph')
 
 
 class CachedRepoTests(unittest.TestCase):
@@ -76,6 +91,9 @@ class CachedRepoTests(unittest.TestCase):
 
     def update_with_failure(self, **kwargs):
         raise cliapp.AppException('git remote update origin')
+
+    def get_index(self, index_file=None):
+        return FakeIndex(index_file)
 
     def setUp(self):
         self.repo_name = 'foo'
@@ -136,6 +154,16 @@ class CachedRepoTests(unittest.TestCase):
         unpack_dir = self.tempfs.getsyspath('unpack-dir')
         self.repo.checkout('e28a23812eadf2fce6583b8819b9c5dbd36b9fb9',
                            unpack_dir)
+        self.assertTrue(os.path.exists(unpack_dir))
+
+        morph_filename = os.path.join(unpack_dir, 'foo.morph')
+        self.assertTrue(os.path.exists(morph_filename))
+
+    def test_extract_commit_into_new_directory(self):
+        self.repo._gitdir.get_index = self.get_index
+        unpack_dir = self.tempfs.getsyspath('unpack-dir')
+        self.repo.extract_commit('e28a23812eadf2fce6583b8819b9c5dbd36b9fb9',
+                                 unpack_dir)
         self.assertTrue(os.path.exists(unpack_dir))
 
         morph_filename = os.path.join(unpack_dir, 'foo.morph')

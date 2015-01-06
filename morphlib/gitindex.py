@@ -1,4 +1,4 @@
-# Copyright (C) 2013-2014  Codethink Limited
+# Copyright (C) 2013-2015  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -48,8 +48,16 @@ class GitIndex(object):
 
     def _run_git(self, *args, **kwargs):
         if self._index_file is not None:
-            kwargs['env'] = kwargs.get('env', dict(os.environ))
-            kwargs['env']['GIT_INDEX_FILE'] = self._index_file
+            extra_env = kwargs.get('extra_env', {})
+            extra_env['GIT_INDEX_FILE'] = self._index_file
+            kwargs['extra_env'] = extra_env
+
+        if 'extra_env' in kwargs:
+            env = kwargs.get('env', dict(os.environ))
+            env.update(kwargs['extra_env'])
+            kwargs['env'] = env
+            del kwargs['extra_env']
+
         return morphlib.git.gitcmd(self._gd._runcmd, *args, **kwargs)
 
     def _get_status(self):
@@ -159,3 +167,11 @@ class GitIndex(object):
     def write_tree(self):
         '''Transform the index into a tree in the object store.'''
         return self._run_git('write-tree').strip()
+
+    def checkout(self, working_tree=None):
+        '''Copy files from the index to the working tree.'''
+        if working_tree:
+            extra_env = {'GIT_WORK_TREE': working_tree}
+        else:
+            extra_env = {}
+        self._run_git('checkout-index', '--all', extra_env=extra_env)

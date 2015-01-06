@@ -1,4 +1,4 @@
-# Copyright (C) 2013-2014  Codethink Limited
+# Copyright (C) 2013-2015  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -38,6 +38,8 @@ class GitIndexTests(unittest.TestCase):
         self.mirror = os.path.join(self.tempdir, 'mirror')
         morphlib.git.gitcmd(gd._runcmd, 'clone', '--mirror', self.dirname,
                             self.mirror)
+        self.working_dir = os.path.join(self.tempdir, 'bar')
+        os.makedirs(self.working_dir)
 
     def tearDown(self):
         shutil.rmtree(self.tempdir)
@@ -91,3 +93,15 @@ class GitIndexTests(unittest.TestCase):
         gd = morphlib.gitdir.GitDirectory(self.dirname)
         idx = gd.get_index()
         self.assertEqual(idx.write_tree(), gd.resolve_ref_to_tree(gd.HEAD))
+
+    def test_checkout(self):
+        gd = morphlib.gitdir.GitDirectory(self.dirname)
+        idx = gd.get_index()
+        idx.checkout(working_tree=self.working_dir)
+        self.assertTrue(os.path.exists(os.path.join(self.working_dir, 'foo')))
+
+    def test_checkout_without_working_dir(self):
+        gd = morphlib.gitdir.GitDirectory(self.dirname)
+        idx = gd.get_index()
+        idx.checkout()
+        self.assertTrue(os.path.exists(os.path.join(self.dirname, 'foo')))
