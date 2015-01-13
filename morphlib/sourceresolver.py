@@ -19,6 +19,8 @@ import cliapp
 import collections
 import logging
 import os
+import shutil
+import tempfile
 
 import morphlib
 
@@ -75,6 +77,8 @@ class SourceResolver(object):
         self._resolved_trees = {}
         self._resolved_morphologies = {}
 
+        self._definitions_checkout_dir = None
+
     def resolve_ref(self, reponame, ref):
         '''Resolves commit and tree sha1s of the ref in a repo and returns it.
 
@@ -122,9 +126,22 @@ class SourceResolver(object):
         if key in self._resolved_morphologies:
             return self._resolved_morphologies[key]
 
+        if reponame == self._definitions_repo and \
+                sha1 == self._definitions_absref:
+            defs_filename = os.path.join(self._definitions_checkout_dir,
+                                         filename)
+        else:
+            defs_filename = None
+
         morph_name = os.path.splitext(os.path.basename(filename))[0]
         loader = morphlib.morphloader.MorphologyLoader()
-        if self.lrc.has_repo(reponame):
+        if reponame == self._definitions_repo and \
+                sha1 == self._definitions_absref and \
+                os.path.exists(defs_filename):
+            self.status(msg="Reading %s from local definitions checkout"
+                        % filename, chatty=True)
+            morph = loader.load_from_file(defs_filename)
+        elif self.lrc.has_repo(reponame):
             self.status(msg="Looking for %s in local repo cache" % filename,
                         chatty=True)
             try:
@@ -182,57 +199,69 @@ class SourceResolver(object):
         if definitions_original_ref:
             definitions_ref = definitions_original_ref
 
-        while definitions_queue:
-            filename = definitions_queue.popleft()
+        self._definitions_checkout_dir = tempfile.mkdtemp()
 
-            morphology = self._get_morphology(
-                definitions_repo, definitions_absref, filename)
+        try:
+            self._definitions_repo = definitions_repo
+            self._definitions_absref = definitions_absref
+            definitions_cached_repo = self.lrc.get_repo(definitions_repo)
+            definitions_cached_repo.extract_commit(
+                definitions_absref, self._definitions_checkout_dir)
 
-            visit(definitions_repo, definitions_ref, filename,
-                  definitions_absref, definitions_tree, morphology)
-            if morphology['kind'] == 'cluster':
-                raise cliapp.AppException(
-                    "Cannot build a morphology of type 'cluster'.")
-            elif morphology['kind'] == 'system':
-                definitions_queue.extend(
-                    morphlib.util.sanitise_morphology_path(s['morph'])
-                    for s in morphology['strata'])
-            elif morphology['kind'] == 'stratum':
-                if morphology['build-depends']:
+            while definitions_queue:
+                filename = definitions_queue.popleft()
+
+                morphology = self._get_morphology(
+                    definitions_repo, definitions_absref, filename)
+
+                visit(definitions_repo, definitions_ref, filename,
+                      definitions_absref, definitions_tree, morphology)
+                if morphology['kind'] == 'cluster':
+                    raise cliapp.AppException(
+                        "Cannot build a morphology of type 'cluster'.")
+                elif morphology['kind'] == 'system':
                     definitions_queue.extend(
                         morphlib.util.sanitise_morphology_path(s['morph'])
-                        for s in morphology['build-depends'])
-                for c in morphology['chunks']:
-                    if 'morph' not in c:
-                        path = morphlib.util.sanitise_morphology_path(
-                            c.get('morph', c['name']))
-                        chunk_in_source_repo_queue.append(
-                            (c['repo'], c['ref'], path))
-                        continue
-                    chunk_in_definitions_repo_queue.append(
-                        (c['repo'], c['ref'], c['morph']))
+                        for s in morphology['strata'])
+                elif morphology['kind'] == 'stratum':
+                    if morphology['build-depends']:
+                        definitions_queue.extend(
+                            morphlib.util.sanitise_morphology_path(s['morph'])
+                            for s in morphology['build-depends'])
+                    for c in morphology['chunks']:
+                        if 'morph' not in c:
+                            path = morphlib.util.sanitise_morphology_path(
+                                c.get('morph', c['name']))
+                            chunk_in_source_repo_queue.append(
+                                (c['repo'], c['ref'], path))
+                            continue
+                        chunk_in_definitions_repo_queue.append(
+                            (c['repo'], c['ref'], c['morph']))
 
-        for repo, ref, filename in chunk_in_definitions_repo_queue:
-            if (repo, ref) not in resolved_trees:
-                commit_sha1, tree_sha1 = self.resolve_ref(repo, ref)
-                resolved_commits[repo, ref] = commit_sha1
-                resolved_trees[repo, commit_sha1] = tree_sha1
-            absref = resolved_commits[repo, ref]
-            tree = resolved_trees[repo, absref]
-            key = (definitions_repo, definitions_absref, filename)
-            morphology = self._get_morphology(*key)
-            visit(repo, ref, filename, absref, tree, morphology)
+            for repo, ref, filename in chunk_in_definitions_repo_queue:
+                if (repo, ref) not in resolved_trees:
+                    commit_sha1, tree_sha1 = self.resolve_ref(repo, ref)
+                    resolved_commits[repo, ref] = commit_sha1
+                    resolved_trees[repo, commit_sha1] = tree_sha1
+                absref = resolved_commits[repo, ref]
+                tree = resolved_trees[repo, absref]
+                key = (definitions_repo, definitions_absref, filename)
+                morphology = self._get_morphology(*key)
+                visit(repo, ref, filename, absref, tree, morphology)
 
-        for repo, ref, filename in chunk_in_source_repo_queue:
-            if (repo, ref) not in resolved_trees:
-                commit_sha1, tree_sha1 = self.resolve_ref(repo, ref)
-                resolved_commits[repo, ref] = commit_sha1
-                resolved_trees[repo, commit_sha1] = tree_sha1
-            absref = resolved_commits[repo, ref]
-            tree = resolved_trees[repo, absref]
-            key = (repo, absref, filename)
-            morphology = self._get_morphology(*key)
-            visit(repo, ref, filename, absref, tree, morphology)
+            for repo, ref, filename in chunk_in_source_repo_queue:
+                if (repo, ref) not in resolved_trees:
+                    commit_sha1, tree_sha1 = self.resolve_ref(repo, ref)
+                    resolved_commits[repo, ref] = commit_sha1
+                    resolved_trees[repo, commit_sha1] = tree_sha1
+                absref = resolved_commits[repo, ref]
+                tree = resolved_trees[repo, absref]
+                key = (repo, absref, filename)
+                morphology = self._get_morphology(*key)
+                visit(repo, ref, filename, absref, tree, morphology)
+        finally:
+            shutil.rmtree(self._definitions_checkout_dir)
+            self._definitions_checkout_dir = None
 
 
 def create_source_pool(lrc, rrc, repo, ref, filename,
