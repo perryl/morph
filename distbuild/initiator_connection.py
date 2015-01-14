@@ -1,6 +1,6 @@
 # distbuild/initiator_connection.py -- communicate with initiator
 #
-# Copyright (C) 2012, 2014  Codethink Limited
+# Copyright (C) 2012, 2014-2015  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -70,6 +70,8 @@ class InitiatorConnection(distbuild.StateMachine):
             # state, source, event_class, new_state, callback
             ('idle', self.jm, distbuild.JsonNewMessage, 'idle', 
                 self._handle_msg),
+            ('idle', self.jm, distbuild.JsonError, 'closing',
+                self._disconnect),
             ('idle', self.jm, distbuild.JsonEof, 'closing', self._disconnect),
             ('idle', distbuild.BuildController, distbuild.BuildFinished,
                 'idle', self._send_build_finished_message),
