@@ -1,0 +1,21 @@
+---
+- hosts: all
+  vars:
+    - TROVE_HOST: git.baserock.org
+    - MORPH_VERSION: master
+  tasks:
+    - name: check out Morph repository
+      command: git clone git://{{ TROVE_HOST }}/baserock/baserock/morph /srv/morph
+      args:
+        creates: /srv/morph
+
+    - name: check out specified version of Morph
+      command: git checkout {{ MORPH_VERSION }}
+      args:
+        chdir: /srv/morph
+
+    - name: ensure latest Morph is used
+      file: path=/usr/bin/{{ item }} src=/srv/morph/{{ item }} state=link force=yes
+      with_items:
+        - morph
+        - distbuild-helper
