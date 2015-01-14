@@ -233,6 +233,7 @@ build branch is made to include that change.
     WHEN the user makes changes to test-chunk in branch master
     AND  the user builds systems/test-system.morph of the master branch
     THEN the changes to test-chunk in branch master are included in the temporary build branch
+    FINALLY the git server is shut down
 
 ### When branches are created ###
 

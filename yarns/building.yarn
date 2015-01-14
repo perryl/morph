@@ -35,6 +35,7 @@ so when we deploy the system, we can check whether it exists.
     WHEN the user attempts to deploy the cluster test-cluster.morph in branch master with options test-system.location="$DATADIR/test.tar"
     THEN morph succeeded
     AND tarball test.tar contains etc/passwd
+    FINALLY the git server is shut down
 
 Distbuilding
 ------------

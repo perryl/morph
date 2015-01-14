@@ -328,3 +328,4 @@ Once it is rebuilt, it can be deployed.
     WHEN the user attempts to deploy the cluster test-cluster.morph in branch mybranch
     THEN morph succeeded
     AND file workspace/mybranch/test/morphs/test-system.tar exists
+    FINALLY the git server is shut down
