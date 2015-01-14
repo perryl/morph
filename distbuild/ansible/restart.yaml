@@ -1,0 +1,16 @@
+---
+- hosts: controller
+  tasks:
+    - name: restart controller processes
+      service: name={{ item }} state=restarted
+      with_items:
+        - morph-controller-helper.service
+        - morph-controller.service
+
+- hosts: workers
+  tasks:
+    - name: restart worker processes
+      service: name={{ item }} state=restarted
+      with_items:
+        - morph-worker-helper.service
+        - morph-worker.service
