@@ -323,6 +323,30 @@ another to hold a chunk.
     git commit -m Initial.
     git tag -a "test-tag" -m "Tagging test-tag"
 
+    git checkout -b empty-stratum
+
+    install -m644 -D /dev/stdin << EOF "systems/empty-stratum-system.morph"
+    name: empty-stratum-system
+    kind: system
+    arch: $arch
+    strata:
+    - name: build-essential
+      morph: strata/build-essential.morph
+    - name: core
+      morph: strata/core.morph
+    - name: empty
+      morph: strata/empty.morph
+    EOF
+
+    install -m644 -D /dev/stdin << EOF "strata/empty.morph"
+    name: empty
+    kind: stratum
+    EOF
+
+    git add .
+    git commit -m 'Add an empty stratum'
+    git checkout master
+
     # Start a git daemon to serve our git repositories
     port_file="$DATADIR/git-daemon-port"
     pid_file="$DATADIR/git-daemon-pid"

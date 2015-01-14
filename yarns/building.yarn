@@ -73,3 +73,14 @@ repos cached locally.
     AND the distbuild worker is terminated
     AND the communal cache server is terminated
     AND the git server is shut down
+
+Empty strata don't build
+------------------------
+
+    SCENARIO empty-strata
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called empty-stratum
+    AND the user attempts to build the system systems/empty-stratum-system.morph in branch empty-stratum
+    THEN morph failed
+    FINALLY the git server is shut down
