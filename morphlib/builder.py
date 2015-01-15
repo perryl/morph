@@ -300,8 +300,8 @@ class ChunkBuilder(BuilderBase):
                 if self.app.settings['build-log-on-stdout'] else None)
 
             cache = self.local_artifact_cache
-            logpath = cache.get_source_metadata_filename(
-                self.source, self.source.cache_key, 'build-log')
+            logpath = cache.get_source_metadata_filename(self.source,
+                self.source.cache_key, self.source.name + '-build-log')
 
             _, temppath = tempfile.mkstemp(dir=os.path.dirname(logpath))
 

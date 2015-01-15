@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2014  Codethink Limited
+# Copyright (C) 2012-2015  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -245,8 +245,19 @@ class StagingArea(object):
         # No cleanup is currently required
         pass
 
+    def log_env(self, log, message=''):  # pragma: no cover
+        '''Log current environment and optional message in chunk build-log'''
+        logfile = open(log, "a")
+        for key in sorted(os.environ.keys()):
+            msg = os.environ[key] if 'PASSWORD' not in key else '(hidden)'
+            logfile.write('%s=%s\n' % (key, msg))
+        logfile.write(message)
+        logfile.write('\n')
+        logfile.flush()
+
     def runcmd(self, argv, **kwargs):  # pragma: no cover
         '''Run a command in a chroot in the staging area.'''
+
         assert 'env' not in kwargs
         kwargs['env'] = dict(self.env)
         if 'extra_env' in kwargs:
@@ -294,6 +305,7 @@ class StagingArea(object):
 
         if kwargs.get('logfile') != None:
             logfile = kwargs.pop('logfile')
+            self.log_env(logfile, '\n'.join(cmdline))
             teecmd = ['tee', '-a', logfile]
             exit, out, err = self._app.runcmd_unchecked(
                 cmdline, teecmd, **kwargs)
