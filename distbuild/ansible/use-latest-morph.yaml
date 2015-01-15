@@ -22,6 +22,11 @@
       args:
         creates: /srv/morph
 
+    - name: update Morph repository
+      command: git remote update origin
+      args:
+        chdir: /srv/morph
+
     - name: check out specified version of Morph
       command: git checkout {{ MORPH_VERSION }}
       args:
