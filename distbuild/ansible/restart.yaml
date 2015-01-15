@@ -1,3 +1,13 @@
+# Restart all Morph instances on a Baserock distbuild network.
+#
+# This will abort any running builds.
+#
+# This is an Ansible playbook. Run with:
+#
+#   ansible-playbook -i distbuild-hosts restart.yaml
+#
+# You will need a file named 'distbuild-hosts' describing your distbuild
+# network.
 ---
 - hosts: controller
   tasks:
