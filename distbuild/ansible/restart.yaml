@@ -9,18 +9,20 @@
 # You will need a file named 'distbuild-hosts' describing your distbuild
 # network.
 ---
+
+# The order in which the processes are restarted is important! (Sadly).
 - hosts: controller
   tasks:
     - name: restart controller processes
       service: name={{ item }} state=restarted
       with_items:
-        - morph-controller-helper.service
         - morph-controller.service
+        - morph-controller-helper.service
 
 - hosts: workers
   tasks:
     - name: restart worker processes
       service: name={{ item }} state=restarted
       with_items:
-        - morph-worker-helper.service
         - morph-worker.service
+        - morph-worker-helper.service
