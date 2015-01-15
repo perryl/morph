@@ -1,10 +1,23 @@
+# Upgrade the version of Morph used on a Baserock distbuild network.
+#
+# This allows quickly testing a new version of Morph without having to fully
+# build and deploy a new Baserock 'build' system. You should run the
+# 'restart.yaml' playbook after this one.
+#
+# This is an Ansible playbook. Run with:
+#
+#   ansible-playbook -i distbuild-hosts use-latest-morph.yaml
+#
+# You will need a file named 'distbuild-hosts' describing your distbuild
+# network.
+
 ---
 - hosts: all
   vars:
     - TROVE_HOST: git.baserock.org
     - MORPH_VERSION: master
   tasks:
-    - name: check out Morph repository
+    - name: clone Morph repository
       command: git clone git://{{ TROVE_HOST }}/baserock/baserock/morph /srv/morph
       args:
         creates: /srv/morph
@@ -15,7 +28,7 @@
         chdir: /srv/morph
 
     - name: ensure latest Morph is used
-      file: path=/usr/bin/{{ item }} src=/srv/morph/{{ item }} state=link force=yes
+      template: backup=yes src=run-from-morph-source-tree.sh.template dest=/usr/bin/{{ item }}
       with_items:
         - morph
         - distbuild-helper
