@@ -28,7 +28,7 @@
         chdir: /srv/morph
 
     - name: ensure latest Morph is used
-      template: backup=yes src=run-from-morph-source-tree.sh.template dest=/usr/bin/{{ item }}
+      template: backup=yes src=run-from-morph-source-tree.sh.template dest=/usr/bin/{{ item }} mode=+x
       with_items:
         - morph
         - distbuild-helper
