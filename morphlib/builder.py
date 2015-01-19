@@ -674,8 +674,9 @@ class SystemBuilder(BuilderBase):  # pragma: no cover
                     cmdline, env=env)
                 if exit != 0:
                     logging.debug('Command returned code %i', exit)
-                    msg = morphlib.util.error_message_for_containerised_commandline(
-                        argv, err, container_config)
+                    msg = (morphlib.util.
+                            error_message_for_containerised_commandline(
+                                argv, err, container_config))
                     raise cliapp.AppException(msg)
         except BaseException, e:
             self.app.status(
