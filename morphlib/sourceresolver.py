@@ -133,6 +133,7 @@ class SourceResolver(object):
         else:
             defs_filename = None
 
+        morph = None
         morph_name = os.path.splitext(os.path.basename(filename))[0]
         loader = morphlib.morphloader.MorphologyLoader()
         if reponame == self._definitions_repo and \
