@@ -220,7 +220,7 @@ class SourceResolver(object):
 
 
         loader = morphlib.morphloader.MorphologyLoader()
-        if os.path.exists(defs_filename):
+        if defs_filename and os.path.exists(defs_filename):
             morph = loader.load_from_file(defs_filename)
         elif self.lrc.has_repo(reponame):
             self.status(msg="Looking for %(reponame)s:%(filename)s in local "
