@@ -165,7 +165,8 @@ class SourceResolver(object):
         # The Baserock reference definitions use absolute refs so, and, if the
         # absref is cached, we can short-circuit all this code.
         if (reponame, ref) in self._resolved_trees:
-            return ref, self._resolved_trees[ref]
+            logging.debug('Returning tree (%s, %s) from tree cache', reponame, ref)
+            return ref, self._resolved_trees[(reponame, ref)]
 
         absref = None
         if self.lrc.has_repo(reponame):
@@ -201,6 +202,10 @@ class SourceResolver(object):
                 repo = self.lrc.get_repo(reponame)
             absref = repo.resolve_ref_to_commit(ref)
             tree = repo.resolve_ref_to_tree(absref)
+
+        logging.debug('Writing tree to cache with ref (%s, %s)', reponame, ref)
+        self._resolved_trees[(reponame, absref)] = tree
+
         return absref, tree
 
     def _get_morphology(self, reponame, sha1, filename):
@@ -428,7 +433,10 @@ class SourceResolver(object):
             shutil.rmtree(self._definitions_checkout_dir)
             self._definitions_checkout_dir = None
 
+            logging.debug('Saving contents of resolved tree cache')
             self.tree_cache_manager.save_cache(self._resolved_trees)
+
+            logging.debug('Saving contents of build systems cache')
             self.buildsystem_cache_manager.save_cache(self._resolved_buildsystems)
 
 
