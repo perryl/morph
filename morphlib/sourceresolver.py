@@ -141,27 +141,6 @@ class SourceResolver(object):
             self.status(msg="Reading %s from local definitions checkout"
                         % filename, chatty=True)
             morph = loader.load_from_file(defs_filename)
-        elif self.lrc.has_repo(reponame):
-            self.status(msg="Looking for %s in local repo cache" % filename,
-                        chatty=True)
-            try:
-                repo = self.lrc.get_repo(reponame)
-                text = repo.read_file(filename, sha1)
-                morph = loader.load_from_string(text)
-            except IOError:
-                morph = None
-                file_list = repo.list_files(ref=sha1, recurse=False)
-        elif self.rrc is not None:
-            self.status(msg="Retrieving %(reponame)s %(sha1)s %(filename)s"
-                        " from the remote git cache.",
-                        reponame=reponame, sha1=sha1, filename=filename,
-                        chatty=True)
-            try:
-                text = self.rrc.cat_file(reponame, sha1, filename)
-                morph = loader.load_from_string(text)
-            except morphlib.remoterepocache.CatFileError:
-                morph = None
-                file_list = self.rrc.ls_tree(reponame, sha1)
         else:
             raise NotcachedError(reponame)
 
