@@ -141,8 +141,6 @@ class SourceResolver(object):
             self.status(msg="Reading %s from local definitions checkout"
                         % filename, chatty=True)
             morph = loader.load_from_file(defs_filename)
-        else:
-            raise NotcachedError(reponame)
 
         if morph is None:
             self.status(msg="File %s doesn't exist: attempting to infer "
