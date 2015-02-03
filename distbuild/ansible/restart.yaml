@@ -12,6 +12,7 @@
 
 # The order in which the processes are restarted is important! (Sadly).
 - hosts: controller
+  gather_facts: false
   tasks:
     - name: restart controller processes
       service: name={{ item }} state=restarted
@@ -20,6 +21,7 @@
         - morph-controller-helper.service
 
 - hosts: workers
+  gather_facts: false
   tasks:
     - name: restart worker processes
       service: name={{ item }} state=restarted
