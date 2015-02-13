@@ -1139,66 +1139,9 @@ Distbuild
     IMPLEMENTS ASSUMING the morph-cache-server can be run
     "$SRCDIR/morph-cache-server" --version
 
-    IMPLEMENTS GIVEN a communal cache server
-    # The communal cache server has direct access to the git repositories
-    # and can have artifacts placed on it
-    artifact_dir="$DATADIR/shared-artifacts"
-    mkdir -p "$artifact_dir"
-
-    read_cache_server_port_file="$DATADIR/read-cache-server-port"
-    read_cache_server_pid_file="$DATADIR/read-cache-server-pid"
-    start_cache_server "$read_cache_server_port_file" \
-                       "$read_cache_server_pid_file" \
-                       "$artifact_dir"
-
-    write_cache_server_port_file="$DATADIR/write-cache-server-port"
-    write_cache_server_pid_file="$DATADIR/write-cache-server-pid"
-    start_cache_server "$write_cache_server_port_file" \
-                       "$write_cache_server_pid_file" \
-                       "$artifact_dir" --enable-writes
-
-    IMPLEMENTS FINALLY the communal cache server is terminated
-    stop_daemon "$DATADIR/read-cache-server-pid"
-    stop_daemon "$DATADIR/write-cache-server-pid"
-
-    IMPLEMENTS GIVEN a distbuild worker
-    # start worker cache server, so other workers can download results
-    worker_cachedir="$DATADIR/distbuild-worker-cache"
-    worker_artifacts="$worker_cachedir/artifacts"
-    mkdir -p "$worker_artifacts"
-    worker_cache_port_file="$DATADIR/worker-cache-server-port"
-    worker_cache_pid_file="$DATADIR/worker-cache-server-pid"
-    start_cache_server "$worker_cache_port_file" \
-                       "$worker_cache_pid_file" \
-                       "$worker_artifacts"
-
-    # start worker daemon
-    worker_daemon_port_file="$DATADIR/worker-daemon-port"
-    worker_daemon_pid_file="$DATADIR/worker-daemon-pid"
-    mkfifo "$worker_daemon_port_file"
-    communal_cache_port="$(cat "$DATADIR/read-cache-server-port")"
-    start-stop-daemon --start --pidfile="$worker_daemon_pid_file" \
-        --background --make-pidfile --verbose \
-        --startas="$SRCDIR/morph" -- worker-daemon \
-        --no-default-configs --config "$DATADIR/morph.conf" \
-        --worker-daemon-port=0 \
-        --worker-daemon-port-file="$worker_daemon_port_file" \
-        --cachedir="$worker_cachedir" \
-        --artifact-cache-server="http://localhost:$communal_cache_port/" \
-        --git-resolve-cache-server="http://localhost:$communal_cache_port/" \
-        --log="$DATADIR/worker-daemon-log" \
-        >"$DATADIR/worker-daemon-out" 2>"$DATADIR/worker-daemon-err"
-    worker_daemon_port="$(cat "$worker_daemon_port_file")"
-    rm "$worker_daemon_port_file"
-    echo "$worker_daemon_port" >"$worker_daemon_port_file"
-
-    # start worker helper
-    helper_pid_file="$DATADIR/worker-daemon-helper-pid"
-    start-stop-daemon --start --pidfile="$helper_pid_file" \
-        --background --make-pidfile --verbose \
-        --startas="$SRCDIR/distbuild-helper" -- \
-        --no-default-configs \
-        --parent-port="$worker_daemon_port"
+    IMPLEMENTS GIVEN a distbuild network
+    distbuild_port_file="$DATADIR/distbuild-port"
+    distbuild_pid_file="$DATADIR/distbuild-pid"
 
     # set up builder config
     install /dev/stdin <<'EOF' "$DATADIR/morph"
@@ -1206,65 +1149,22 @@ Distbuild
     exec "$SRCDIR/morph" --quiet \
         --cachedir-min-space=0 --tempdir-min-space=0 \
         --no-default-config --config "$DATADIR/morph.conf" \
-        --cachedir "$DATADIR/distbuild-worker-cache" "$@"
+        --cachedir "$DATADIR/distbuild/worker-cache" "$@"
     EOF
 
-    IMPLEMENTS FINALLY the distbuild worker is terminated
-    stop_daemon "$DATADIR/worker-cache-server-pid"
-    stop_daemon "$DATADIR/worker-daemon-pid"
-    stop_daemon "$DATADIR/worker-daemon-helper-pid"
+    start_distbuild "$distbuild_port_file" \
+                    "$distbuild_pid_file" \
+                    "$DATADIR/morph"
 
-    IMPLEMENTS GIVEN a distbuild controller
-    worker_cache_port_file="$DATADIR/worker-cache-server-port"
-    worker_cache_server_port="$(cat "$worker_cache_port_file")"
-    worker_daemon_port_file="$DATADIR/worker-daemon-port"
-    worker_daemon_port="$(cat "$worker_daemon_port_file")"
-    communal_cache_read_port="$(cat "$DATADIR/read-cache-server-port")"
-    communal_cache_write_port="$(cat "$DATADIR/write-cache-server-port")"
-    initiator_port_file="$DATADIR/controller-initiator-port"
-    mkfifo "$initiator_port_file"
-    helper_port_file="$DATADIR/controller-helper-port"
-    mkfifo "$helper_port_file"
-    controller_pid_file="$DATADIR/controller-pid"
-    start-stop-daemon --start --pidfile="$controller_pid_file" \
-        --background --make-pidfile --verbose \
-        --startas="$SRCDIR/morph" -- controller-daemon \
-        --no-default-configs --config "$DATADIR/morph.conf" \
-        --worker="localhost:$worker_daemon_port" \
-        --worker-cache-server-port="$worker_cache_server_port" \
-        --artifact-cache-server="http://localhost:$communal_cache_read_port/" \
-        --git-resolve-cache-server="http://localhost:$communal_cache_read_port/" \
-        --writeable-cache-server="http://localhost:$communal_cache_write_port/" \
-        --controller-helper-port=0 \
-        --controller-helper-port-file="$helper_port_file" \
-        --controller-initiator-port=0 \
-        --controller-initiator-port-file="$initiator_port_file" \
-        --morph-instance="$DATADIR/morph" \
-        --log="$DATADIR/controller-daemon-log" \
-        >"$DATADIR/controller-daemon-out" 2>"$DATADIR/controller-daemon-err"
-    helper_port="$(cat "$helper_port_file")"
-    rm "$helper_port_file"
-    echo "$helper_port" >"$helper_port_file"
-    initiator_port="$(cat "$initiator_port_file")"
-    rm "$initiator_port_file"
-    echo "$initiator_port" >"$initiator_port_file"
-
-    # start worker helper
-    helper_pid_file="$DATADIR/controller-helper-pid"
-    start-stop-daemon --start --pidfile="$helper_pid_file" \
-        --background --make-pidfile --verbose \
-        --startas="$SRCDIR/distbuild-helper" -- \
-        --no-default-configs \
-        --parent-port="$helper_port"
+    distbuild_port=$(cat "$distbuild_port_file")
 
     # make builds use distbuild
-    echo "controller-initiator-port = $initiator_port" \
+    echo "controller-initiator-port = $distbuild_port" \
         >>"$DATADIR/morph.conf"
     echo "controller-initiator-address = localhost" \
         >>"$DATADIR/morph.conf"
     echo "initiator-step-output-dir = $DATADIR" \
         >>"$DATADIR/morph.conf"
 
-    IMPLEMENTS FINALLY the distbuild controller is terminated
-    stop_daemon "$DATADIR/controller-helper-pid"
-    stop_daemon "$DATADIR/controller-pid"
+    IMPLEMENTS FINALLY the distbuild network is terminated
+    stop_daemon "$DATADIR/distbuild-pid"

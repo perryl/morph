@@ -72,9 +72,7 @@ Distbuilding
     ASSUMING the morph-cache-server can be run
     GIVEN a workspace
     AND a git server
-    AND a communal cache server
-    AND a distbuild worker
-    AND a distbuild controller
+    AND a distbuild network
 
 Distbuilding works much the same way as regular building.
 
@@ -97,9 +95,7 @@ repos cached locally.
 >   THEN morph succeeded
 >   AND file workspace/master/test/morphs/test-system exists
 
-    FINALLY the distbuild controller is terminated
-    AND the distbuild worker is terminated
-    AND the communal cache server is terminated
+    FINALLY the distbuild network is terminated
     AND the git server is shut down
 
 Empty strata don't build
