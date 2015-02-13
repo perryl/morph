@@ -188,15 +188,19 @@ slashify_colons()
     echo "$1" | sed s,:,/,g
 }
 
-start_cache_server(){
+start_distbuild(){
     mkfifo "$1"
     start-stop-daemon --start --pidfile="$2" \
         --background --make-pidfile --verbose \
-        --startas="$SRCDIR/morph-cache-server" -- \
-        --port-file="$1" --no-fcgi \
-        --repo-dir="$DATADIR/gits" --direct-mode \
-        --bundle-dir="$DATADIR/bundles" \
-        --artifact-dir="$3" "$@"
+        --startas="$SRCDIR/scripts/distbuild" -- \
+        run \
+        --port-file="$1" \
+        --datadir="$DATADIR/distbuild" \
+        --morph-instance="$3" "$@"
+
+    # Wait for the process to be ready by watching the FIFO. Beware that if the
+    # process doesn't start fully (maybe it crashes or exists with an error)
+    # then this will hang forever.
     port="$(cat "$1")"
     rm "$1"
     echo "$port" >"$1"
