@@ -544,4 +544,12 @@ class InitiatorBuildCommand(BuildCommand):
                                                   self.MAX_RETRIES)
 
         loop.add_state_machine(cm)
-        loop.run()
+        try:
+            loop.run()
+        except KeyboardInterrupt:
+            # This will run if the user presses Ctrl+C or sends SIGINT during
+            # the build. It won't trigger on SIGTERM, SIGKILL or unhandled
+            # Python exceptions.
+            logging.info('Received KeyboardInterrupt, aborting.')
+            for initiator in loop.state_machines_of_type(distbuild.Initiator):
+                initiator.handle_cancel()

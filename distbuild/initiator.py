@@ -152,16 +152,17 @@ class Initiator(distbuild.StateMachine):
     def _get_output(self, msg):
         return self._step_outputs[msg['step_name']]
 
+    def _write_status_to_build_log(self, f, status):
+        f.write(time.strftime('%Y-%m-%d %H:%M:%S ') + status + '\n')
+        f.flush()
+
     def _handle_step_already_started_message(self, msg):
         status = '%s is already building on %s' % (
             msg['step_name'], msg['worker_name'])
         self._app.status(msg=status)
 
         self._open_output(msg)
-
-        f = self._get_output(msg)
-        f.write(time.strftime('%Y-%m-%d %H:%M:%S ') + status + '\n')
-        f.flush()
+        self._write_status_to_build_log(self._get_output(msg), status)
 
     def _handle_step_started_message(self, msg):
         status = 'Started building %s on %s' % (
@@ -169,10 +170,7 @@ class Initiator(distbuild.StateMachine):
         self._app.status(msg=status)
 
         self._open_output(msg)
-
-        f = self._get_output(msg)
-        f.write(time.strftime('%Y-%m-%d %H:%M:%S ') + status + '\n')
-        f.flush()
+        self._write_status_to_build_log(self._get_output(msg), status)
 
     def _handle_step_output_message(self, msg):
         step_name = msg['step_name']
@@ -191,9 +189,7 @@ class Initiator(distbuild.StateMachine):
             status = 'Finished building %s' % step_name
             self._app.status(msg=status)
 
-            f = self._get_output(msg)
-            f.write(time.strftime('%Y-%m-%d %H:%M:%S ') + status + '\n')
-
+            self._write_status_to_build_log(self._get_output(msg), status)
             self._close_output(msg)
         else:
             logging.warning(
@@ -205,9 +201,7 @@ class Initiator(distbuild.StateMachine):
             status = 'Build of %s failed.' % step_name
             self._app.status(msg=status)
 
-            f = self._get_output(msg)
-            f.write(time.strftime('%Y-%m-%d %H:%M:%S ') + status + '\n')
-
+            self._write_status_to_build_log(self._get_output(msg), status)
             self._close_output(msg)
         else:
             logging.warning(
@@ -238,3 +232,13 @@ class Initiator(distbuild.StateMachine):
         self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
         self._jm.close()
 
+    def handle_cancel(self):
+        # Note in each build-step.log file that the initiator cancelled: this
+        # makes it easier to tell whether a build was aborted due to a bug or
+        # dropped connection, or if the user cancelled with CTRL+C / SIGINT.
+
+        for f in self._step_outputs.itervalues():
+            self._write_status_to_build_log(f, 'Initiator cancelled')
+            f.close()
+
+        self._step_outputs = {}
