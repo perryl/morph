@@ -64,7 +64,6 @@ class Initiator(distbuild.StateMachine):
         self._ref = ref
         self._morphology = morphology
         self._original_ref = original_ref
-        self._steps = None
         self._step_outputs = {}
         self.debug_transitions = False
 
@@ -117,7 +116,6 @@ class Initiator(distbuild.StateMachine):
             'build-finished': self._handle_build_finished_message,
             'build-failed': self._handle_build_failed_message,
             'build-progress': self._handle_build_progress_message,
-            'build-steps': self._handle_build_steps_message,
             'step-started': self._handle_step_started_message,
             'step-already-started': self._handle_step_already_started_message,
             'step-output': self._handle_step_output_message,
@@ -136,12 +134,6 @@ class Initiator(distbuild.StateMachine):
 
     def _handle_build_progress_message(self, msg):
         self._app.status(msg='Progress: %(msgtext)s', msgtext=msg['message'])
-
-    def _handle_build_steps_message(self, msg):
-        self._steps = msg['steps']
-        self._app.status(
-            msg='Build steps in total: %(steps)d',
-            steps=len(self._steps))
 
     def _open_output(self, msg):
         assert msg['step_name'] not in self._step_outputs

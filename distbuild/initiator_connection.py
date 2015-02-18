@@ -77,8 +77,6 @@ class InitiatorConnection(distbuild.StateMachine):
                 'idle', self._send_build_failed_message),
             ('idle', distbuild.BuildController, distbuild.BuildProgress, 
                 'idle', self._send_build_progress_message),
-            ('idle', distbuild.BuildController, distbuild.BuildSteps, 
-                'idle', self._send_build_steps_message),
             ('idle', distbuild.BuildController, distbuild.BuildStepStarted, 
                 'idle', self._send_build_step_started_message),
             ('idle', distbuild.BuildController,
@@ -177,26 +175,6 @@ class InitiatorConnection(distbuild.StateMachine):
             msg = distbuild.message('build-progress',
                 id=self._route_map.get_incoming_id(event.id),
                 message=event.message_text)
-            self.jm.send(msg)
-            self._log_send(msg)
-
-    def _send_build_steps_message(self, event_source, event):
-    
-        def make_step_dict(artifact):
-            return {
-                'name': distbuild.build_step_name(artifact),
-                'build-depends': [
-                    distbuild.build_step_name(x)
-                    for x in artifact.dependencies
-                ]
-            }
-            
-        if event.id in self.our_ids:
-            step_names = distbuild.map_build_graph(
-                event.artifact, make_step_dict)
-            msg = distbuild.message('build-steps',
-                id=self._route_map.get_incoming_id(event.id),
-                steps=step_names)
             self.jm.send(msg)
             self._log_send(msg)
 

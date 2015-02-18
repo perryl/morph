@@ -38,10 +38,6 @@ _required_fields = {
         'id',
         'message',
     ],
-    'build-steps': [
-        'id',
-        'steps',
-    ],
     'step-started': [
         'id',
         'step_name',

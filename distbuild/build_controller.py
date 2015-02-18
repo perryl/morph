@@ -71,13 +71,6 @@ class BuildProgress(object):
         self.message_text = message_text
 
 
-class BuildSteps(object):
-
-    def __init__(self, request_id, artifact):
-        self.id = request_id
-        self.artifact = artifact
-
-
 class BuildStepStarted(object):
 
     def __init__(self, request_id, step_name, worker_name):
@@ -295,9 +288,6 @@ class BuildController(distbuild.StateMachine):
             progress = BuildProgress(
                 self._request['id'], 'Finished computing build graph')
             self.mainloop.queue_event(BuildController, progress)
-            
-            build_steps = BuildSteps(self._request['id'], artifact)
-            self.mainloop.queue_event(BuildController, build_steps)
 
             self.mainloop.queue_event(self, _GotGraph(artifact))
 
@@ -348,7 +338,6 @@ class BuildController(distbuild.StateMachine):
             '(helper id: %s)' % self._helper_id)
 
     def _maybe_handle_cache_response(self, event_source, event):
-
         def set_status(artifact):
             is_in_cache = cache_state[artifact.basename()]
             artifact.state = BUILT if is_in_cache else UNBUILT
@@ -370,15 +359,14 @@ class BuildController(distbuild.StateMachine):
         map_build_graph(self._artifact, set_status)
         self.mainloop.queue_event(self, _Annotated())
 
-        count = sum(map_build_graph(self._artifact,
-                    lambda a: 1 if a.state == UNBUILT else 0))
-
+        unbuilt = len([a for a in self._artifact.walk() if a.state == UNBUILT])
+        total = len([a for _ in self._artifact.walk()])
         progress = BuildProgress(
             self._request['id'],
-            'Need to build %d artifacts' % count)
+            'Need to build %d artifacts, of %d total' % (unbuilt, total))
         self.mainloop.queue_event(BuildController, progress)
 
-        if count == 0:
+        if total == 0:
             logging.info('There seems to be nothing to build')
             self.mainloop.queue_event(self, _Built())
 
