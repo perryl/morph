@@ -17,6 +17,7 @@
 
 
 import cliapp
+import itertools
 import logging
 import os
 import random
@@ -37,6 +38,20 @@ class _Failed(object):
         self.msg = msg
 
 
+def create_build_directory(prefix='build'):
+    '''Create a new directory to store build logs.
+
+    The directory will be named build-0, unless that directory already exists,
+    in which case it will be named build-1, and so on.
+
+    '''
+    for i in itertools.count():
+        path = '%s-%02i' % (prefix, i)
+        if not os.path.exists(path):
+            os.mkdir(path)
+            return path
+
+
 class Initiator(distbuild.StateMachine):
 
     def __init__(self, cm, conn, app, repo_name, ref, morphology,
@@ -51,8 +66,12 @@ class Initiator(distbuild.StateMachine):
         self._original_ref = original_ref
         self._steps = None
         self._step_outputs = {}
-        self._step_output_dir = app.settings['initiator-step-output-dir']
         self.debug_transitions = False
+
+        if app.settings['initiator-step-output-dir'] == '':
+            self._step_output_dir = create_build_directory()
+        else:
+            self._step_output_dir = app.settings['initiator-step-output-dir']
 
     def setup(self):
         distbuild.crash_point()

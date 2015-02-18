@@ -195,7 +195,6 @@ class ControllerDaemon(cliapp.Plugin):
         self.app.settings.string(
             ['initiator-step-output-dir'],
             'write build output to files in DIR',
-            default='.',
             group=group_distbuild)
 
         self.app.settings.string(
