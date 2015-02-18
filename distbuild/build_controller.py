@@ -121,7 +121,7 @@ class _Abort(object):
 
 def build_step_name(artifact):
     '''Return user-comprehensible name for a given artifact.'''
-    return artifact.name
+    return artifact.source.name
 
 
 def map_build_graph(artifact, callback):
