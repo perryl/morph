@@ -34,10 +34,14 @@ class BuildPlugin(cliapp.Plugin):
                                 arg_synopsis='SYSTEM')
         self.app.add_subcommand('distbuild', self.distbuild,
                                 arg_synopsis='SYSTEM')
+        self.app.add_subcommand('distbuild-start', self.distbuild_start,
+                                arg_synopsis='SYSTEM')
         self.use_distbuild = False
+        self.run_remote = False
 
     def disable(self):
         self.use_distbuild = False
+        self.run_remote = False
 
     def distbuild_morphology(self, args):
         '''Distbuild a system, outside of a system branch.
@@ -83,6 +87,11 @@ class BuildPlugin(cliapp.Plugin):
         '''
 
         self.use_distbuild = True
+        self.build(args)
+
+    def distbuild_start(self, args):
+        self.use_distbuild = True
+        self.run_remote = True
         self.build(args)
 
     def build_morphology(self, args):
@@ -182,6 +191,10 @@ class BuildPlugin(cliapp.Plugin):
             self._build_with_local_changes(build_command, sb, system_filename)
         else:
             self._build_local_commit(build_command, sb, system_filename)
+
+        if self.run_remote:
+            distbuild._jm.close()
+            # distbuild.StopConnecting()
 
     def _build_with_local_changes(self, build_command, sb, system_filename):
         '''Construct a branch including user's local changes, and build that.

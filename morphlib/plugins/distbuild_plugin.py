@@ -41,6 +41,49 @@ class DistbuildOptionsPlugin(cliapp.Plugin):
         pass
 
 
+'''class DistbuildListJobs(cliapp.Plugin):
+
+    def enable(self):
+        self.app.add_subcommand('distbuild-list-jobs',
+                                self.distbuild_list_jobs, arg_synopsis='')
+
+    def disable(self):
+        pass
+
+    def distbuild_list_jobs(self):
+        logging.info('Listing jobs...')
+        # call Initiator's build request message parameters; how to do this?
+        # need an accessible function in init that can be called to from here
+        # and print repo/ref/morph etc when list-jobs called
+
+class DistbuildStart(cliapp.Plugin):
+
+    def enable(self):
+        self.app.add_subcommand('distbuild-start', self.distbuild_start,
+                                arg_synopsis='TOKEN')
+
+    def disable(self):
+        pass
+
+    def distbuild_start(self, args):
+        logging.info('Disconnecting from remote distbuild server...(distbuild '
+                     'will continue remotely)')
+
+
+class DistbuildCancel(cliapp.Plugin):
+
+    def enable(self):
+        self.app.add_subcommand('distbuild-cancel', self.distbuild_cancel,
+                                arg_synopsis='TOKEN')
+
+    def disable(self):
+        pass
+
+    def distbuild_cancel(self, args):
+        logging.info('Cancelling %s' % args)
+        distbuild.InitiatorConnection._close()
+'''
+
 class SerialiseArtifactPlugin(cliapp.Plugin):
 
     def enable(self):
