@@ -132,7 +132,7 @@ def map_build_graph(artifact, callback):
         a = queue.pop()
         if a not in done:
             result.append(callback(a))
-            queue.extend(a.source.dependencies)
+            queue.extend(a.dependencies)
             done.add(a)
     return result
 
@@ -386,7 +386,7 @@ class BuildController(distbuild.StateMachine):
         def is_ready_to_build(artifact):
             return (artifact.state == UNBUILT and
                     all(a.state == BUILT
-                        for a in artifact.source.dependencies))
+                        for a in artifact.dependencies))
 
         return [a 
                 for a in map_build_graph(self._artifact, lambda a: a)
@@ -422,19 +422,19 @@ class BuildController(distbuild.StateMachine):
 
             logging.debug(
                 'Requesting worker-build of %s (%s)' %
-                    (artifact.name, artifact.source.cache_key))
+                    (artifact.name, artifact.cache_key))
             request = distbuild.WorkerBuildRequest(artifact,
                                                    self._request['id'])
             self.mainloop.queue_event(distbuild.WorkerBuildQueuer, request)
 
             artifact.state = BUILDING
-            if artifact.source.morphology['kind'] == 'chunk':
+            if artifact.kind == 'chunk':
                 # Chunk artifacts are not built independently
                 # so when we're building any chunk artifact
                 # we're also building all the chunk artifacts
                 # in this source
                 for a in ready:
-                    if a.source == artifact.source:
+                    if a.cache_key == artifact.cache_key:
                         a.state = BUILDING
 
 
@@ -538,7 +538,7 @@ class BuildController(distbuild.StateMachine):
 
     def _find_artifact(self, cache_key):
         artifacts = map_build_graph(self._artifact, lambda a: a)
-        wanted = [a for a in artifacts if a.source.cache_key == cache_key]
+        wanted = [a for a in artifacts if a.cache_key == cache_key]
         if wanted:
             return wanted[0]
         else:
@@ -564,10 +564,10 @@ class BuildController(distbuild.StateMachine):
         artifact.state = BUILT
 
         def set_state(a):
-            if a.source == artifact.source:
+            if a.cache_key == artifact.cache_key:
                 a.state = BUILT
 
-        if artifact.source.morphology['kind'] == 'chunk':
+        if artifact.kind == 'chunk':
             # Building a single chunk artifact
             # yields all chunk artifacts for the given source
             # so we set the state of this source's artifacts
@@ -624,8 +624,8 @@ class BuildController(distbuild.StateMachine):
         baseurl = urlparse.urljoin(
             self._artifact_cache_server, '/1.0/artifacts')
         filename = ('%s.%s.%s' % 
-            (self._artifact.source.cache_key,
-             self._artifact.source.morphology['kind'],
+            (self._artifact.cache_key,
+             self._artifact.kind,
              self._artifact.name))
         url = '%s?filename=%s' % (baseurl, urllib.quote(filename))
         finished = BuildFinished(self._request['id'], [url])

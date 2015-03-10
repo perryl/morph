@@ -271,13 +271,13 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                 logging.debug('Worker build step already started: %s' %
                     event.artifact.basename())
                 progress = WorkerBuildStepAlreadyStarted(event.initiator_id,
-                    event.artifact.source.cache_key, job.who.name())
+                    event.artifact.cache_key, job.who.name())
             else:
                 logging.debug('Job created but not building yet '
                     '(waiting for a worker to become available): %s' %
                     event.artifact.basename())
                 progress = WorkerBuildWaiting(event.initiator_id,
-                    event.artifact.source.cache_key)
+                    event.artifact.cache_key)
 
             self.mainloop.queue_event(WorkerConnection, progress)
         else:
@@ -288,7 +288,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
                 self._give_job(job)
             else:
                 progress = WorkerBuildWaiting(event.initiator_id,
-                    event.artifact.source.cache_key)
+                    event.artifact.cache_key)
                 self.mainloop.queue_event(WorkerConnection, progress)
 
     def _handle_cancel(self, event_source, event):
@@ -496,12 +496,17 @@ class WorkerConnection(distbuild.StateMachine):
             self._morph_instance,
             'worker-build',
             '--build-log-on-stdout',
-            self._job.artifact.name,
+            self._job.artifact.name
         ]
+
+        
+        serialised = distbuild.serialise_artifact(self._job.artifact,
+                                                  self._job.artifact.repo,
+                                                  self._job.artifact.ref)
         msg = distbuild.message('exec-request',
             id=self._job.id,
             argv=argv,
-            stdin_contents=distbuild.serialise_artifact(self._job.artifact),
+            stdin_contents=serialised,
         )
         self._jm.send(msg)
 
@@ -510,7 +515,7 @@ class WorkerConnection(distbuild.StateMachine):
                 % (self._worker_name, msg))
 
         started = WorkerBuildStepStarted(self._job.initiators,
-            self._job.artifact.source.cache_key, self.name())
+            self._job.artifact.cache_key, self.name())
 
         self.mainloop.queue_event(WorkerConnection, _JobStarted(self._job))
         self.mainloop.queue_event(WorkerConnection, started)
@@ -537,7 +542,7 @@ class WorkerConnection(distbuild.StateMachine):
         logging.debug('WC: emitting: %s', repr(new))
         self.mainloop.queue_event(
             WorkerConnection,
-            WorkerBuildOutput(new, self._job.artifact.source.cache_key))
+            WorkerBuildOutput(new, self._job.artifact.cache_key))
 
     def _handle_exec_response(self, msg):
         logging.debug('WC: finished building: %s' % self._job.artifact.name)
@@ -549,8 +554,7 @@ class WorkerConnection(distbuild.StateMachine):
 
         if new['exit'] != 0:
             # Build failed.
-            new_event = WorkerBuildFailed(new,
-                                          self._job.artifact.source.cache_key)
+            new_event = WorkerBuildFailed(new, self._job.artifact.cache_key)
             self.mainloop.queue_event(WorkerConnection, new_event)
             self.mainloop.queue_event(WorkerConnection, _JobFailed(self._job))
             self.mainloop.queue_event(self, _BuildFailed())
@@ -571,12 +575,11 @@ class WorkerConnection(distbuild.StateMachine):
 
         logging.debug('Requesting shared artifact cache to get artifacts')
 
-        kind = self._job.artifact.source.morphology['kind']
+        kind = self._job.artifact.kind
 
         if kind == 'chunk':
-            source_artifacts = self._job.artifact.source.artifacts
-
-            suffixes = ['%s.%s' % (kind, name) for name in source_artifacts]
+            source_artifacts = self._job.artifact.source_artifacts
+            suffixes = ['%s.%s' % (kind, a) for a in source_artifacts]
             suffixes.append('build-log')
         else:
             filename = '%s.%s' % (kind, self._job.artifact.name)
@@ -595,7 +598,7 @@ class WorkerConnection(distbuild.StateMachine):
             '/1.0/fetch?host=%s:%d&cacheid=%s&artifacts=%s' %
                 (urllib.quote(worker_host),
                  self._worker_cache_server_port,
-                 urllib.quote(self._job.artifact.source.cache_key),
+                 urllib.quote(self._job.artifact.cache_key),
                  suffixes))
 
         msg = distbuild.message(
@@ -606,7 +609,7 @@ class WorkerConnection(distbuild.StateMachine):
         self.mainloop.queue_event(distbuild.HelperRouter, req)
         
         progress = WorkerBuildCaching(self._job.initiators,
-            self._job.artifact.source.cache_key)
+            self._job.artifact.cache_key)
         self.mainloop.queue_event(WorkerConnection, progress)
 
     def _maybe_handle_helper_result(self, event_source, event):
@@ -619,7 +622,7 @@ class WorkerConnection(distbuild.StateMachine):
 
                 new_event = WorkerBuildFinished(
                     self._exec_response_msg,
-                    self._job.artifact.source.cache_key)
+                    self._job.artifact.cache_key)
                 self.mainloop.queue_event(WorkerConnection, new_event)
                 self.mainloop.queue_event(self, _Cached())
             else:
@@ -638,7 +641,7 @@ class WorkerConnection(distbuild.StateMachine):
 
                 new_event = WorkerBuildFailed(
                     self._exec_response_msg,
-                    self._job.artifact.source.cache_key)
+                    self._job.artifact.cache_key)
                 self.mainloop.queue_event(WorkerConnection, new_event)
 
                 self.mainloop.queue_event(self, _BuildFailed())
