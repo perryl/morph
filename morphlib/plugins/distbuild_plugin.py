@@ -72,7 +72,9 @@ class SerialiseArtifactPlugin(cliapp.Plugin):
         srcpool = build_command.create_source_pool(
             repo_name, ref, filename, original_ref=original_ref)
         artifact = build_command.resolve_artifacts(srcpool)
-        self.app.output.write(distbuild.serialise_artifact(artifact))
+        self.app.output.write(distbuild.serialise_artifact(artifact,
+                                                           repo_name,
+                                                           ref))
         self.app.output.write('\n')
 
 
@@ -96,9 +98,14 @@ class WorkerBuild(cliapp.Plugin):
         distbuild.add_crash_conditions(self.app.settings['crash-condition'])
 
         serialized = sys.stdin.readline()
-        artifact = distbuild.deserialise_artifact(serialized)
-        
+        artifact_reference = distbuild.deserialise_artifact(serialized)
+
         bc = morphlib.buildcommand.BuildCommand(self.app)
+        source_pool = bc.create_source_pool(artifact_reference.repo,
+                                            artifact_reference.ref,
+                                            artifact_reference.root_filename)
+
+        root = bc.resolve_artifacts(source_pool)
 
         # Now, before we start the build, we garbage collect the caches
         # to ensure we have room.  First we remove all system artifacts
@@ -111,8 +118,16 @@ class WorkerBuild(cliapp.Plugin):
 
         self.app.subcommands['gc']([])
 
-        arch = artifact.arch
-        bc.build_source(artifact.source, bc.new_build_env(arch))
+        source = self.find_source(source_pool, artifact_reference)
+        build_env = bc.new_build_env(artifact_reference.arch)
+        bc.build_source(source, build_env)
+
+    def find_source(self, source_pool, artifact_reference):
+        for s in source_pool.lookup(artifact_reference.source_repo,
+                                    artifact_reference.source_ref,
+                                    artifact_reference.filename):
+            if s.cache_key == artifact_reference.cache_key:
+                return s
 
     def is_system_artifact(self, filename):
         return re.match(r'^[0-9a-fA-F]{64}\.system\.', filename)
