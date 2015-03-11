@@ -445,21 +445,8 @@ repositories referenced in the system branch.
     THEN        morph reports no outstanding changes in foo
     FINALLY     the git server is shut down
 
-`morph foreach`
---------------
-
-`morph foreach` runs a shell command in each of the git repos in a system
-branch checkout.
-
-    SCENARIO morph foreach runs command in each git repo
-    GIVEN a workspace
-    AND   a git server
-    WHEN  the user creates a system branch called foo
-    AND   the user edits the chunk test-chunk in branch foo
-    AND   running shell command in each repo in foo
-    THEN  morph ran command in test/morphs in foo
-    AND   morph ran command in test/test-chunk in foo
-    FINALLY the git server is shut down
+Manifests
+---------
 
 Generating a manifest works
 

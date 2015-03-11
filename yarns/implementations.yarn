@@ -624,16 +624,6 @@ Reporting status of checked out repositories:
     cd "$DATADIR/workspace/$MATCH_2/$(slashify_colons "$MATCH_1")"
     git commit -a -m test-commit
 
-Running shell command in each checked out repository:
-
-    IMPLEMENTS WHEN running shell command in each repo in (\S+)
-    cd "$DATADIR/workspace/$MATCH_1"
-    run_morph foreach -- pwd > "$DATADIR/morph.stdout"
-
-    IMPLEMENTS THEN morph ran command in (\S+) in (\S+)
-    grep -Fx "$MATCH_1" "$DATADIR/morph.stdout"
-    grep -Fx "$DATADIR/workspace/$MATCH_2/$MATCH_1" "$DATADIR/morph.stdout"
-
 Generating a manifest.
 
     IMPLEMENTS GIVEN a system artifact
