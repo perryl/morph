@@ -107,8 +107,8 @@ class InitiatorConnection(distbuild.StateMachine):
                         reason=('Protocol version mismatch between server & '
                                 'initiator: distbuild network uses distbuild '
                                 'protocol version %i, but client uses version'
-                                ' %i.', distbuild.protocol.VERSION,
-                                event.msg.get('protocol_version')))
+                                ' %i.' % (distbuild.protocol.VERSION,
+                                event.msg.get('protocol_version'))))
                     self.jm.send(msg)
                     self._log_send(msg)
                     return
