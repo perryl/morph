@@ -15,14 +15,21 @@
 - hosts: all
   gather_facts: false
   vars:
-    - TROVE_HOST: git.baserock.org
-    - MORPH_VERSION: sam/distbuild-build-logs
+    - TROVE_HOST: ct-mcr-1
+    - PACKAGE_HOST: git.baserock.org
+    - MORPH_VERSION: ct-mcr-1/blah/artifact-serialisation
   tasks:
     - name: check out Morph from Git
-      git: dest=/srv/morph version={{ MORPH_VERSION }} repo=git://{{ TROVE_HOST }}/baserock/baserock/morph accept_hostkey=True
+      git: dest=/srv/morph version={{ MORPH_VERSION }} repo=ssh://git@{{ TROVE_HOST }}/baserock/baserock/morph accept_hostkey=True
+
+    - name: check out pylru from Git
+      git: dest=/srv/pylru version=master repo=git://{{ PACKAGE_HOST }}/delta/python-packages/pylru accept_hostkey=True
 
     - name: ensure latest Morph is used
       template: backup=yes src=run-from-morph-source-tree.sh.template dest=/usr/bin/{{ item }} mode=0755
       with_items:
         - morph
         - distbuild-helper
+
+    - name: install pylru
+      template: src=install-pylru.sh dest=/usr/pylru
