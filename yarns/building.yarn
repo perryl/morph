@@ -112,3 +112,14 @@ Empty strata don't build
     AND the user attempts to build the system systems/empty-stratum-system.morph in branch empty-stratum
     THEN morph failed
     FINALLY the git server is shut down
+
+Partial building
+----------------
+
+    SCENARIO partial building
+    GIVEN a workspace
+    AND a git server
+    WHEN the user checks out the system branch called master
+    AND the user attempts to build build-essential from the system systems/test-system.morph in branch master
+    THEN morph succeeded
+    FINALLY the git server is shut down

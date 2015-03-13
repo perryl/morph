@@ -737,6 +737,12 @@ Implementation sections for building
     if [ "$MATCH_1" != "attempts to " ]; then run_morph "$@"
     else attempt_morph "$@"; fi
 
+    IMPLEMENTS WHEN the user (attempts to )?((dist)?build)s? (\S+) from the system (\S+) in branch (\S+)
+    cd "$DATADIR/workspace/$MATCH_6/test/morphs"
+    set "$MATCH_2" "$MATCH_5" "$MATCH_4"
+    if [ "$MATCH_1" != "attempts to " ]; then run_morph "$@"
+    else attempt_morph "$@"; fi
+
 Implementation sections for cross-bootstraping
 ==============================================
 
