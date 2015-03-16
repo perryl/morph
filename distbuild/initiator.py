@@ -54,7 +54,7 @@ def create_build_directory(prefix='build'):
 class Initiator(distbuild.StateMachine):
 
     def __init__(self, cm, conn, app, repo_name, ref, morphology,
-                 original_ref):
+                 original_ref, component_names):
         distbuild.StateMachine.__init__(self, 'waiting')
         self._cm = cm
         self._conn = conn
@@ -63,6 +63,10 @@ class Initiator(distbuild.StateMachine):
         self._ref = ref
         self._morphology = morphology
         self._original_ref = original_ref
+        self._component_names = component_names
+        self._partial = False
+        if self._component_names:
+            self._partial = True
         self._step_outputs = {}
         self.debug_transitions = False
 
@@ -101,6 +105,8 @@ class Initiator(distbuild.StateMachine):
             ref=self._ref,
             morphology=self._morphology,
             original_ref=self._original_ref,
+            component_names=self._component_names,
+            partial=self._partial,
             protocol_version=distbuild.protocol.VERSION
         )
         self._jm.send(msg)

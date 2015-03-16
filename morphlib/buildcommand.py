@@ -526,7 +526,8 @@ class InitiatorBuildCommand(BuildCommand):
         self.app.settings['push-build-branches'] = True
         super(InitiatorBuildCommand, self).__init__(app)
 
-    def build(self, repo_name, ref, filename, original_ref=None):
+    def build(self, repo_name, ref, filename, original_ref=None,
+              component_names=[]):
         '''Initiate a distributed build on a controller'''
 
         distbuild.add_crash_conditions(self.app.settings['crash-condition'])
@@ -537,7 +538,8 @@ class InitiatorBuildCommand(BuildCommand):
 
         self.app.status(msg='Starting distributed build')
         loop = distbuild.MainLoop()
-        args = [repo_name, ref, filename, original_ref or ref]
+        args = [repo_name, ref, filename, original_ref or ref,
+                component_names]
         cm = distbuild.InitiatorConnectionMachine(self.app,
                                                   self.addr,
                                                   self.port,

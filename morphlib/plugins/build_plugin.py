@@ -42,9 +42,10 @@ class BuildPlugin(cliapp.Plugin):
                                 arg_synopsis='SYSTEM [COMPONENT...]')
         self.app.add_subcommand('distbuild-morphology',
                                 self.distbuild_morphology,
-                                arg_synopsis='SYSTEM')
+                                arg_synopsis='REPO REF FILENAME '
+                                             '[COMPONENT...]')
         self.app.add_subcommand('distbuild', self.distbuild,
-                                arg_synopsis='SYSTEM')
+                                arg_synopsis='SYSTEM [COMPONENT...]')
         self.use_distbuild = False
 
     def disable(self):
@@ -58,6 +59,8 @@ class BuildPlugin(cliapp.Plugin):
         * `REPO` is a git repository URL.
         * `REF` is a branch or other commit reference in that repository.
         * `FILENAME` is a morphology filename at that ref.
+        * `COMPONENT...` is the names of one or more chunks or strata to
+          build. If none are given the the system at FILENAME is built.
 
         See 'help distbuild' and 'help build-morphology' for more information.
 
@@ -66,10 +69,15 @@ class BuildPlugin(cliapp.Plugin):
         addr = self.app.settings['controller-initiator-address']
         port = self.app.settings['controller-initiator-port']
 
+        self.use_distbuild = True
         build_command = morphlib.buildcommand.InitiatorBuildCommand(
             self.app, addr, port)
-        for repo_name, ref, filename in self.app.itertriplets(args):
-            build_command.build(repo_name, ref, filename)
+        repo, ref, filename = args[0:3]
+        filename = morphlib.util.sanitise_morphology_path(filename)
+        component_names = [morphlib.util.sanitise_morphology_path(name)
+                               for name in args[3:]]
+        self.start_build(repo, ref, build_command, filename,
+                         component_names)
 
     def distbuild(self, args):
         '''Distbuild a system image in the current system branch
@@ -77,6 +85,8 @@ class BuildPlugin(cliapp.Plugin):
         Command line arguments:
 
         * `SYSTEM` is the name of the system to build.
+        * `COMPONENT...` is the names of one or more chunks or strata to
+          build. If none are given then SYSTEM is built.
 
         This command launches a distributed build, to use this command
         you must first set up a distbuild cluster.
@@ -297,6 +307,12 @@ class BuildPlugin(cliapp.Plugin):
         build the whole system.
 
         '''
+        if self.use_distbuild:
+            bc.build(repo, commit, system_filename,
+                     original_ref=original_ref,
+                     component_names=component_names)
+            return
+
         self.app.status(msg='Deciding on task order')
         srcpool = bc.create_source_pool(repo, commit, system_filename)
         bc.validate_sources(srcpool)

@@ -116,18 +116,39 @@ def build_step_name(artifact):
     return artifact.source.name
 
 
-def map_build_graph(artifact, callback):
+def map_build_graph(artifact, callback, components=[]):
+    """Run callback on each artifact in the build graph and return result.
+
+    If components is given, then only look at the components given and
+    their dependencies. Also, return a list of the components after they
+    have had callback called on them.
+
+    """
     result = []
+    mapped_components = []
     done = set()
-    queue = [artifact]
+    if components:
+        queue = list(components)
+    else:
+        queue = [artifact]
     while queue:
         a = queue.pop()
         if a not in done:
             result.append(callback(a))
             queue.extend(a.source.dependencies)
             done.add(a)
-    return result
+            if a in components:
+                mapped_components.append(a)
+    return result, mapped_components
 
+
+def find_artifacts(components, artifact):
+    found = []
+    for a in artifact.walk():
+        name = a.source.morphology['name']
+        if name in components:
+            found.append(a)
+    return found
 
 class BuildController(distbuild.StateMachine):
 
@@ -323,6 +344,17 @@ class BuildController(distbuild.StateMachine):
         distbuild.crash_point()
 
         self._artifact = event.artifact
+        names = self._request['component_names']
+        self._components = find_artifacts(names, self._artifact)
+        failed = False
+        for component in self._components:
+            if component.source.morphology['name'] not in names:
+                logging.debug('Failed to find %s in build graph'
+                              % component.filename)
+                failed = True
+        if failed:
+            self.fail('Failed to find all components in %s'
+                      % self._artifact.name)
         self._helper_id = self._idgen.next()
         artifact_names = []
 
@@ -330,7 +362,9 @@ class BuildController(distbuild.StateMachine):
             artifact.state = UNKNOWN
             artifact_names.append(artifact.basename())
 
-        map_build_graph(self._artifact, set_state_and_append)
+        _, self._components = map_build_graph(self._artifact,
+                                              set_state_and_append,
+                                              self._components)
 
         url = urlparse.urljoin(self._artifact_cache_server, '/1.0/artifacts')
         msg = distbuild.message('http-request',
@@ -364,11 +398,20 @@ class BuildController(distbuild.StateMachine):
             return
 
         cache_state = json.loads(event.msg['body'])
-        map_build_graph(self._artifact, set_status)
+        _, self._components = map_build_graph(self._artifact, set_status,
+                                              self._components)
         self.mainloop.queue_event(self, _Annotated())
 
-        unbuilt = len([a for a in self._artifact.walk() if a.state == UNBUILT])
-        total = len([a for _ in self._artifact.walk()])
+        unbuilt = set()
+        for c in self._components:
+            unbuilt.update([a for a in c.walk() if a.state == UNBUILT])
+        unbuilt = len(unbuilt) or len([a for a in self._artifact.walk()
+                                       if a.state == UNBUILT])
+        total = set()
+        for c in self._components:
+            total.update([a for a in c.walk()])
+        total = len(total) or len([a for _ in self._artifact.walk()])
+
         progress = BuildProgress(
             self._request['id'],
             'Need to build %d artifacts, of %d total' % (unbuilt, total))
@@ -384,22 +427,30 @@ class BuildController(distbuild.StateMachine):
                     all(a.state == BUILT
                         for a in artifact.source.dependencies))
 
-        return [a 
-                for a in map_build_graph(self._artifact, lambda a: a)
-                if is_ready_to_build(a)]
+        artifacts, _ = map_build_graph(self._artifact, lambda a: a,
+                                       self._components)
+        return [a for a in artifacts if is_ready_to_build(a)]
 
     def _queue_worker_builds(self, event_source, event):
         distbuild.crash_point()
 
-        if self._artifact.state == BUILT:
-            logging.info('Requested artifact is built')
-            self.mainloop.queue_event(self, _Built())
-            return
+        if not self._components:
+            if self._artifact.state == BUILT:
+                logging.info('Requested artifact is built')
+                self.mainloop.queue_event(self, _Built())
+                return
+
+        else:
+            if not any(c.state != BUILT for c in self._components):
+                logging.info('Requested components are built')
+                self.mainloop.queue_event(self, _Built())
+                return
 
         logging.debug('Queuing more worker-builds to run')
         if self.debug_graph_state:
             logging.debug('Current state of build graph nodes:')
-            for a in map_build_graph(self._artifact, lambda a: a):
+            for a, _ in map_build_graph(self._artifact,
+                                        lambda a: a, self._components):
                 logging.debug('  %s state is %s' % (a.name, a.state))
                 if a.state != BUILT:
                     for dep in a.dependencies:
@@ -533,7 +584,8 @@ class BuildController(distbuild.StateMachine):
         self.mainloop.queue_event(BuildController, progress)
 
     def _find_artifact(self, cache_key):
-        artifacts = map_build_graph(self._artifact, lambda a: a)
+        artifacts, _ = map_build_graph(self._artifact, lambda a: a,
+                                       self._components)
         wanted = [a for a in artifacts if a.source.cache_key == cache_key]
         if wanted:
             return wanted[0]
@@ -568,7 +620,8 @@ class BuildController(distbuild.StateMachine):
             # yields all chunk artifacts for the given source
             # so we set the state of this source's artifacts
             # to BUILT
-            map_build_graph(self._artifact, set_state)
+            _, self._components = map_build_graph(self._artifact, set_state,
+                                                  self._components)
 
         self._queue_worker_builds(None, event)
 
@@ -619,10 +672,19 @@ class BuildController(distbuild.StateMachine):
         logging.debug('Notifying initiator of successful build')
         baseurl = urlparse.urljoin(
             self._artifact_cache_server, '/1.0/artifacts')
-        filename = ('%s.%s.%s' % 
-            (self._artifact.source.cache_key,
-             self._artifact.source.morphology['kind'],
-             self._artifact.name))
-        url = '%s?filename=%s' % (baseurl, urllib.quote(filename))
-        finished = BuildFinished(self._request['id'], [url])
+        urls = []
+        for c in self._components:
+            name = ('%s.%s.%s' %
+                (c.source.cache_key,
+                 c.source.morphology['kind'],
+                 c.name))
+            urls.append('%s?filename=%s' % (baseurl, urllib.quote(name)))
+        if not self._components:
+            name = ('%s.%s.%s' %
+                (self._artifact.source.cache_key,
+                 self._artifact.source.morphology['kind'],
+                 self._artifact.name))
+            urls.append('%s?filename=%s' % (baseurl, urllib.quote(name)))
+
+        finished = BuildFinished(self._request['id'], urls)
         self.mainloop.queue_event(BuildController, finished)

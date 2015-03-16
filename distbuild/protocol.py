@@ -22,7 +22,7 @@
 # time a change is introduced that would break server/initiator compatibility
 
 
-VERSION = 1
+VERSION = 2
 
 
 _required_fields = {
@@ -31,6 +31,7 @@ _required_fields = {
         'repo',
         'ref',
         'morphology',
+        'partial',
         'protocol_version',
     ],
     'build-progress': [
@@ -96,7 +97,8 @@ _required_fields = {
 
 _optional_fields = {
     'build-request': [
-        'original_ref'
+        'original_ref',
+        'component_names'
     ]
 }
 
