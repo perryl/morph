@@ -681,6 +681,32 @@ class GitDirectory(object):
         if not morphlib.git.is_valid_sha1(string):
             raise ExpectedSha1Error(string)
 
+    def _check_ref_exists(self, ref):
+        self._rev_parse('%s^{commit}' % ref)
+
+    def _gitcmd_output_list(self, *args):
+        output = morphlib.git.gitcmd(self._runcmd, *args)
+        separated = [l.strip() for l in output.splitlines()]
+        prefix = '* '
+        for i, l in enumerate(separated):
+            if l.startswith(prefix):
+                separated[i] = l[len(prefix):]
+        return separated
+
+    def tags_containing_sha1(self, ref): # pragma: no cover
+        self._check_is_sha1(ref)
+        self._check_ref_exists(ref)
+
+        args = ['tag', '--contains', ref]
+        return self._gitcmd_output_list(*args)
+
+    def branches_containing_sha1(self, ref):
+        self._check_is_sha1(ref)
+        self._check_ref_exists(ref)
+
+        args = ['branch', '--contains', ref]
+        return self._gitcmd_output_list(*args)
+
     def _update_ref(self, ref_args, message):
         args = ['update-ref']
         # No test coverage, since while this functionality is useful,

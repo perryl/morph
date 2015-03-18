@@ -95,6 +95,38 @@ class GitDirectoryTests(unittest.TestCase):
         self.assertIsInstance(gitdir.get_index(), morphlib.gitindex.GitIndex)
 
 
+class GitDirectoryAnchoredRefTests(unittest.TestCase):
+
+    def setUp(self):
+        self.tempdir = tempfile.mkdtemp()
+        self.dirname = os.path.join(self.tempdir, 'foo')
+        os.mkdir(self.dirname)
+        gd = morphlib.gitdir.init(self.dirname)
+        with open(os.path.join(self.dirname, 'test_file.morph'), "w") as f:
+            f.write('dummy morphology text')
+        morphlib.git.gitcmd(gd._runcmd, 'add', '.')
+        morphlib.git.gitcmd(gd._runcmd, 'commit', '-m', 'Initial commit')
+
+    def tearDown(self):
+        shutil.rmtree(self.tempdir)
+
+    def test_ref_anchored_in_branch(self):
+        gd = morphlib.gitdir.GitDirectory(self.dirname)
+        output = morphlib.git.gitcmd(gd._runcmd, 'rev-parse', 'HEAD')
+        ref = output.strip()
+
+        self.assertEqual(len(gd.branches_containing_sha1(ref)), 1)
+        self.assertEqual(gd.branches_containing_sha1(ref)[0], 'master')
+
+    def test_ref_not_anchored_in_branch(self):
+        gd = morphlib.gitdir.GitDirectory(self.dirname)
+        output = morphlib.git.gitcmd(gd._runcmd, 'rev-parse', 'HEAD')
+        ref = output.strip()
+
+        morphlib.git.gitcmd(gd._runcmd, 'commit', '--amend', '-m',
+                            'New commit message')
+        self.assertEqual(len(gd.branches_containing_sha1(ref)), 0)
+
 class GitDirectoryContentsTests(unittest.TestCase):
 
     def setUp(self):
