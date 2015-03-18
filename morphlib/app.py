@@ -20,6 +20,7 @@ import pipes
 import sys
 import time
 import urlparse
+import warnings
 import extensions
 
 import morphlib
@@ -212,6 +213,12 @@ class Morph(cliapp.Application):
     def log_config(self):
         with morphlib.util.hide_password_environment_variables(os.environ):
             cliapp.Application.log_config(self)
+
+        def pretty_warnings(message, category, filename, lineno,
+                            file=None, line=None):
+            return 'WARNING: %s' % (message)
+
+        warnings.formatwarning = pretty_warnings
 
     def process_args(self, args):
         self.check_time()
