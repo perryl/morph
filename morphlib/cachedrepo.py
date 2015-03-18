@@ -123,6 +123,26 @@ class CachedRepo(object):
         '''
         return self._gitdir.read_file(filename, ref)
 
+    def tags_containing_sha1(self, ref):  # pragma: no cover
+        '''Check whether given sha1 is contained in any tags
+
+        Raises a gitdir.InvalidRefError if the ref is not found in the
+        repository.  Raises gitdir.ExpectedSha1Error if the ref is not
+        a sha1.
+
+        '''
+        return self._gitdir.tags_containing_sha1(ref)
+
+    def branches_containing_sha1(self, ref):  # pragma: no cover
+        '''Check whether given sha1 is contained in any branches
+
+        Raises a gitdir.InvalidRefError if the ref is not found in the
+        repository.  Raises gitdir.ExpectedSha1Error if the ref is not
+        a sha1.
+
+        '''
+        return self._gitdir.branches_containing_sha1(ref)
+
     def list_files(self, ref, recurse=True):  # pragma: no cover
         '''Return filenames found in the tree pointed to by the given ref.
 
