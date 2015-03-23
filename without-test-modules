@@ -32,6 +32,7 @@ morphlib/plugins/print_architecture_plugin.py
 morphlib/plugins/add_binary_plugin.py
 morphlib/plugins/push_pull_plugin.py
 morphlib/plugins/distbuild_plugin.py
+morphlib/plugins/certify_plugin.py
 distbuild/__init__.py
 distbuild/build_controller.py
 distbuild/connection_machine.py
