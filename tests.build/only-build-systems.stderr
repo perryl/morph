@@ -1,2 +1,2 @@
-ERROR: Building a stratum directly is not supported
-ERROR: Building a chunk directly is not supported
+ERROR: In order to build this stratum directly, please give the filename of the system which contains it, and the name of the stratum. See `morph build --help` for more information.
+ERROR: In order to build this chunk directly, please give the filename of the system which contains it, and the name of the chunk. See `morph build --help` for more information.

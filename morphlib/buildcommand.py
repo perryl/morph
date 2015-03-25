@@ -119,7 +119,10 @@ class BuildCommand(object):
         root_kind = root_artifact.source.morphology['kind']
         if root_kind != 'system':
             raise morphlib.Error(
-                'Building a %s directly is not supported' % root_kind)
+                'In order to build this %s directly, please give the filename '
+                'of the system which contains it, and the name of the %s. '
+                'See `morph build --help` for more information.'
+                % (root_kind, root_kind))
 
     def _validate_architecture(self, root_artifact):
         '''Perform the validation between root and target architectures.'''

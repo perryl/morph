@@ -13,21 +13,33 @@
 # with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-import cliapp
+import collections
 import contextlib
 import uuid
 import logging
 
+import cliapp
+
 import morphlib
+
+
+class ComponentNotInSystemError(morphlib.Error):
+
+    def __init__(self, components, system):
+        components = ', '.join(components)
+        self.msg = ('Components %s are not in %s. Ensure you provided '
+                    'component names rather than filenames.'
+                    % (components, system))
 
 
 class BuildPlugin(cliapp.Plugin):
 
     def enable(self):
         self.app.add_subcommand('build-morphology', self.build_morphology,
-                                arg_synopsis='(REPO REF FILENAME)...')
+                                arg_synopsis='REPO REF FILENAME '
+                                             '[COMPONENT...]')
         self.app.add_subcommand('build', self.build,
-                                arg_synopsis='SYSTEM')
+                                arg_synopsis='SYSTEM [COMPONENT...]')
         self.app.add_subcommand('distbuild-morphology',
                                 self.distbuild_morphology,
                                 arg_synopsis='SYSTEM')
@@ -92,6 +104,8 @@ class BuildPlugin(cliapp.Plugin):
         * `REPO` is a git repository URL.
         * `REF` is a branch or other commit reference in that repository.
         * `FILENAME` is a morphology filename at that ref.
+        * `COMPONENT...` is the names of one or more chunks or strata to
+          build. If none are given then the system at FILENAME is built.
 
         You probably want `morph build` instead. However, in some
         cases it is more convenient to not have to create a Morph
@@ -104,8 +118,14 @@ class BuildPlugin(cliapp.Plugin):
 
         Example:
 
-            morph build-morphology baserock:baserock/definitions \
-                master devel-system-x86_64-generic.morph
+            morph build-morphology baserock:baserock/definitions \\
+                master systems/devel-system-x86_64-generic.morph
+
+        Partial build example:
+
+            morph build-morphology baserock:baserock/definitions \\
+                master systems/devel-system-x86_64-generic.morph \\
+                build-essential
 
         '''
 
@@ -117,15 +137,21 @@ class BuildPlugin(cliapp.Plugin):
             self.app.settings['cachedir-min-space'])
 
         build_command = morphlib.buildcommand.BuildCommand(self.app)
-        for repo_name, ref, filename in self.app.itertriplets(args):
-            build_command.build(repo_name, ref, filename)
+        repo, ref, filename = args[0:3]
+        filename = morphlib.util.sanitise_morphology_path(filename)
+        component_names = [morphlib.util.sanitise_morphology_path(name)
+                               for name in args[3:]]
+        self.start_build(repo, ref, build_command, filename,
+                         component_names)
 
     def build(self, args):
         '''Build a system image in the current system branch
 
         Command line arguments:
 
-        * `SYSTEM` is the name of the system to build.
+        * `SYSTEM` is the filename of the system to build.
+        * `COMPONENT...` is the names of one or more chunks or strata to
+          build. If this is not given then the SYSTEM is built.
 
         This builds a system image, and any of its components that
         need building.  The system name is the basename of the system
@@ -145,14 +171,14 @@ class BuildPlugin(cliapp.Plugin):
 
         Example:
 
-            morph build devel-system-x86_64-generic.morph
+            morph build systems/devel-system-x86_64-generic.morph
+
+        Partial build example:
+
+            morph build systems/devel-system-x86_64-generic.morph \\
+                build-essential
 
         '''
-
-        if len(args) != 1:
-            raise cliapp.AppException('morph build expects exactly one '
-                                      'parameter: the system to build')
-
         # Raise an exception if there is not enough space
         morphlib.util.check_disk_available(
             self.app.settings['tempdir'],
@@ -165,6 +191,7 @@ class BuildPlugin(cliapp.Plugin):
 
         system_filename = morphlib.util.sanitise_morphology_path(args[0])
         system_filename = sb.relative_to_root_repo(system_filename)
+        component_names = args[1:]
 
         logging.debug('System branch is %s' % sb.root_directory)
 
@@ -178,11 +205,14 @@ class BuildPlugin(cliapp.Plugin):
             build_command = morphlib.buildcommand.BuildCommand(self.app)
 
         if self.app.settings['local-changes'] == 'include':
-            self._build_with_local_changes(build_command, sb, system_filename)
+            self._build_with_local_changes(build_command, sb, system_filename,
+                                           component_names)
         else:
-            self._build_local_commit(build_command, sb, system_filename)
+            self._build_local_commit(build_command, sb, system_filename,
+                                     component_names)
 
-    def _build_with_local_changes(self, build_command, sb, system_filename):
+    def _build_with_local_changes(self, build_command, sb, system_filename,
+                                  component_names):
         '''Construct a branch including user's local changes, and build that.
 
         It is often a slow process to check all repos in the system branch for
@@ -214,10 +244,11 @@ class BuildPlugin(cliapp.Plugin):
                 name=name, email=email, build_uuid=build_uuid,
                 status=self.app.status)
         with pbb as (repo, commit, original_ref):
-            build_command.build(repo, commit, system_filename,
-                                original_ref=original_ref)
+            self.start_build(repo, commit, build_command, system_filename,
+                             component_names, original_ref=original_ref)
 
-    def _build_local_commit(self, build_command, sb, system_filename):
+    def _build_local_commit(self, build_command, sb, system_filename,
+                            component_names):
         '''Build whatever commit the user has checked-out locally.
 
         This ignores any uncommitted changes. Also, if the user has a commit
@@ -245,4 +276,41 @@ class BuildPlugin(cliapp.Plugin):
         definitions_repo = morphlib.gitdir.GitDirectory(definitions_repo_path)
         commit = definitions_repo.resolve_ref_to_commit(ref)
 
-        build_command.build(root_repo_url, commit, system_filename)
+        self.start_build(root_repo_url, commit, build_command,
+                         system_filename, component_names)
+
+    def _find_artifacts(self, names, root_artifact):
+        found = collections.OrderedDict()
+        not_found = names
+        for a in root_artifact.walk():
+            name = a.source.morphology['name']
+            if name in names and name not in found:
+                found[name] = a
+                not_found.remove(name)
+        return found, not_found
+
+    def start_build(self, repo, commit, bc, system_filename,
+                    component_names, original_ref=None):
+        '''Actually run the build.
+
+        If a set of components was given, only build those. Otherwise,
+        build the whole system.
+
+        '''
+        self.app.status(msg='Deciding on task order')
+        srcpool = bc.create_source_pool(repo, commit, system_filename)
+        bc.validate_sources(srcpool)
+        root = bc.resolve_artifacts(srcpool)
+        if not component_names:
+            component_names = [root.source.name]
+        components, not_found = self._find_artifacts(component_names, root)
+        if not_found:
+            raise ComponentNotInSystemError(not_found, system_filename)
+
+        for name, component in components.iteritems():
+            component.build_env = root.build_env
+            bc.build_in_order(component)
+            self.app.status(msg='%(kind)s %(name)s is cached at %(path)s',
+                            kind=component.source.morphology['kind'],
+                            name=name,
+                            path=bc.lac.artifact_filename(component))
