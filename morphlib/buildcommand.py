@@ -274,7 +274,8 @@ class BuildCommand(object):
     def build_in_order(self, root_artifact):
         '''Build everything specified in a build order.'''
 
-        self.app.status(msg='Building a set of sources')
+        self.app.status(msg='Starting build of %(name)s',
+                        name=root_artifact.source.name)
         build_env = root_artifact.build_env
         ordered_sources = list(self.get_ordered_sources(root_artifact.walk()))
         old_prefix = self.app.status_prefix
