@@ -611,7 +611,7 @@ class DeployPlugin(cliapp.Plugin):
             shutil.rmtree(deploy_private_tempdir)
 
     def _report_extension_stdout(self, line):
-        self.app.status(msg=line.replace('%s', '%%'))
+        self.app.status(msg=line.replace('%', '%%'))
     def _report_extension_stderr(self, error_list):
         def cb(line):
             error_list.append(line)
