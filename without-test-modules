@@ -26,6 +26,7 @@ morphlib/plugins/__init__.py
 morphlib/writeexts.py
 morphlib/plugins/list_artifacts_plugin.py
 morphlib/plugins/trovectl_plugin.py
+morphlib/plugins/get_chunk_details_plugin.py
 morphlib/plugins/gc_plugin.py
 morphlib/plugins/print_architecture_plugin.py
 morphlib/plugins/add_binary_plugin.py
