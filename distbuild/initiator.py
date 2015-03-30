@@ -19,7 +19,7 @@ import cliapp
 import itertools
 import logging
 import os
-import random
+import uuid
 import time
 
 import distbuild
@@ -88,7 +88,7 @@ class Initiator(distbuild.StateMachine):
         ]
         self.add_transitions(spec)
 
-        random_id = random.randint(0, 2**32-1)
+        msg_uuid = uuid.uuid4().hex
 
         self._app.status(
             msg='Requesting build of %(repo)s %(ref)s %(morph)s',
@@ -96,7 +96,7 @@ class Initiator(distbuild.StateMachine):
             ref=self._ref,
             morph=self._morphology)
         msg = distbuild.message('build-request',
-            id=random_id,
+            id=msg_uuid,
             repo=self._repo_name,
             ref=self._ref,
             morphology=self._morphology,
@@ -241,3 +241,56 @@ class Initiator(distbuild.StateMachine):
             f.close()
 
         self._step_outputs = {}
+
+
+class InitiatorListJobs(distbuild.StateMachine):
+
+    def __init__(self, cm, conn, app):
+        distbuild.StateMachine.__init__(self, 'waiting')
+        self._cm = cm
+        self._conn = conn
+        self._app = app
+
+    def setup(self):
+        distbuild.crash_point()
+
+        self._jm = distbuild.JsonMachine(self._conn)
+        self.mainloop.add_state_machine(self._jm)
+        logging.debug('initiator: _jm=%s' % repr(self._jm))
+
+        spec = [
+            # state, source, event_class, new_state, callback
+            ('waiting', self._jm, distbuild.JsonEof, None, self._terminate),
+            ('waiting', self._jm, distbuild.JsonNewMessage, None,
+                self._handle_json_message),
+        ]
+        self.add_transitions(spec)
+
+        self._app.status(msg='Requesting currently running distbuilds.')
+        msg = distbuild.message('list-jobs',
+            addr=self._cm.get_addr(),
+            port=self._cm.get_port(),
+        )
+        self._jm.send(msg)
+        logging.debug('Initiator: sent to controller: %s', repr(msg))
+
+    def _handle_json_message(self, event_source, event):
+        distbuild.crash_point()
+
+        logging.debug('Initiator: from controller: %s', str(event.msg))
+
+        handlers = {
+            'list-jobs-output': self._handle_list_jobs_output,
+        }
+
+        handler = handlers[event.msg['type']]
+        handler(event.msg)
+
+    def _handle_list_jobs_output(self, msg):
+        self._app.status(msg=str(msg['message']))
+        self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
+        self._jm.close()
+
+    def _terminate(self, event_source, event):
+        self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
+        self._jm.close()

@@ -99,29 +99,49 @@ class InitiatorConnection(distbuild.StateMachine):
 
         try:
             if event.msg['type'] == 'build-request':
-                if (event.msg.get('protocol_version') !=
-                   distbuild.protocol.VERSION):
-                    msg = distbuild.message('build-failed',
-                        id=event.msg['id'],
-                        reason=('Protocol version mismatch between server & '
-                                'initiator: distbuild network uses distbuild '
-                                'protocol version %i, but client uses version'
-                                ' %i.' % (distbuild.protocol.VERSION,
-                                event.msg.get('protocol_version'))))
-                    self.jm.send(msg)
-                    self._log_send(msg)
-                    return
-                new_id = self._idgen.next()
-                self.our_ids.add(new_id)
-                self._route_map.add(event.msg['id'], new_id)
-                event.msg['id'] = new_id
-                build_controller = distbuild.BuildController(
-                    self, event.msg, self.artifact_cache_server,
-                    self.morph_instance)
-                self.mainloop.add_state_machine(build_controller)
+                self._handle_build_request(event)
+            elif event.msg['type'] == 'list-jobs':
+                self._handle_list_jobs(event)
+            else:
+                logging.error('Invalid message type: %s', event.msg)
         except (KeyError, ValueError) as ex:
             logging.error('Invalid message from initiator: %s: exception %s',
                            event.msg, ex)
+
+    def _handle_build_request(self, event):
+        if event.msg.get('protocol_version') != distbuild.protocol.VERSION:
+            msg = distbuild.message('build-failed',
+                id=event.msg['id'],
+                reason=('Protocol version mismatch between server & initiator:'
+                        ' distbuild network uses distbuild protocol version %i'
+                        ', but client uses version %i.' % (
+                        distbuild.protocol.VERSION,
+                        event.msg.get('protocol_version'))))
+            self.jm.send(msg)
+            self._log_send(msg)
+            return
+        new_id = self._idgen.next()
+        self.our_ids.add(new_id)
+        self._route_map.add(event.msg['id'], new_id)
+        event.msg['id'] = new_id
+        build_controller = distbuild.BuildController(
+            self, event.msg, self.artifact_cache_server,
+            self.morph_instance)
+        self.mainloop.add_state_machine(build_controller)
+
+    def _handle_list_jobs(self, event):
+        jobs = self.mainloop.state_machines_of_type(distbuild.BuildController)
+        output_msg = []
+        output_msg.append('%s distbuild job(s) currently in progress' %
+                          len(jobs))
+        for job in jobs:
+            output_msg.append('Initiator connection (address:port): %s:%s\n'
+                              'Build request message: %s\nJob ID: %s' % (
+                              event.msg.get('addr'), event.msg.get('port'),
+                              job.get_request(), job.get_id()))
+        msg = distbuild.message('list-jobs-output',
+                                message=('\n'.join(output_msg)))
+        self.jm.send(msg)
 
     def _disconnect(self, event_source, event):
         for id in self.our_ids:

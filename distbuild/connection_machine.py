@@ -168,6 +168,12 @@ class InitiatorConnectionMachine(ConnectionMachine):
 
         self.app = app
 
+    def get_addr(self):
+        return self._addr
+
+    def get_port(self):
+        return self._port
+
     def _connect(self, event_source, event):
         self.app.status(msg='Connecting to %s:%s' % (self._addr, self._port))
         self.cm._connect(event_source, event)

@@ -84,6 +84,13 @@ _required_fields = {
         'headers',
         'body',
     ],
+    'list-jobs': [
+        'addr',
+        'port',
+    ],
+    'list-jobs-output': [
+        'message',
+    ],
 }
 
 
