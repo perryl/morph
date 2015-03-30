@@ -180,6 +180,9 @@ class BuildController(distbuild.StateMachine):
         return '<BuildController at 0x%x, request-id %s>' % (id(self),
                 self._request['id'])
 
+    def get_request(self):
+        return self._request
+
     def setup(self):
         distbuild.crash_point()
 
@@ -483,8 +486,8 @@ class BuildController(distbuild.StateMachine):
 
     def _maybe_notify_initiator_disconnected(self, event_source, event):
         if event.id != self._request['id']:
-            logging.debug('Heard initiator disconnect with event id %d '
-                          'but our request id is %d',
+            logging.debug('Heard initiator disconnect with event id %s '
+                          'but our request id is %s',
                           event.id, self._request['id'])
             return  # not for us
 
