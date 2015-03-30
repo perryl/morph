@@ -40,6 +40,48 @@ class DistbuildOptionsPlugin(cliapp.Plugin):
         pass
 
 
+class DistbuildListJobsPlugin(cliapp.Plugin):
+
+    RECONNECT_INTERVAL = 30 # seconds
+    MAX_RETRIES = 1
+
+    def enable(self):
+        self.app.add_subcommand('distbuild-list-jobs',
+                                self.distbuild_list_jobs, arg_synopsis='')
+
+    def disable(self):
+        pass
+
+    def distbuild_list_jobs(self, args):
+        '''Display a list of currently running distbuilds.
+ 
+        Lists all distbuilds running on a given address and port, as set in
+        the client machine's morph.conf file
+
+        Example output:
+
+        '1 distbuild build request(s) currently in progress
+        Initiator connection (address:port): localhost:7878
+        Build request message: {'repo': 'baserock:baserock/definitions',
+        'original_ref': 'BRANCH_NAME', 'ref': 'SHA1', 'morphology':
+        'systems/devel-system-x86_64-generic.morph', 'protocol_version': 1,
+        'type': 'build-request', 'id': 'InitiatorConnection-x'}'
+        Build request ID: InitiatorConnection-x
+
+        '''
+
+        addr = self.app.settings['controller-initiator-address']
+        port = self.app.settings['controller-initiator-port']
+        icm = distbuild.InitiatorConnectionMachine(self.app, addr, port,
+                                                   distbuild.InitiatorListJobs,
+                                                   [self.app],
+                                                   self.RECONNECT_INTERVAL,
+                                                   self.MAX_RETRIES)
+        loop = distbuild.MainLoop()
+        loop.add_state_machine(icm)
+        loop.run()
+
+
 class SerialiseArtifactPlugin(cliapp.Plugin):
 
     def enable(self):

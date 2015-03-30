@@ -85,6 +85,12 @@ _required_fields = {
         'headers',
         'body',
     ],
+    'list-requests': [
+        'id',
+    ],
+    'list-request-output': [
+        'message',
+    ],
 }
 
 
