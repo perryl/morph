@@ -199,9 +199,12 @@ class BuildPlugin(cliapp.Plugin):
         email = morphlib.git.get_user_email(self.app.runcmd)
         build_ref_prefix = self.app.settings['build-ref-prefix']
 
-        self.app.status(msg='Starting build %(uuid)s', uuid=build_uuid)
+        self.app.status(msg='Looking for uncommitted changes (pass '
+                            '--local-changes=ignore to skip)')
+
         self.app.status(msg='Collecting morphologies involved in '
                             'building %(system)s from %(branch)s',
+                            chatty=True,
                             system=system_filename,
                             branch=sb.system_branch_name)
 

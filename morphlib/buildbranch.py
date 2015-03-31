@@ -303,9 +303,8 @@ def pushed_build_branch(bb, loader, changes_need_pushing, name, email,
                         build_uuid, status):
     with contextlib.closing(bb) as bb:
         def report_add(gd, build_ref, changed):
-            status(msg='Adding uncommitted changes '\
-                           'in %(dirname)s to %(ref)s',
-                       dirname=gd.dirname, ref=build_ref, chatty=True)
+            status(msg='Creating temporary branch in %(dirname)s '\
+                       'named %(ref)s', dirname=gd.dirname, ref=build_ref)
         changes_made = bb.add_uncommitted_changes(add_cb=report_add)
         unpushed = any(bb.get_unpushed_branches())
 
