@@ -103,7 +103,7 @@ class BuildBranch(object):
                        in index.get_uncommitted_changes()]
             if not changed:
                 continue
-            add_cb(gd=gd, build_ref=gd, changed=changed)
+            add_cb(gd=gd, build_ref=build_ref, changed=changed)
             changes_made = True
             index.add_files_from_working_tree(changed)
         return changes_made
