@@ -369,7 +369,7 @@ class Morph(cliapp.Application):
             self._write_status(self._commandline_as_message(argv, args))
 
         # Log the environment.
-        prev = getattr(self, 'prev_env', {})
+        prev = getattr(self, 'prev_env', os.environ)
         morphlib.util.log_environment_changes(self, kwargs['env'], prev)
         self.prev_env = kwargs['env']
 
