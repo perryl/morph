@@ -195,8 +195,10 @@ class BuildController(distbuild.StateMachine):
         spec = [
             # state, source, event_class, new_state, callback
             ('init', self, _Start, 'graphing', self._start_graphing),
-            ('init', self._initiator_connection,
-                distbuild.InitiatorDisconnect, None, None),
+            ('init', distbuild.InitiatorConnection,
+                distbuild.InitiatorDisconnect, 'init',
+                self._maybe_notify_initiator_disconnected),
+            ('init', self, _Abort, None, None),
 
             ('graphing', distbuild.HelperRouter, distbuild.HelperOutput,
                 'graphing', self._maybe_collect_graph),
@@ -205,16 +207,20 @@ class BuildController(distbuild.StateMachine):
             ('graphing', self, _GotGraph,
                 'annotating', self._start_annotating),
             ('graphing', self, BuildFailed, None, None),
-            ('graphing', self._initiator_connection,
-                distbuild.InitiatorDisconnect, None, None),
+            ('graphing', distbuild.InitiatorConnection,
+                distbuild.InitiatorDisconnect, 'graphing',
+                self._maybe_notify_initiator_disconnected),
+            ('graphing', self, _Abort, None, None),
 
             ('annotating', distbuild.HelperRouter, distbuild.HelperResult,
                 'annotating', self._maybe_handle_cache_response),
             ('annotating', self, BuildFailed, None, None),
             ('annotating', self, _Annotated, 'building', 
                 self._queue_worker_builds),
-            ('annotating', self._initiator_connection,
-                distbuild.InitiatorDisconnect, None, None),
+            ('annotating', distbuild.InitiatorConnection,
+                distbuild.InitiatorDisconnect, 'annotating',
+                self._maybe_notify_initiator_disconnected),
+            ('annotating', self, _Abort, None, None),
 
             # The exact WorkerConnection that is doing our building changes
             # from build to build. We must listen to all messages from all
@@ -484,7 +490,6 @@ class BuildController(distbuild.StateMachine):
                     if a.source == artifact.source:
                         a.state = BUILDING
 
-
     def _maybe_notify_initiator_disconnected(self, event_source, event):
         if event.id != self._request['id']:
             logging.debug('Heard initiator disconnect with event id %s '
@@ -501,7 +506,7 @@ class BuildController(distbuild.StateMachine):
         cancel = BuildCancel(event.id)
         self.mainloop.queue_event(BuildController, cancel)
 
-        self.mainloop.queue_event(self, _Abort)
+        self.mainloop.queue_event(self, _Abort())
 
     def _maybe_relay_build_waiting_for_worker(self, event_source, event):
         if event.initiator_id != self._request['id']:
