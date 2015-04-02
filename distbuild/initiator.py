@@ -69,6 +69,7 @@ class Initiator(distbuild.StateMachine):
             self._partial = True
         self._step_outputs = {}
         self.debug_transitions = False
+        self.allow_detach = False
 
         if app.settings['initiator-step-output-dir'] == '':
             self._step_output_dir = create_build_directory()
@@ -107,7 +108,8 @@ class Initiator(distbuild.StateMachine):
             original_ref=self._original_ref,
             component_names=self._component_names,
             partial=self._partial,
-            protocol_version=distbuild.protocol.VERSION
+            protocol_version=distbuild.protocol.VERSION,
+            allow_detach=self.allow_detach,
         )
         self._jm.send(msg)
         logging.debug('Initiator: sent to controller: %s', repr(msg))
@@ -127,7 +129,7 @@ class Initiator(distbuild.StateMachine):
             'step-finished': self._handle_step_finished_message,
             'step-failed': self._handle_step_failed_message,
         }
-        
+
         handler = handlers[event.msg['type']]
         handler(event.msg)
 
@@ -170,6 +172,12 @@ class Initiator(distbuild.StateMachine):
         self._write_status_to_build_log(self._get_output(msg), status)
 
     def _handle_step_started_message(self, msg):
+        if self.allow_detach:
+            self._app.status(msg='Detaching distbuild from controller (build'
+                                 ' will continue on the distbuild network)')
+            self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
+            self._jm.close()
+            self.allow_detach = False
         status = 'Started building %s on %s' % (
             msg['step_name'], msg['worker_name'])
         self._app.status(msg=status)
@@ -216,7 +224,7 @@ class Initiator(distbuild.StateMachine):
         self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
         self._jm.close()
         logging.info('Build finished OK')
-        
+
         urls = event.msg['urls']
         if urls:
             for url in urls:
@@ -247,6 +255,70 @@ class Initiator(distbuild.StateMachine):
             f.close()
 
         self._step_outputs = {}
+
+
+class InitiatorStart(Initiator):
+
+    def __init__(self, cm, conn, app, repo_name, ref, morphology,
+                 original_ref, component_names):
+        Initiator.__init__(self, cm, conn, app, repo_name, ref, morphology,
+                           original_ref, component_names)
+        self._step_outputs = {}
+        self.debug_transitions = False
+        self.allow_detach = True
+
+
+class InitiatorCancel(distbuild.StateMachine):
+
+    def __init__(self, cm, conn, app, job_id):
+        distbuild.StateMachine.__init__(self, 'waiting')
+        self._cm = cm
+        self._conn = conn
+        self._app = app
+        self._job_id = job_id
+
+    def setup(self):
+        distbuild.crash_point()
+
+        self._jm = distbuild.JsonMachine(self._conn)
+        self.mainloop.add_state_machine(self._jm)
+        logging.debug('initiator: _jm=%s' % repr(self._jm))
+
+        spec = [
+            # state, source, event_class, new_state, callback
+            ('waiting', self._jm, distbuild.JsonEof, None, self._terminate),
+            ('waiting', self._jm, distbuild.JsonNewMessage, None,
+                self._handle_json_message),
+        ]
+        self.add_transitions(spec)
+
+        self._app.status(msg='Sending cancel request for distbuild job.')
+        msg = distbuild.message('build-cancel',
+            id=self._job_id,
+        )
+        self._jm.send(msg)
+        logging.debug('Initiator: sent to controller: %s', repr(msg))
+
+    def _handle_json_message(self, event_source, event):
+        distbuild.crash_point()
+
+        logging.debug('Initiator: from controller: %s', str(event.msg))
+
+        handlers = {
+            'build-cancel-output': self._handle_build_cancel_output,
+        }
+
+        handler = handlers[event.msg['type']]
+        handler(event.msg)
+
+    def _handle_build_cancel_output(self, msg):
+        self._app.status(msg=str(msg['message']))
+        self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
+        self._jm.close()
+
+    def _terminate(self, event_source, event):
+        self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
+        self._jm.close()
 
 
 class InitiatorListJobs(distbuild.StateMachine):

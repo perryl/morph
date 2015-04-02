@@ -102,6 +102,8 @@ class InitiatorConnection(distbuild.StateMachine):
                 self._handle_build_request(event)
             elif event.msg['type'] == 'list-requests':
                 self._handle_list_requests(event)
+            elif event.msg['type'] == 'build-cancel':
+                self._handle_build_cancel(event)
             else:
                 logging.error('Invalid message type: %s', event.msg)
         except (KeyError, ValueError) as ex:
@@ -146,6 +148,30 @@ class InitiatorConnection(distbuild.StateMachine):
         msg = distbuild.message('list-request-output',
                                 message=('\n\n'.join(output_msg)))
         self.jm.send(msg)
+
+    def _handle_build_cancel(self, event):
+        requests = self.mainloop.state_machines_of_type(
+                   distbuild.BuildController)
+        for build in requests:
+            if build.get_request()['id'] == event.msg['id']:
+                self.mainloop.queue_event(InitiatorConnection,
+                                          InitiatorDisconnect(event.msg['id']))
+                self.mainloop.queue_event(distbuild.WorkerBuildQueuer,
+                                          distbuild.WorkerCancelPending(
+                                              event.msg['id']))
+                self.mainloop.queue_event(distbuild.BuildController,
+                                          distbuild.BuildCancel(
+                                              event.msg['id']))
+                msg = distbuild.message('build-cancel-output', message=(
+                                        'Cancelling build request with ID %s' %
+                                        event.msg['id']))
+                self.jm.send(msg)
+                break
+        else:
+            msg = distbuild.message('build-cancel-output', message=('Given '
+                                    'build-request ID does not match any '
+                                    'running build IDs.'))
+            self.jm.send(msg)
 
     def _disconnect(self, event_source, event):
         for id in self.our_ids:
