@@ -519,10 +519,11 @@ class InitiatorBuildCommand(BuildCommand):
     RECONNECT_INTERVAL = 30 # seconds
     MAX_RETRIES = 1
 
-    def __init__(self, app, addr, port):
+    def __init__(self, app, addr, port, allow_detach):
         self.app = app
         self.addr = addr
         self.port = port
+        self.allow_detach = allow_detach
         self.app.settings['push-build-branches'] = True
         super(InitiatorBuildCommand, self).__init__(app)
 
@@ -540,10 +541,15 @@ class InitiatorBuildCommand(BuildCommand):
         loop = distbuild.MainLoop()
         args = [repo_name, ref, filename, original_ref or ref,
                 component_names]
+        if self.allow_detach:
+            self.init_type = distbuild.InitiatorStart
+        else:
+            self.init_type = distbuild.Initiator
+
         cm = distbuild.InitiatorConnectionMachine(self.app,
                                                   self.addr,
                                                   self.port,
-                                                  distbuild.Initiator,
+                                                  self.init_type,
                                                   [self.app] + args,
                                                   self.RECONNECT_INTERVAL,
                                                   self.MAX_RETRIES)

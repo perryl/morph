@@ -46,10 +46,14 @@ class BuildPlugin(cliapp.Plugin):
                                              '[COMPONENT...]')
         self.app.add_subcommand('distbuild', self.distbuild,
                                 arg_synopsis='SYSTEM [COMPONENT...]')
+        self.app.add_subcommand('distbuild-start', self.distbuild_start,
+                                arg_synopsis='SYSTEM [COMPONENT...]')
         self.use_distbuild = False
+        self.allow_detach = False
 
     def disable(self):
         self.use_distbuild = False
+        self.allow_detach = False
 
     def distbuild_morphology(self, args):
         '''Distbuild a system, outside of a system branch.
@@ -104,6 +108,33 @@ class BuildPlugin(cliapp.Plugin):
         '''
 
         self.use_distbuild = True
+        self.build(args)
+
+    def distbuild_start(self, args):
+        '''Distbuild a system image in the current system branch, then
+        disconnects the Initiator
+
+        Command line arguments:
+
+        * `SYSTEM` is the name of the system to build.
+
+        This command launches a distributed build, to use this command
+        you must first set up a distbuild cluster.
+
+        Artifacts produced during the build will be stored on your trove.
+
+        Once the build completes you can use morph deploy to the deploy
+        your system, the system artifact will be copied from your trove
+        and cached locally.
+
+        Example:
+
+            morph distbuild devel-system-x86_64-generic.morph
+
+        '''
+
+        self.use_distbuild = True
+        self.allow_detach = True
         self.build(args)
 
     def build_morphology(self, args):
@@ -210,7 +241,7 @@ class BuildPlugin(cliapp.Plugin):
             port = self.app.settings['controller-initiator-port']
 
             build_command = morphlib.buildcommand.InitiatorBuildCommand(
-                self.app, addr, port)
+                self.app, addr, port, self.allow_detach)
         else:
             build_command = morphlib.buildcommand.BuildCommand(self.app)
 
