@@ -92,6 +92,12 @@ _required_fields = {
     'list-request-output': [
         'message',
     ],
+    'distbuild-cancel': [
+        'id',
+    ],
+    'distbuild-cancel-output': [
+        'message',
+    ],
 }
 
 

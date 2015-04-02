@@ -517,6 +517,59 @@ class InitiatorStart(distbuild.StateMachine):
         self._step_outputs = {}
 
 
+class InitiatorCancel(distbuild.StateMachine):
+
+    def __init__(self, cm, conn, app, job_id):
+        distbuild.StateMachine.__init__(self, 'waiting')
+        self._cm = cm
+        self._conn = conn
+        self._app = app
+        self._job_id = job_id
+
+    def setup(self):
+        distbuild.crash_point()
+
+        self._jm = distbuild.JsonMachine(self._conn)
+        self.mainloop.add_state_machine(self._jm)
+        logging.debug('initiator: _jm=%s' % repr(self._jm))
+
+        spec = [
+            # state, source, event_class, new_state, callback
+            ('waiting', self._jm, distbuild.JsonEof, None, self._terminate),
+            ('waiting', self._jm, distbuild.JsonNewMessage, None,
+                self._handle_json_message),
+        ]
+        self.add_transitions(spec)
+
+        self._app.status(msg='Sending cancel request for distbuild job.')
+        msg = distbuild.message('distbuild-cancel',
+            id=self._job_id,
+        )
+        self._jm.send(msg)
+        logging.debug('Initiator: sent to controller: %s', repr(msg))
+
+    def _handle_json_message(self, event_source, event):
+        distbuild.crash_point()
+
+        logging.debug('Initiator: from controller: %s', str(event.msg))
+
+        handlers = {
+            'distbuild-cancel-output': self._handle_distbuild_cancel_output,
+        }
+
+        handler = handlers[event.msg['type']]
+        handler(event.msg)
+
+    def _handle_distbuild_cancel_output(self, msg):
+        self._app.status(msg=str(msg['message']))
+        self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
+        self._jm.close()
+
+    def _terminate(self, event_source, event):
+        self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
+        self._jm.close()
+
+
 class InitiatorListJobs(distbuild.StateMachine):
 
     def __init__(self, cm, conn, app):
