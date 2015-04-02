@@ -170,7 +170,7 @@ class Initiator(distbuild.StateMachine):
 
         self._open_output(msg)
         self._write_status_to_build_log(self._get_output(msg), status)
-
+    
     def _handle_step_started_message(self, msg):
         if self.allow_detach:
             self._app.status(msg='Detaching distbuild from controller (build'
