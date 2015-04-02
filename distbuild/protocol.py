@@ -33,6 +33,7 @@ _required_fields = {
         'morphology',
         'partial',
         'protocol_version',
+        'allow_detach',
     ],
     'build-progress': [
         'id',
