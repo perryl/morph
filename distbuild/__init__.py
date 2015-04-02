@@ -35,7 +35,8 @@ from proxy_event_source import ProxyEventSource
 from json_router import JsonRouter
 from helper_router import (HelperRouter, HelperRequest, HelperOutput, 
                            HelperResult)
-from initiator_connection import (InitiatorConnection, InitiatorDisconnect)
+from initiator_connection import (InitiatorConnection, InitiatorDisconnect,
+                                  CancelRequest)
 from connection_machine import (ConnectionMachine, InitiatorConnectionMachine,
                                 Reconnect, StopConnecting)
 from worker_build_scheduler import (WorkerBuildQueuer, 
@@ -54,7 +55,8 @@ from build_controller import (BuildController, BuildFailed, BuildProgress,
                               BuildOutput, BuildStepFinished, BuildStepFailed,
                               BuildFinished, BuildCancel,
                               build_step_name, map_build_graph)
-from initiator import (Initiator, InitiatorListJobs)
+from initiator import (Initiator, InitiatorStart, InitiatorCancel,
+                       InitiatorListJobs)
 from protocol import message
 
 from crashpoint import (crash_point, add_crash_condition, add_crash_conditions,

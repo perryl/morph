@@ -40,6 +40,48 @@ class DistbuildOptionsPlugin(cliapp.Plugin):
         pass
 
 
+class DistbuildCancel(cliapp.Plugin):
+
+    RECONNECT_INTERVAL = 30 # seconds
+    MAX_RETRIES = 1
+
+    def enable(self):
+        self.app.add_subcommand('distbuild-cancel', self.distbuild_cancel,
+                                arg_synopsis='ID')
+
+    def disable(self):
+        pass
+
+    def distbuild_cancel(self, args):
+        '''Cancels a currently-running distbuild
+
+        Command line arguments:
+
+        `ID` of the running process that you wish to cancel
+        (this can be found via distbuild-list-jobs)
+
+        Example:
+
+            * morph distbuild-cancel InitiatorConnection-1
+
+        '''
+
+        if len(args) == 0:
+            raise cliapp.AppException(
+                'This command requires a build-request ID to run.')
+
+        addr = self.app.settings['controller-initiator-address']
+        port = self.app.settings['controller-initiator-port']
+        icm = distbuild.InitiatorConnectionMachine(self.app, addr, port,
+                                                   distbuild.InitiatorCancel,
+                                                   [self.app] + args,
+                                                   self.RECONNECT_INTERVAL,
+                                                   self.MAX_RETRIES)
+        loop = distbuild.MainLoop()
+        loop.add_state_machine(icm)
+        loop.run()
+
+
 class DistbuildListJobsPlugin(cliapp.Plugin):
 
     RECONNECT_INTERVAL = 30 # seconds

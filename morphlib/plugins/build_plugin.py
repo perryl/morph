@@ -46,10 +46,14 @@ class BuildPlugin(cliapp.Plugin):
                                              '[COMPONENT...]')
         self.app.add_subcommand('distbuild', self.distbuild,
                                 arg_synopsis='SYSTEM [COMPONENT...]')
+        self.app.add_subcommand('distbuild-start', self.distbuild_start,
+                                arg_synopsis='SYSTEM [COMPONENT...]')
         self.use_distbuild = False
+        self.allow_detach = False
 
     def disable(self):
         self.use_distbuild = False
+        self.allow_detach = False
 
     def distbuild_morphology(self, args):
         '''Distbuild a system, outside of a system branch.
@@ -97,6 +101,12 @@ class BuildPlugin(cliapp.Plugin):
         your system, the system artifact will be copied from your trove
         and cached locally.
 
+        Log information can be found in the current working directory, in
+        directories called build-xx.
+
+        If you do not have a persistent connection to the server on which
+        the distbuild runs, consider using `morph distbuild-start` instead.
+
         Example:
 
             morph distbuild devel-system-x86_64-generic.morph
@@ -104,6 +114,25 @@ class BuildPlugin(cliapp.Plugin):
         '''
 
         self.use_distbuild = True
+        self.build(args)
+
+    def distbuild_start(self, args):
+        '''Distbuild a system image without a lasting client-server connection.
+
+        This command launches a distributed build, and disconnects from the
+        distbuild cluster once the build starts, leaving the build running
+        remotely.
+
+        The command will return a build-ID which can be used to cancel the
+        distbuild via `morph distbuild-cancel`. Builds started in this manner
+        can be found via `morph distbuild-list-jobs`
+
+        See `morph help distbuild` for more information and example usage.
+
+        '''
+
+        self.use_distbuild = True
+        self.allow_detach = True
         self.build(args)
 
     def build_morphology(self, args):
@@ -211,7 +240,7 @@ class BuildPlugin(cliapp.Plugin):
             port = self.app.settings['controller-initiator-port']
 
             build_command = morphlib.buildcommand.InitiatorBuildCommand(
-                self.app, addr, port)
+                self.app, addr, port, self.allow_detach)
         else:
             build_command = morphlib.buildcommand.BuildCommand(self.app)
 

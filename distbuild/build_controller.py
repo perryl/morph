@@ -175,6 +175,7 @@ class BuildController(distbuild.StateMachine):
         self._helper_id = None
         self.debug_transitions = False
         self.debug_graph_state = False
+        self.allow_detach = build_request_message['allow_detach']
 
     def __repr__(self):
         return '<BuildController at 0x%x, request-id %s>' % (id(self),
@@ -195,6 +196,9 @@ class BuildController(distbuild.StateMachine):
             ('init', distbuild.InitiatorConnection,
                 distbuild.InitiatorDisconnect, 'init',
                 self._maybe_notify_initiator_disconnected),
+            ('init', distbuild.InitiatorConnection,
+                distbuild.CancelRequest, 'init',
+                self._maybe_notify_build_cancelled),
             ('init', self, _Abort, None, None),
 
             ('graphing', distbuild.HelperRouter, distbuild.HelperOutput,
@@ -205,6 +209,9 @@ class BuildController(distbuild.StateMachine):
                 'annotating', self._start_annotating),
             ('graphing', self, BuildFailed, None, None),
             ('graphing', distbuild.InitiatorConnection,
+                distbuild.CancelRequest, 'graphing',
+                self._maybe_notify_build_cancelled),
+            ('graphing', distbuild.InitiatorConnection,
                 distbuild.InitiatorDisconnect, 'graphing',
                 self._maybe_notify_initiator_disconnected),
             ('graphing', self, _Abort, None, None),
@@ -214,6 +221,9 @@ class BuildController(distbuild.StateMachine):
             ('annotating', self, BuildFailed, None, None),
             ('annotating', self, _Annotated, 'building', 
                 self._queue_worker_builds),
+            ('annotating', distbuild.InitiatorConnection,
+                distbuild.CancelRequest, 'annotating',
+                self._maybe_notify_build_cancelled),
             ('annotating', distbuild.InitiatorConnection,
                 distbuild.InitiatorDisconnect, 'annotating',
                 self._maybe_notify_initiator_disconnected),
@@ -250,6 +260,9 @@ class BuildController(distbuild.StateMachine):
                 self._maybe_notify_build_failed),
             ('building', self, _Abort, None, None),
             ('building', self, _Built, None, self._notify_build_done),
+            ('building', distbuild.InitiatorConnection,
+                distbuild.CancelRequest, 'building',
+                self._maybe_notify_build_cancelled),
             ('building', distbuild.InitiatorConnection,
                 distbuild.InitiatorDisconnect, 'building',
                 self._maybe_notify_initiator_disconnected),
@@ -497,8 +510,24 @@ class BuildController(distbuild.StateMachine):
         logging.debug("BuildController %r: initiator id %s disconnected",
             self, event.id)
 
+        if self.allow_detach:
+            logging.debug('Detaching from client; build continuing remotely.')
+        else:
+            self.mainloop.queue_event(BuildController, distbuild.CancelRequest)
+
+    def _maybe_notify_build_cancelled(self, event_source, event):
+        if event.id != self._request['id']:
+            logging.debug('Heard initiator cancel request with event id %s '
+                          'but out request id is %s',
+                          event.id, self._request['id'])
+            return  # not for us
+
+        logging.debug("BuildController %r: initiator id %s cancelled",
+            self, event.id)
+
         cancel_pending = distbuild.WorkerCancelPending(event.id)
-        self.mainloop.queue_event(distbuild.WorkerBuildQueuer, cancel_pending)
+        self.mainloop.queue_event(distbuild.WorkerBuildQueuer,
+                                  cancel_pending)
 
         cancel = BuildCancel(event.id)
         self.mainloop.queue_event(BuildController, cancel)

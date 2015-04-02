@@ -26,6 +26,12 @@ class InitiatorDisconnect(object):
         self.id = id
 
 
+class CancelRequest(object):
+
+    def __init__(self, id):
+        self.id = id
+
+
 class _Close(object):
 
     def __init__(self, event_source):
@@ -76,6 +82,8 @@ class InitiatorConnection(distbuild.StateMachine):
                 'idle', self._send_build_failed_message),
             ('idle', distbuild.BuildController, distbuild.BuildProgress, 
                 'idle', self._send_build_progress_message),
+            ('idle', distbuild.BuildController, distbuild.BuildCancel,
+                'idle', self._send_build_cancelled_message),
             ('idle', distbuild.BuildController, distbuild.BuildStepStarted, 
                 'idle', self._send_build_step_started_message),
             ('idle', distbuild.BuildController,
@@ -117,6 +125,8 @@ class InitiatorConnection(distbuild.StateMachine):
                 self._handle_build_request(event)
             elif event.msg['type'] == 'list-requests':
                 self._handle_list_requests(event)
+            elif event.msg['type'] == 'build-cancel':
+                self._handle_build_cancel(event)
             else:
                 logging.error('Invalid message type: %s', event.msg)
         except (KeyError, ValueError) as ex:
@@ -151,6 +161,24 @@ class InitiatorConnection(distbuild.StateMachine):
                                 message=('\n\n'.join(output_msg)))
         self.jm.send(msg)
 
+    def _handle_build_cancel(self, event):
+        requests = self.mainloop.state_machines_of_type(
+                   distbuild.BuildController)
+        for build in requests:
+            if build.get_request()['id'] == event.msg['id']:
+                self.mainloop.queue_event(InitiatorConnection,
+                                          CancelRequest(event.msg['id']))
+                msg = distbuild.message('request-output', message=(
+                                        'Cancelling build request with ID %s' %
+                                        event.msg['id']))
+                self.jm.send(msg)
+                break
+        else:
+            msg = distbuild.message('request-output', message=('Given '
+                                    'build-request ID does not match any '
+                                    'running build IDs.'))
+            self.jm.send(msg)
+
     def _disconnect(self, event_source, event):
         for id in self.our_ids:
             logging.debug('InitiatorConnection: %s: InitiatorDisconnect(%s)',
@@ -182,6 +210,16 @@ class InitiatorConnection(distbuild.StateMachine):
             msg = distbuild.message('build-finished',
                 id=self._route_map.get_incoming_id(event.id),
                 urls=event.urls)
+            self._route_map.remove(event.id)
+            self.our_ids.remove(event.id)
+            self.jm.send(msg)
+            self._log_send(msg)
+
+    def _send_build_cancelled_message(self, event_source, event):
+        if event.id in self.our_ids:
+            msg = distbuild.message('build-cancelled',
+                id=self._route_map.get_incoming_id(event.id))
+
             self._route_map.remove(event.id)
             self.our_ids.remove(event.id)
             self.jm.send(msg)
