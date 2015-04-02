@@ -175,6 +175,7 @@ class BuildController(distbuild.StateMachine):
         self._helper_id = None
         self.debug_transitions = False
         self.debug_graph_state = False
+        self.allow_detach = build_request_message['allow_detach']
 
     def __repr__(self):
         return '<BuildController at 0x%x, request-id %s>' % (id(self),
@@ -497,10 +498,17 @@ class BuildController(distbuild.StateMachine):
         logging.debug("BuildController %r: initiator id %s disconnected",
             self, event.id)
 
-        cancel_pending = distbuild.WorkerCancelPending(event.id)
-        self.mainloop.queue_event(distbuild.WorkerBuildQueuer, cancel_pending)
+        if self.allow_detach:
+            logging.debug('Detaching from client; build continuing remotely.')
+        else:
+            self.mainloop.queue_event(self, self.build_cancel(event.id))
 
-        cancel = BuildCancel(event.id)
+    def build_cancel(self, event_id):
+        cancel_pending = distbuild.WorkerCancelPending(event_id)
+        self.mainloop.queue_event(distbuild.WorkerBuildQueuer,
+                                  cancel_pending)
+
+        cancel = BuildCancel(event_id)
         self.mainloop.queue_event(BuildController, cancel)
 
         self.mainloop.queue_event(self, _Abort())
