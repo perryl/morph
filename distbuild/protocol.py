@@ -89,8 +89,11 @@ _required_fields = {
         'addr',
         'port',
     ],
-    'list-jobs-output': [
+    'message-output': [
         'message',
+    ],
+    'distbuild-cancel': [
+        'id',
     ],
 }
 

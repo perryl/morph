@@ -102,6 +102,8 @@ class InitiatorConnection(distbuild.StateMachine):
                 self._handle_build_request(event)
             elif event.msg['type'] == 'list-jobs':
                 self._handle_list_jobs(event)
+            elif event.msg['type'] == 'distbuild-cancel':
+                self._handle_distbuild_cancel(event)
             else:
                 logging.error('Invalid message type: %s', event.msg)
         except (KeyError, ValueError) as ex:
@@ -142,6 +144,17 @@ class InitiatorConnection(distbuild.StateMachine):
         msg = distbuild.message('list-jobs-output',
                                 message=('\n'.join(output_msg)))
         self.jm.send(msg)
+
+    def _handle_distbuild_cancel(self, event):
+        for event.msg['job_id'] in self.our_ids:
+            msg = distbuild.message('list-jobs-output', message='Cancelling '
+                                    'distbuild job with ID %s' % 
+                                    event.msg['job_id'])
+            self.jm.send(msg)
+            self._log_send(msg)
+            self.mainloop.queue_event(InitiatorConnection,
+                                      InitiatorDisconnect(job._id))
+            self.mainloop.queue_event(self, _Close(event.event_source))
 
     def _disconnect(self, event_source, event):
         for id in self.our_ids:
