@@ -286,7 +286,7 @@ class SourceResolver(object):
         loader = morphlib.morphloader.MorphologyLoader()
 
         text = self._get_file_contents(reponame, sha1, filename)
-        morph = loader.load_from_string(text)
+        morph = loader.load_from_string(text, filename)
 
         if morph is not None:
             self._resolved_morphologies[key] = morph
