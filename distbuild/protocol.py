@@ -100,6 +100,10 @@ _required_fields = {
         'id',
         'protocol_version',
     ],
+    'build-status': [
+        'id',
+        'protocol_version',
+    ],
 }
 
 
