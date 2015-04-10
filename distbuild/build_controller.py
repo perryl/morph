@@ -176,6 +176,11 @@ class BuildController(distbuild.StateMachine):
         self.debug_transitions = False
         self.debug_graph_state = False
         self.allow_detach = build_request_message['allow_detach']
+        self.build_info = {
+            'id': build_request_message['id'],
+            'morphology': build_request_message['morphology'],
+            'status': 'Computing build graph'
+        }
 
     def __repr__(self):
         return '<BuildController at 0x%x, request-id %s>' % (id(self),
@@ -525,6 +530,7 @@ class BuildController(distbuild.StateMachine):
         logging.debug("BuildController %r: initiator id %s cancelled",
             self, event.id)
 
+        self.build_info['status'] = 'Cancelled'
         cancel_pending = distbuild.WorkerCancelPending(event.id)
         self.mainloop.queue_event(distbuild.WorkerBuildQueuer,
                                   cancel_pending)
@@ -543,6 +549,7 @@ class BuildController(distbuild.StateMachine):
             # This is not the event you are looking for.
             return
 
+        self.build_info['status'] = 'Waiting for a worker to become available'
         progress = BuildProgress(
             self._request['id'],
             'Ready to build %s: waiting for a worker to become available'
@@ -563,6 +570,7 @@ class BuildController(distbuild.StateMachine):
             return
 
         logging.debug('BC: got build step started: %s' % artifact.name)
+        self.build_info['status'] = 'Building %s' % artifact.name
         started = BuildStepStarted(
             self._request['id'], build_step_name(artifact), event.worker_name)
         self.mainloop.queue_event(BuildController, started)
@@ -575,6 +583,7 @@ class BuildController(distbuild.StateMachine):
         artifact = self._find_artifact(event.artifact_cache_key)
 
         logging.debug('BC: got build step already started: %s' % artifact.name)
+        self.build_info['status'] = 'Building %s' % artifact.name
         started = BuildStepAlreadyStarted(
             self._request['id'], build_step_name(artifact), event.worker_name)
         self.mainloop.queue_event(BuildController, started)
@@ -682,6 +691,8 @@ class BuildController(distbuild.StateMachine):
 
         self.fail('Building failed for %s' % artifact.name)
 
+        self.build_info['status'] = 'Failed building %s' % artifact.name
+
         # Cancel any jobs waiting to be executed, since there is no point
         # running them if this build has failed, it would just waste
         # resources
@@ -701,6 +712,7 @@ class BuildController(distbuild.StateMachine):
         distbuild.crash_point()
 
         logging.debug('Notifying initiator of successful build')
+        self.build_info['status'] = 'Finished'
         baseurl = urlparse.urljoin(
             self._artifact_cache_server, '/1.0/artifacts')
         urls = []

@@ -19,6 +19,7 @@ import fcntl
 import logging
 import os
 import select
+import collections
 
 
 class MainLoop(object):
@@ -40,6 +41,7 @@ class MainLoop(object):
         self._machines = []
         self._sources = []
         self._events = []
+        self.build_info = collections.deque(maxlen=1000)
         self.dump_filename = None
         
     def add_state_machine(self, machine):
@@ -51,7 +53,7 @@ class MainLoop(object):
             filename = '%s%s.dot' % (self.dump_filename, 
                                      machine.__class__.__name__)
             machine.dump_dot(filename)
-        
+
     def remove_state_machine(self, machine):
         logging.debug('MainLoop.remove_state_machine: %s' % machine)
         self._machines.remove(machine)

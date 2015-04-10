@@ -82,6 +82,53 @@ class DistbuildCancel(cliapp.Plugin):
         loop.run()
 
 
+class DistbuildStatusPlugin(cliapp.Plugin):
+
+    RECONNECT_INTERVAL = 30 # seconds
+    MAX_RETRIES = 1
+
+    def enable(self):
+        self.app.add_subcommand('distbuild-status', self.distbuild_status,
+                                arg_synopsis='ID')
+
+    def disable(self):
+        pass
+
+    def distbuild_status(self, args):
+        '''Displays build status of recent distbuild requests.
+
+        Lists last known build status for all distbuilds (e.g. Building,
+        Failed, Finished, Cancelled) on a given distbuild server as set in
+        /etc/morph.conf
+
+        Example:
+
+            morph distbuild-status InitiatorConnection-1
+
+        Example output:
+
+            Build request ID: InitiatorConnection-1
+              System build: systems/devel-system-x86_64-generic.morph
+              Build status: Building stage1-binutils-misc
+
+        '''
+
+        if len(args) == 0:
+            raise cliapp.AppException(
+                'This command requires a build-request ID to run.')
+
+        addr = self.app.settings['controller-initiator-address']
+        port = self.app.settings['controller-initiator-port']
+        icm = distbuild.InitiatorConnectionMachine(self.app, addr, port,
+                                                   distbuild.InitiatorStatus,
+                                                   [self.app] + args,
+                                                   self.RECONNECT_INTERVAL,
+                                                   self.MAX_RETRIES)
+        loop = distbuild.MainLoop()
+        loop.add_state_machine(icm)
+        loop.run()
+
+
 class DistbuildListJobsPlugin(cliapp.Plugin):
 
     RECONNECT_INTERVAL = 30 # seconds

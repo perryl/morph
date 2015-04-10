@@ -105,6 +105,12 @@ class InitiatorConnection(distbuild.StateMachine):
         logging.debug('InitiatorConnection: from %s: %r', self.initiator_name,
                 event.msg)
 
+        msg_handler = {
+            'build-request': self._handle_build_request,
+            'list-requests': self._handle_list_requests,
+            'build-cancel': self._handle_build_cancel,
+            'build-status': self._handle_build_status,
+        }
         try:
             if event.msg.get('protocol_version') != distbuild.protocol.VERSION:
                 msg = distbuild.message('build-failed',
@@ -121,14 +127,7 @@ class InitiatorConnection(distbuild.StateMachine):
                 self.jm.send(msg)
                 self._log_send(msg)
                 return
-            if event.msg['type'] == 'build-request':
-                self._handle_build_request(event)
-            elif event.msg['type'] == 'list-requests':
-                self._handle_list_requests(event)
-            elif event.msg['type'] == 'build-cancel':
-                self._handle_build_cancel(event)
-            else:
-                logging.error('Invalid message type: %s', event.msg)
+            msg_handler[event.msg['type']](event)
         except (KeyError, ValueError) as ex:
             logging.error('Invalid message from initiator: %s: exception %s',
                            event.msg, ex)
@@ -142,6 +141,7 @@ class InitiatorConnection(distbuild.StateMachine):
             self, event.msg, self.artifact_cache_server,
             self.morph_instance)
         self.mainloop.add_state_machine(build_controller)
+        self.mainloop.build_info.append(build_controller.build_info)
 
     def _handle_list_requests(self, event):
         requests = self.mainloop.state_machines_of_type(
@@ -177,6 +177,24 @@ class InitiatorConnection(distbuild.StateMachine):
             msg = distbuild.message('request-output', message=('Given '
                                     'build-request ID does not match any '
                                     'running build IDs.'))
+            self.jm.send(msg)
+
+    def _handle_build_status(self, event):
+        for build_info in self.mainloop.build_info:
+            if build_info['id'] == event.msg['id']:
+                msg = distbuild.message('request-output',
+                    message=('\nBuild request ID: %s\n  System build: %s\n  '
+                             'Build status: %s' % (build_info['id'],
+                                                   build_info['morphology'],
+                                                   build_info['status'])))
+
+                self.jm.send(msg)
+                break
+        else:
+            msg = distbuild.message('request-output', message=('Given '
+                                    'build-request ID does not match any '
+                                    'recent build IDs (the status information '
+                                    'for this build may have expired).'))
             self.jm.send(msg)
 
     def _disconnect(self, event_source, event):
