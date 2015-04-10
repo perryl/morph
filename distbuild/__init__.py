@@ -55,7 +55,7 @@ from build_controller import (BuildController, BuildFailed, BuildProgress,
                               BuildFinished, BuildCancel,
                               build_step_name, map_build_graph)
 from initiator import (Initiator, InitiatorStart, InitiatorCancel,
-                       InitiatorListJobs)
+                       InitiatorListJobs, InitiatorStatus)
 from protocol import message
 
 from crashpoint import (crash_point, add_crash_condition, add_crash_conditions,
