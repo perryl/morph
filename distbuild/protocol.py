@@ -98,6 +98,12 @@ _required_fields = {
     'build-cancel-output': [
         'message',
     ],
+    'build-status': [
+        'id',
+    ],
+    'build-status-output': [
+        'message',
+    ],
 }
 
 

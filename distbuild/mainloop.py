@@ -40,6 +40,7 @@ class MainLoop(object):
         self._machines = []
         self._sources = []
         self._events = []
+        self.store_request = []
         self.dump_filename = None
         
     def add_state_machine(self, machine):
@@ -51,13 +52,19 @@ class MainLoop(object):
             filename = '%s%s.dot' % (self.dump_filename, 
                                      machine.__class__.__name__)
             machine.dump_dot(filename)
-        
+
+    def store_state_machine(self, machine):
+        self.store_request.append(machine)
+
     def remove_state_machine(self, machine):
         logging.debug('MainLoop.remove_state_machine: %s' % machine)
         self._machines.remove(machine)
 
     def state_machines_of_type(self, machine_type):
         return [m for m in self._machines if isinstance(m, machine_type)]
+
+    def state_stored_requests(self, machine_type):
+        return [m for m in self.store_request if isinstance(m, machine_type)]
 
     def n_state_machines_of_type(self, machine_type):
         return len(self.state_machines_of_type(machine_type))
