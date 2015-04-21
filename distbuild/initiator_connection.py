@@ -98,6 +98,21 @@ class InitiatorConnection(distbuild.StateMachine):
                 event.msg)
 
         try:
+            if event.msg.get('protocol_version') != distbuild.protocol.VERSION:
+                msg = distbuild.message('build-failed',
+                    # use build-failed as it is understood by older versions of
+                    # morph; if morph is old enough (protocol_version < 1) it
+                    # won't understand a new message and ignore it or cause the
+                    # request to hang
+                    id=event.msg['id'],
+                    reason=('Protocol version mismatch between server & '
+                            'initiator: distbuild network uses distbuild '
+                            'protocol version %i, but client uses version %i.'
+                            % (distbuild.protocol.VERSION,
+                            event.msg.get('protocol_version'))))
+                self.jm.send(msg)
+                self._log_send(msg)
+                return
             if event.msg['type'] == 'build-request':
                 self._handle_build_request(event)
             elif event.msg['type'] == 'list-requests':
@@ -109,17 +124,6 @@ class InitiatorConnection(distbuild.StateMachine):
                            event.msg, ex)
 
     def _handle_build_request(self, event):
-        if event.msg.get('protocol_version') != distbuild.protocol.VERSION:
-            msg = distbuild.message('build-failed',
-                id=event.msg['id'],
-                reason=('Protocol version mismatch between server & initiator:'
-                        ' distbuild network uses distbuild protocol version %i'
-                        ', but client uses version %i.' % (
-                        distbuild.protocol.VERSION,
-                        event.msg.get('protocol_version'))))
-            self.jm.send(msg)
-            self._log_send(msg)
-            return
         new_id = self._idgen.next()
         self.our_ids.add(new_id)
         self._route_map.add(event.msg['id'], new_id)
@@ -143,7 +147,7 @@ class InitiatorConnection(distbuild.StateMachine):
                               build.get_request()['repo'],
                               build.get_request()['ref'],
                               build.get_request()['morphology']))
-        msg = distbuild.message('list-request-output',
+        msg = distbuild.message('request-output',
                                 message=('\n\n'.join(output_msg)))
         self.jm.send(msg)
 

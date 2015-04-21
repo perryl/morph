@@ -87,8 +87,9 @@ _required_fields = {
     ],
     'list-requests': [
         'id',
+        'protocol_version',
     ],
-    'list-request-output': [
+    'request-output': [
         'message',
     ],
 }
