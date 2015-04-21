@@ -285,6 +285,7 @@ class InitiatorListJobs(distbuild.StateMachine):
         self._app.status(msg='Requesting currently running distbuilds.')
         msg = distbuild.message('list-requests',
             id=msg_uuid,
+            protocol_version=distbuild.protocol.VERSION
         )
         self._jm.send(msg)
         logging.debug('Initiator: sent to controller: %s', repr(msg))
@@ -295,13 +296,22 @@ class InitiatorListJobs(distbuild.StateMachine):
         logging.debug('Initiator: from controller: %s', str(event.msg))
 
         handlers = {
-            'list-request-output': self._handle_list_request_output,
+            # set build-failed rather than request-failed so old versions of
+            # morph recognise the message and don't ignore it
+            'build-failed': self._handle_request_failed,
+            'request-output': self._handle_request_output,
         }
 
         handler = handlers[event.msg['type']]
         handler(event.msg)
 
-    def _handle_list_request_output(self, msg):
+    def _handle_request_failed(self, msg):
+        self._app.status(msg=str(msg['reason']))
+        self.mainloop.queue_event(self, _Failed(msg))
+        self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
+        self._jm.close()
+
+    def _handle_request_output(self, msg):
         self._app.status(msg=str(msg['message']))
         self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
         self._jm.close()
