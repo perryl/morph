@@ -514,17 +514,19 @@ class BuildController(distbuild.StateMachine):
 
         if self.allow_detach:
             logging.debug('Detaching from client; build continuing remotely.')
-            self.allow_detach = False
         else:
             self.build_status = 'Cancelled'
-            cancel_pending = distbuild.WorkerCancelPending(event.id)
-            self.mainloop.queue_event(distbuild.WorkerBuildQueuer,
-                                      cancel_pending)
+            self.build_cancel(event.id)
 
-            cancel = BuildCancel(event.id)
-            self.mainloop.queue_event(BuildController, cancel)
+    def build_cancel(event_id):
+        cancel_pending = distbuild.WorkerCancelPending(event_id)
+        self.mainloop.queue_event(distbuild.WorkerBuildQueuer,
+                                  cancel_pending)
 
-            self.mainloop.queue_event(self, _Abort())
+        cancel = BuildCancel(event_id)
+        self.mainloop.queue_event(BuildController, cancel)
+
+        self.mainloop.queue_event(self, _Abort())
 
     def _maybe_relay_build_waiting_for_worker(self, event_source, event):
         if event.initiator_id != self._request['id']:

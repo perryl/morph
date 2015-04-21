@@ -154,14 +154,8 @@ class InitiatorConnection(distbuild.StateMachine):
                    distbuild.BuildController)
         for build in requests:
             if build.get_request()['id'] == event.msg['id']:
-                self.mainloop.queue_event(InitiatorConnection,
-                                          InitiatorDisconnect(event.msg['id']))
-                self.mainloop.queue_event(distbuild.WorkerBuildQueuer,
-                                          distbuild.WorkerCancelPending(
-                                              event.msg['id']))
-                self.mainloop.queue_event(distbuild.BuildController,
-                                          distbuild.BuildCancel(
-                                              event.msg['id']))
+                self.mainloop.queue_event(self, BuildController.build_cancel(
+                                          event.msg['id']))
                 msg = distbuild.message('build-cancel-output', message=(
                                         'Cancelling build request with ID %s' %
                                         event.msg['id']))
