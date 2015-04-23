@@ -61,9 +61,6 @@ class MainLoop(object):
     def state_machines_of_type(self, machine_type):
         return [m for m in self._machines if isinstance(m, machine_type)]
 
-    def n_state_machines_of_type(self, machine_type):
-        return len(self.state_machines_of_type(machine_type))
-
     def add_event_source(self, event_source):
         logging.debug('MainLoop.add_event_source: %s' % event_source)
         self._sources.append(event_source)

@@ -289,7 +289,8 @@ class BuildController(distbuild.StateMachine):
 
     def _request_command_execution(self, argv, request_id):
         '''Tell the controller's distbuild-helper to run a command.'''
-        if self.mainloop.n_state_machines_of_type(distbuild.HelperRouter) == 0:
+        hrs = self.mainloop.state_machines_of_type(distbuild.HelperRouter)
+        if len(hrs) == 0:
             self.fail('No distbuild-helper process running on controller!')
 
         msg = distbuild.message('exec-request',
