@@ -33,7 +33,8 @@ class _Finished(object):
 
 class _Cancelled(object):
 
-    pass
+    def __init__(self, msg):
+        self.msg = msg
 
 
 class _Failed(object):
@@ -157,9 +158,9 @@ class Initiator(distbuild.StateMachine):
     def _handle_build_finished_message(self, msg):
         self.mainloop.queue_event(self, _Finished(msg))
 
-    # TODO: def _handle_build_cancelled_message(self, who):
     def _handle_build_cancelled_message(self, msg):
-        self.mainloop.queue_event(self, _Cancelled())
+        self._app.status(msg=('Build cancelled by %s' % msg['user']))
+        self.mainloop.queue_event(self, _Cancelled(msg))
 
     def _handle_build_failed_message(self, msg):
         self.mainloop.queue_event(self, _Failed(msg))
@@ -276,8 +277,6 @@ class Initiator(distbuild.StateMachine):
         self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
         self._jm.close()
 
-        self._app.status(msg='Build was cancelled')
-
     def _fail(self, event_source, event):
         self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
         self._jm.close()
@@ -337,7 +336,7 @@ class InitiatorStart(Initiator):
 
 class InitiatorCommand(distbuild.StateMachine):
 
-    def __init__(self, cm, conn, app, job_id, message_type, status_text):
+    def __init__(self, cm, conn, app, job_id, message_type, status_text, user):
         distbuild.StateMachine.__init__(self, 'waiting')
         self._cm = cm
         self._conn = conn
@@ -345,6 +344,7 @@ class InitiatorCommand(distbuild.StateMachine):
         self._job_id = job_id
         self._message_type = message_type
         self._status_text = status_text
+        self._user = user
 
     def setup(self):
         distbuild.crash_point()
@@ -365,6 +365,7 @@ class InitiatorCommand(distbuild.StateMachine):
         msg = distbuild.message(self._message_type,
             id=self._job_id,
             protocol_version=distbuild.protocol.VERSION,
+            user=self._user,
         )
         self._jm.send(msg)
         logging.debug('Initiator: sent to controller: %s', repr(msg))

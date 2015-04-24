@@ -51,8 +51,9 @@ class BuildStarted(object):
 
 class BuildCancel(object):
 
-    def __init__(self, id):
+    def __init__(self, id, user):
         self.id = id
+        self.user = user
 
 
 class BuildFinished(object):
@@ -569,12 +570,12 @@ class BuildController(distbuild.StateMachine):
         logging.debug("BuildController %r: initiator id %s cancelled",
             self, event.id)
 
-        self.build_info['status'] = 'Cancelled'
+        self.build_info['status'] = 'Cancelled by %s' % event.user
         cancel_pending = distbuild.WorkerCancelPending(event.id)
         self.mainloop.queue_event(distbuild.WorkerBuildQueuer,
                                   cancel_pending)
 
-        cancel = BuildCancel(event.id)
+        cancel = BuildCancel(event.id, event.user)
         self.mainloop.queue_event(BuildController, cancel)
 
         self.mainloop.queue_event(self, _Abort())
@@ -746,7 +747,7 @@ class BuildController(distbuild.StateMachine):
         # Cancel any currently executing jobs for the above reasons, since
         # this build will fail and we can't decide whether these jobs will
         # be of use to any other build
-        cancel = BuildCancel(self._request['id'])
+        cancel = BuildCancel(self._request['id'], event.user)
         self.mainloop.queue_event(BuildController, cancel)
 
         self.mainloop.queue_event(self, _Abort())

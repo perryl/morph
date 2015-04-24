@@ -16,6 +16,8 @@
 
 
 import logging
+import getpass
+import socket
 
 import distbuild
 
@@ -33,8 +35,9 @@ class InitiatorDisconnect(object):
 
 class CancelRequest(object):
 
-    def __init__(self, id):
+    def __init__(self, id, user):
         self.id = id
+        self.user = user
 
 
 class _Close(object):
@@ -66,6 +69,7 @@ class InitiatorConnection(distbuild.StateMachine):
         self.morph_instance = morph_instance
         self.initiator_name = conn.remotename()
         self._debug_build_output = False
+        self.who = '%s@%s' % (getpass.getuser(), socket.gethostname())
 
     def __repr__(self):
         return '<InitiatorConnection at 0x%x: remote %s>' % (id(self),
@@ -201,7 +205,8 @@ class InitiatorConnection(distbuild.StateMachine):
         for build in requests:
             if build.get_request()['id'] == event.msg['id']:
                 self.mainloop.queue_event(InitiatorConnection,
-                                          CancelRequest(event.msg['id']))
+                                          CancelRequest(event.msg['id'],
+                                          event.msg['user']))
                 msg = distbuild.message('request-output', message=(
                                         'Cancelling build request with ID %s' %
                                         event.msg['id']))
@@ -272,7 +277,8 @@ class InitiatorConnection(distbuild.StateMachine):
                                                urls=event.urls)
 
     def _send_build_cancelled_message(self, event_source, event):
-        self._send_build_termination_event_msg(event, 'build-cancelled')
+        self._send_build_termination_event_msg(event, 'build-cancelled',
+                                               user=event.user)
 
     def _send_build_failed_message(self, event_source, event):
         self._send_build_termination_event_msg(event, 'build-failed',

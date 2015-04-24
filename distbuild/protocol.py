@@ -76,6 +76,7 @@ _required_fields = {
     ],
     'build-cancelled': [
         'id',
+        'user',
     ],
     'exec-request': [
         'id',
@@ -95,6 +96,7 @@ _required_fields = {
     'list-requests': [
         'id',
         'protocol_version',
+        'user',
     ],
     'request-output': [
         'message',
@@ -102,10 +104,12 @@ _required_fields = {
     'build-cancel': [
         'id',
         'protocol_version',
+        'user',
     ],
     'build-status': [
         'id',
         'protocol_version',
+        'user',
     ],
     'graphing-started': [
         'id',

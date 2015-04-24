@@ -16,8 +16,10 @@
 
 
 import cliapp
+import getpass
 import logging
 import re
+import socket
 import sys
 import uuid
 
@@ -73,6 +75,7 @@ class DistbuildCancel(cliapp.Plugin):
 
         args.append('build-cancel')
         args.append('Sending cancel request for distbuild job.')
+        args.append('%s@%s' % (getpass.getuser(), socket.gethostname()))
         addr = self.app.settings['controller-initiator-address']
         port = self.app.settings['controller-initiator-port']
         icm = distbuild.InitiatorConnectionMachine(self.app, addr, port,
@@ -122,6 +125,7 @@ class DistbuildStatusPlugin(cliapp.Plugin):
 
         args.append('build-status')
         args.append('Requesting status of recent build requests.')
+        args.append('%s@%s' % (getpass.getuser(), socket.gethostname()))
         addr = self.app.settings['controller-initiator-address']
         port = self.app.settings['controller-initiator-port']
         icm = distbuild.InitiatorConnectionMachine(self.app, addr, port,
@@ -171,6 +175,7 @@ class DistbuildListJobsPlugin(cliapp.Plugin):
         args.append(uuid.uuid4().hex)
         args.append('list-requests')
         args.append('Requesting currently running distbuilds.')
+        args.append('%s@%s' % (getpass.getuser(), socket.gethostname()))
         addr = self.app.settings['controller-initiator-address']
         port = self.app.settings['controller-initiator-port']
         icm = distbuild.InitiatorConnectionMachine(self.app, addr, port,
