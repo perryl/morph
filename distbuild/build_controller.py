@@ -598,6 +598,7 @@ class BuildController(distbuild.StateMachine):
         artifact = self._find_artifact(event.artifact_cache_key)
 
         logging.debug('BC: got build step already started: %s' % artifact.name)
+        self.build_info['status'] = 'Checking for pre-built artifacts'
         if self.allow_detach:
             started = DetachStepStarted(
                 self._request['id'], build_step_name(artifact),
