@@ -132,6 +132,7 @@ class Initiator(distbuild.StateMachine):
             'build-cancelled': self._handle_build_cancelled_message,
             'build-progress': self._handle_build_progress_message,
             'step-started': self._handle_step_started_message,
+            'build-detached': self._handle_build_detached_message,
             'step-already-started': self._handle_step_already_started_message,
             'step-output': self._handle_step_output_message,
             'step-finished': self._handle_step_finished_message,
@@ -183,6 +184,18 @@ class Initiator(distbuild.StateMachine):
         f.write(time.strftime('%Y-%m-%d %H:%M:%S ') + status + '\n')
         f.flush()
 
+    def _handle_build_detached_message(self, msg):
+        # TODO: log to file on distbuild network
+        if not self.is_detached:
+            self._app.status(msg='Detaching distbuild from controller (build'
+                                 ' will continue on the distbuild network): '
+                                 'build request ID: %s' % msg['id'])
+            self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
+            self._jm.close()
+            self.is_detached = True
+        else:
+            return
+
     def _handle_step_already_started_message(self, msg):
         status = '%s is already building on %s' % (
             msg['step_name'], msg['worker_name'])
@@ -194,14 +207,7 @@ class Initiator(distbuild.StateMachine):
     def _handle_step_started_message(self, msg):
         status = 'Started building %s on %s' % (
             msg['step_name'], msg['worker_name'])
-        if self.allow_detach and not self.is_detached:
-            self._app.status(msg='Detaching distbuild from controller (build'
-                                 ' will continue on the distbuild network)')
-            self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
-            self._jm.close()
-            self.is_detached = True
-        if not self.allow_detach:
-            self._app.status(msg=status)
+        self._app.status(msg=status)
 
         self._open_output(msg)
         self._write_status_to_build_log(self._get_output(msg), status)

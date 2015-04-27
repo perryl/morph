@@ -43,6 +43,12 @@ class _GotGraph(object):
         self.artifact = artifact
 
 
+class BuildStarted(object):
+
+    def __init__(self, id):
+        self.id = id
+
+
 class BuildCancel(object):
 
     def __init__(self, id):
@@ -77,11 +83,13 @@ class BuildStepStarted(object):
         self.step_name = step_name
         self.worker_name = worker_name
 
+
 class BuildStepAlreadyStarted(BuildStepStarted):
 
     def __init__(self, request_id, step_name, worker_name):
         super(BuildStepAlreadyStarted, self).__init__(
             request_id, step_name, worker_name)
+
 
 class BuildOutput(object):
 
@@ -467,6 +475,10 @@ class BuildController(distbuild.StateMachine):
                 logging.info('Requested components are built')
                 self.mainloop.queue_event(self, _Built())
                 return
+
+        if self.allow_detach:
+            self.mainloop.queue_event(BuildController,
+                BuildStarted(self._request['id']))
 
         logging.debug('Queuing more worker-builds to run')
         if self.debug_graph_state:
