@@ -86,6 +86,8 @@ class InitiatorConnection(distbuild.StateMachine):
                 'idle', self._send_build_cancelled_message),
             ('idle', distbuild.BuildController, distbuild.BuildStepStarted, 
                 'idle', self._send_build_step_started_message),
+            ('idle', distbuild.BuildController, distbuild.DetachStepStarted,
+                'idle', self._send_build_detach_message),
             ('idle', distbuild.BuildController,
                 distbuild.BuildStepAlreadyStarted, 'idle',
                 self._send_build_step_already_started_message),
@@ -258,6 +260,18 @@ class InitiatorConnection(distbuild.StateMachine):
             msg = distbuild.message('build-progress',
                 id=self._route_map.get_incoming_id(event.id),
                 message=event.message_text)
+            self.jm.send(msg)
+            self._log_send(msg)
+
+    def _send_build_detach_message(self, event_source, event):
+        logging.debug('InitiatorConnection: build_detach: '
+            'id=%s step_name=%s worker_name=%s' %
+            (event.id, event.step_name, event.worker_name))
+        if event.id in self.our_ids:
+            msg = distbuild.message('build-detached',
+                id=self._route_map.get_incoming_id(event.id),
+                step_name=event.step_name,
+                worker_name=event.worker_name)
             self.jm.send(msg)
             self._log_send(msg)
 

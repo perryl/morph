@@ -44,6 +44,11 @@ _required_fields = {
         'step_name',
         'worker_name',
     ],
+    'build-detached': [
+        'id',
+        'step_name',
+        'worker_name',
+    ],
     'step-already-started': [
         'id',
         'step_name',

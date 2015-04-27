@@ -77,11 +77,20 @@ class BuildStepStarted(object):
         self.step_name = step_name
         self.worker_name = worker_name
 
+
+class DetachStepStarted(BuildStepStarted):
+
+    def __init__(self, request_id, step_name, worker_name):
+        super(DetachStepStarted, self).__init__(
+            request_id, step_name, worker_name)
+
+
 class BuildStepAlreadyStarted(BuildStepStarted):
 
     def __init__(self, request_id, step_name, worker_name):
         super(BuildStepAlreadyStarted, self).__init__(
             request_id, step_name, worker_name)
+
 
 class BuildOutput(object):
 
@@ -571,8 +580,14 @@ class BuildController(distbuild.StateMachine):
 
         logging.debug('BC: got build step started: %s' % artifact.name)
         self.build_info['status'] = 'Building %s' % artifact.name
-        started = BuildStepStarted(
-            self._request['id'], build_step_name(artifact), event.worker_name)
+        if self.allow_detach:
+            started = DetachStepStarted(
+                self._request['id'], build_step_name(artifact),
+                    event.worker_name)
+        else:
+            started = BuildStepStarted(
+                self._request['id'], build_step_name(artifact),
+                    event.worker_name)
         self.mainloop.queue_event(BuildController, started)
         logging.debug('BC: emitted %s' % repr(started))
 
@@ -583,8 +598,14 @@ class BuildController(distbuild.StateMachine):
         artifact = self._find_artifact(event.artifact_cache_key)
 
         logging.debug('BC: got build step already started: %s' % artifact.name)
-        started = BuildStepAlreadyStarted(
-            self._request['id'], build_step_name(artifact), event.worker_name)
+        if self.allow_detach:
+            started = DetachStepStarted(
+                self._request['id'], build_step_name(artifact),
+                    event.worker_name)
+        else:
+            started = BuildStepStarted(
+                self._request['id'], build_step_name(artifact),
+                    event.worker_name)
         self.mainloop.queue_event(BuildController, started)
         logging.debug('BC: emitted %s' % repr(started))
 

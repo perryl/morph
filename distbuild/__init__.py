@@ -53,7 +53,7 @@ from worker_build_scheduler import (WorkerBuildQueuer,
 from build_controller import (BuildController, BuildFailed, BuildProgress,
                               BuildStepStarted, BuildStepAlreadyStarted,
                               BuildOutput, BuildStepFinished, BuildStepFailed,
-                              BuildFinished, BuildCancel,
+                              BuildFinished, BuildCancel, DetachStepStarted,
                               build_step_name, map_build_graph)
 from initiator import (Initiator, InitiatorStart, InitiatorCancel,
                        InitiatorListJobs, InitiatorStatus)
