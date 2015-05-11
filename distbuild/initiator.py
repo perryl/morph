@@ -353,6 +353,7 @@ class InitiatorCancel(distbuild.StateMachine):
 
         handlers = {
             'request-output': self._handle_request_output,
+            'build-failed': self._handle_build_failed_message,
         }
 
         handler = handlers[event.msg['type']]
@@ -360,6 +361,12 @@ class InitiatorCancel(distbuild.StateMachine):
 
     def _handle_request_output(self, msg):
         self._app.status(msg=str(msg['message']))
+        self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
+        self._jm.close()
+
+    def _handle_build_failed_message(self, msg):
+        self._app.status(msg=str(msg['reason']))
+        self.mainloop.queue_event(self, _Failed(msg))
         self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
         self._jm.close()
 
@@ -471,6 +478,7 @@ class InitiatorStatus(distbuild.StateMachine):
 
         handlers = {
             'request-output': self._handle_request_output,
+            'build-failed': self._handle_build_failed_message,
         }
 
         handler = handlers[event.msg['type']]
@@ -478,6 +486,12 @@ class InitiatorStatus(distbuild.StateMachine):
 
     def _handle_request_output(self, msg):
         self._app.status(msg=str(msg['message']))
+        self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
+        self._jm.close()
+
+    def _handle_build_failed_message(self, msg):
+        self._app.status(msg=str(msg['reason']))
+        self.mainloop.queue_event(self, _Failed(msg))
         self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
         self._jm.close()
 
