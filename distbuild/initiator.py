@@ -334,14 +334,17 @@ class InitiatorStart(Initiator):
             handler = handlers[msg_type]
             handler(event.msg)
 
-class InitiatorCancel(distbuild.StateMachine):
 
-    def __init__(self, cm, conn, app, job_id):
+class InitiatorShort(distbuild.StateMachine):
+
+    def __init__(self, cm, conn, app, job_id, message_type, message_out):
         distbuild.StateMachine.__init__(self, 'waiting')
         self._cm = cm
         self._conn = conn
         self._app = app
         self._job_id = job_id
+        self._message_type = message_type
+        self._message_out = message_out
 
     def setup(self):
         distbuild.crash_point()
@@ -358,71 +361,9 @@ class InitiatorCancel(distbuild.StateMachine):
         ]
         self.add_transitions(spec)
 
-        self._app.status(msg='Sending cancel request for distbuild job.')
-        msg = distbuild.message('build-cancel',
+        self._app.status(msg=self._message_out)
+        msg = distbuild.message(self._message_type,
             id=self._job_id,
-            protocol_version=distbuild.protocol.VERSION,
-        )
-        self._jm.send(msg)
-        logging.debug('Initiator: sent to controller: %s', repr(msg))
-
-    def _handle_json_message(self, event_source, event):
-        distbuild.crash_point()
-
-        logging.debug('Initiator: from controller: %s', str(event.msg))
-
-        handlers = {
-            'request-output': self._handle_request_output,
-            'build-failed': self._handle_build_failed_message,
-        }
-
-        handler = handlers[event.msg['type']]
-        handler(event.msg)
-
-    def _handle_request_output(self, msg):
-        self._app.status(msg=str(msg['message']))
-        self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
-        self._jm.close()
-
-    def _handle_build_failed_message(self, msg):
-        self._app.status(msg=str(msg['reason']))
-        self.mainloop.queue_event(self, _Failed(msg))
-        self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
-        self._jm.close()
-
-    def _terminate(self, event_source, event):
-        self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
-        self._jm.close()
-
-
-class InitiatorListJobs(distbuild.StateMachine):
-
-    def __init__(self, cm, conn, app):
-        distbuild.StateMachine.__init__(self, 'waiting')
-        self._cm = cm
-        self._conn = conn
-        self._app = app
-
-    def setup(self):
-        distbuild.crash_point()
-
-        self._jm = distbuild.JsonMachine(self._conn)
-        self.mainloop.add_state_machine(self._jm)
-        logging.debug('initiator: _jm=%s' % repr(self._jm))
-
-        spec = [
-            # state, source, event_class, new_state, callback
-            ('waiting', self._jm, distbuild.JsonEof, None, self._terminate),
-            ('waiting', self._jm, distbuild.JsonNewMessage, None,
-                self._handle_json_message),
-        ]
-        self.add_transitions(spec)
-
-        msg_uuid = uuid.uuid4().hex
-
-        self._app.status(msg='Requesting currently running distbuilds.')
-        msg = distbuild.message('list-requests',
-            id=msg_uuid,
             protocol_version=distbuild.protocol.VERSION,
         )
         self._jm.send(msg)
@@ -451,67 +392,6 @@ class InitiatorListJobs(distbuild.StateMachine):
 
     def _handle_request_output(self, msg):
         self._app.status(msg=str(msg['message']))
-        self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
-        self._jm.close()
-
-    def _terminate(self, event_source, event):
-        self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
-        self._jm.close()
-
-
-class InitiatorStatus(distbuild.StateMachine):
-
-    def __init__(self, cm, conn, app, job_id):
-        distbuild.StateMachine.__init__(self, 'waiting')
-        self._cm = cm
-        self._conn = conn
-        self._app = app
-        self._job_id = job_id
-
-    def setup(self):
-        distbuild.crash_point()
-
-        self._jm = distbuild.JsonMachine(self._conn)
-        self.mainloop.add_state_machine(self._jm)
-        logging.debug('initiator: _jm=%s' % repr(self._jm))
-
-        spec = [
-            # state, source, event_class, new_state, callback
-            ('waiting', self._jm, distbuild.JsonEof, None, self._terminate),
-            ('waiting', self._jm, distbuild.JsonNewMessage, None,
-                self._handle_json_message),
-        ]
-        self.add_transitions(spec)
-
-        self._app.status(msg='Requesting status of recent build requests.')
-        msg = distbuild.message('build-status',
-            id=self._job_id,
-            protocol_version=distbuild.protocol.VERSION,
-        )
-        self._jm.send(msg)
-        logging.debug('Initiator: sent to controller: %s', repr(msg))
-
-    def _handle_json_message(self, event_source, event):
-        distbuild.crash_point()
-
-        logging.debug('Initiator: from controller: %s', str(event.msg))
-
-        handlers = {
-            'request-output': self._handle_request_output,
-            'build-failed': self._handle_build_failed_message,
-        }
-
-        handler = handlers[event.msg['type']]
-        handler(event.msg)
-
-    def _handle_request_output(self, msg):
-        self._app.status(msg=str(msg['message']))
-        self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
-        self._jm.close()
-
-    def _handle_build_failed_message(self, msg):
-        self._app.status(msg=str(msg['reason']))
-        self.mainloop.queue_event(self, _Failed(msg))
         self.mainloop.queue_event(self._cm, distbuild.StopConnecting())
         self._jm.close()
 

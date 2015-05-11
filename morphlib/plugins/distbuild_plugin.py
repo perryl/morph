@@ -19,6 +19,7 @@ import cliapp
 import logging
 import re
 import sys
+import uuid
 
 import morphlib
 import distbuild
@@ -70,10 +71,12 @@ class DistbuildCancel(cliapp.Plugin):
             raise cliapp.AppException(
                 'usage: morph distbuild-cancel <build-request id>')
 
+        args.append('build-cancel')
+        args.append('Sending cancel request for distbuild job.')
         addr = self.app.settings['controller-initiator-address']
         port = self.app.settings['controller-initiator-port']
         icm = distbuild.InitiatorConnectionMachine(self.app, addr, port,
-                                                   distbuild.InitiatorCancel,
+                                                   distbuild.InitiatorShort,
                                                    [self.app] + args,
                                                    self.RECONNECT_INTERVAL,
                                                    self.MAX_RETRIES)
@@ -117,10 +120,12 @@ class DistbuildStatusPlugin(cliapp.Plugin):
             raise cliapp.AppException(
                 'usage: morph distbuild-status <build-request id>')
 
+        args.append('build-status')
+        args.append('Requesting status of recent build requests.')
         addr = self.app.settings['controller-initiator-address']
         port = self.app.settings['controller-initiator-port']
         icm = distbuild.InitiatorConnectionMachine(self.app, addr, port,
-                                                   distbuild.InitiatorStatus,
+                                                   distbuild.InitiatorShort,
                                                    [self.app] + args,
                                                    self.RECONNECT_INTERVAL,
                                                    self.MAX_RETRIES)
@@ -159,11 +164,14 @@ class DistbuildListJobsPlugin(cliapp.Plugin):
 
         '''
 
+        args.append(uuid.uuid4().hex)
+        args.append('list-requests')
+        args.append('Requesting currently running distbuilds.')
         addr = self.app.settings['controller-initiator-address']
         port = self.app.settings['controller-initiator-port']
         icm = distbuild.InitiatorConnectionMachine(self.app, addr, port,
-                                                   distbuild.InitiatorListJobs,
-                                                   [self.app],
+                                                   distbuild.InitiatorShort,
+                                                   [self.app] + args,
                                                    self.RECONNECT_INTERVAL,
                                                    self.MAX_RETRIES)
         loop = distbuild.MainLoop()
