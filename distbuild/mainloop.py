@@ -41,7 +41,6 @@ class MainLoop(object):
         self._machines = []
         self._sources = []
         self._events = []
-        self.build_info = collections.deque(maxlen=1000)
         self.dump_filename = None
         
     def add_state_machine(self, machine):
