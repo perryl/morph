@@ -16,6 +16,7 @@
 
 
 import logging
+import uuid
 
 import distbuild
 
@@ -55,7 +56,6 @@ class InitiatorConnection(distbuild.StateMachine):
     state machines, and vice versa.
 
     '''
-
     _idgen = distbuild.IdentifierGenerator('InitiatorConnection')
     _route_map = distbuild.RouteMap()
 
@@ -70,6 +70,9 @@ class InitiatorConnection(distbuild.StateMachine):
     def __repr__(self):
         return '<InitiatorConnection at 0x%x: remote %s>' % (id(self),
                 self.initiator_name)
+
+    def __str__(self):
+        return self.initiator_name
 
     def setup(self):
         self.jm = distbuild.JsonMachine(self.conn)
@@ -167,7 +170,7 @@ class InitiatorConnection(distbuild.StateMachine):
         self._log_send(msg)
 
     def _handle_build_request(self, event):
-        new_id = self._idgen.next()
+        new_id = uuid.uuid4().hex
         self.our_ids.add(new_id)
         self._route_map.add(event.msg['id'], new_id)
         event.msg['id'] = new_id
@@ -175,22 +178,24 @@ class InitiatorConnection(distbuild.StateMachine):
             self, event.msg, self.artifact_cache_server,
             self.morph_instance)
         self.mainloop.add_state_machine(build_controller)
-        self.mainloop.build_info.append(build_controller.build_info)
 
     def _handle_list_requests(self, event):
-        requests = self.mainloop.state_machines_of_type(
-                   distbuild.BuildController)
+        requests = distbuild.BuildRequestDB().get_requests()
+
+        # FIXME: messages like this should be constructed at the client side
+        OUTPUT_MSG = ('Build request ID: {id}'
+                      '\n  Initiator: {initiator_hostname}'
+                      '\n  Repo: {repo}'
+                      '\n  Ref: {ref}'
+                      '\n  Component: {morphology}')
+
         output_msg = []
         output_msg.append('%s distbuild requests(s) currently in progress' %
                           len(requests))
-        for build in requests:
-            output_msg.append('Build request ID: %s\n  Initiator: %s\n  Repo: '
-                              '%s\n  Ref: %s\n  Component: %s'
-                              % (build.get_request()['id'],
-                              build.get_initiator_connection().initiator_name,
-                              build.get_request()['repo'],
-                              build.get_request()['ref'],
-                              build.get_request()['morphology']))
+
+        for request in requests:
+            output_msg.append(OUTPUT_MSG.format(**request))
+
         msg = distbuild.message('request-output',
                                 message=('\n\n'.join(output_msg)))
         self.jm.send(msg)
@@ -214,22 +219,26 @@ class InitiatorConnection(distbuild.StateMachine):
             self.jm.send(msg)
 
     def _handle_build_status(self, event):
-        for build_info in self.mainloop.build_info:
-            if build_info['id'] == event.msg['id']:
-                msg = distbuild.message('request-output',
-                    message=('\nBuild request ID: %s\n  System build: %s\n  '
-                             'Build status: %s' % (build_info['id'],
-                                                   build_info['morphology'],
-                                                   build_info['status'])))
+        # FIXME: messages like this should be constructed at the client side
+        OUTPUT_MSG = ('\nBuild request ID: {id}'
+                      '\n  System build: {morphology}'
+                      '\n  Build status: {status} {artifact}')
 
-                self.jm.send(msg)
-                break
-        else:
-            msg = distbuild.message('request-output', message=('Given '
-                                    'build-request ID does not match any '
-                                    'recent build IDs (the status information '
-                                    'for this build may have expired).'))
-            self.jm.send(msg)
+        ERR_MSG = ('Given build-request ID does not match any '
+                   'recent build IDs (the status information '
+                   'for this build may have expired).')
+
+        db = distbuild.BuildRequestDB()
+        requests = db.get_requests(id=event.msg['id'])
+
+        if len(requests) > 1:
+            logging.warning(
+                'Found multiple build requests with the same request ID: %s',
+                requests)
+
+        m = ERR_MSG if len(requests) == 0 else OUTPUT_MSG.format(**requests[0])
+
+        self.jm.send(distbuild.message('request-output', message=m))
 
     def _disconnect(self, event_source, event):
         for id in self.our_ids:
