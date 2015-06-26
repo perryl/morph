@@ -117,6 +117,8 @@ class Initiator(distbuild.StateMachine):
             partial=self._partial,
             protocol_version=distbuild.protocol.VERSION,
             allow_detach=self.allow_detach,
+            distbuild_database=self._app.settings['distbuild-database'],
+            age_max=self._app.settings['age-max'],
         )
         self._jm.send(msg)
         logging.debug('Initiator: sent to controller: %s', repr(msg))
@@ -365,6 +367,8 @@ class InitiatorCommand(distbuild.StateMachine):
         msg = distbuild.message(self._message_type,
             id=self._job_id,
             protocol_version=distbuild.protocol.VERSION,
+            distbuild_database=self._app.settings['distbuild-database'],
+            age_max=self._app.settings['age-max'],
         )
         self._jm.send(msg)
         logging.debug('Initiator: sent to controller: %s', repr(msg))

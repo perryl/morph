@@ -209,6 +209,15 @@ class Morph(cliapp.Application):
                                group=group_storage,
                                default='4G')
 
+        self.settings.integer(['age-max'],
+                              'Set maximum age for distbuild database items',
+                              metavar='AGE',
+                              default=60)
+        self.settings.string(['distbuild-database'],
+                             'Set filename and directory path for database',
+                             metavar='DIR',
+                             default='/srv/database/distbuild.db')
+
     def check_time(self):
         # Check that the current time is not far in the past.
         if time.localtime(time.time()).tm_year < 2012:

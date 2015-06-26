@@ -208,7 +208,9 @@ class BuildController(distbuild.StateMachine):
         self._debug_build_output = False
         self.allow_detach = build_request_message['allow_detach']
 
-        self.db = distbuild.BuildRequestDB()
+        self.db = distbuild.BuildRequestDB(
+                      build_request_message['distbuild_database'],
+                      build_request_message['age_max'])
         self.db.add_request(status='graphing',
                             initiator_hostname=self._initiator_connection,
                             **self._request)

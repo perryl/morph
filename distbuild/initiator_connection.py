@@ -180,7 +180,9 @@ class InitiatorConnection(distbuild.StateMachine):
         self.mainloop.add_state_machine(build_controller)
 
     def _handle_list_requests(self, event):
-        requests = distbuild.BuildRequestDB().get_requests()
+        requests = distbuild.BuildRequestDB(
+                       event.msg['distbuild_database'],
+                       event.msg['age_max']).get_requests()
 
         # FIXME: messages like this should be constructed at the client side
         OUTPUT_MSG = ('Build request ID: {id}'
@@ -228,7 +230,9 @@ class InitiatorConnection(distbuild.StateMachine):
                    'recent build IDs (the status information '
                    'for this build may have expired).')
 
-        db = distbuild.BuildRequestDB()
+        db = distbuild.BuildRequestDB(
+                 event.msg['distbuild_database'],
+                 event.msg['age_max'])
         requests = db.get_requests(id=event.msg['id'])
 
         if len(requests) > 1:

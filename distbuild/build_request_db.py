@@ -22,25 +22,32 @@ import logging
 import datetime
 import cliapp
 
-DB_PATH = '/srv/distbuild/distbuild.db'
 SCHEMA_VERSION = 1
-MAX_AGE = 60   # 60 days
 
 
 class BuildRequestDB(object):
 
     first = True
 
-    def __init__(self):
+    def __init__(self, distbuild_database, age_max):
         self._cursor = None
         self._conn = None
+        self.database = distbuild_database
+        self.age = age_max
 
-        if not os.path.exists(DB_PATH):
+        if not os.path.exists(self.database):
+            if not os.path.exists(os.path.dirname(os.path.realpath(self.database))):
+                try:
+                    os.makedirs(os.path.dirname(os.path.realpath(self.database)))
+                except OSError as ex:
+                    if exc.errno == errno.EEXIST and os.path.isdir(path):
+                        pass
+                    else: raise
             self._create_database()
             self._open_db()
             return
 
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(self.database)
         cursor = conn.cursor()
 
         db_version = self._get_db_schema_version(cursor)
@@ -54,8 +61,8 @@ class BuildRequestDB(object):
 
             # TODO: Database migration
 
-            logging.info('Removing existing database %s', DB_PATH)
-            os.unlink(DB_PATH)
+            logging.info('Removing existing database %s', self.database)
+            os.unlink(self.database)
             self._create_database()
 
         self._open_db()
@@ -71,8 +78,8 @@ class BuildRequestDB(object):
         self._cursor = None
 
     def _open_db(self):
-        logging.debug('Opening database %s', DB_PATH)
-        self._conn = sqlite3.connect(DB_PATH, detect_types=sqlite3.PARSE_DECLTYPES)
+        logging.debug('Opening database %s', self.database)
+        self._conn = sqlite3.connect(self.database, detect_types=sqlite3.PARSE_DECLTYPES)
 
         # Allows us to access items by column name,
         # instead of returning a tuple the cursor will return
@@ -87,11 +94,11 @@ class BuildRequestDB(object):
         return version
 
     def _expire_requests(self):
-        ''' Remove anything older than MAX_AGE '''
+        ''' Remove anything older than self.age '''
         logging.debug('Removing any old requests...')
 
         oldest_date = (datetime.datetime.now() -
-                       datetime.timedelta(days=MAX_AGE))
+                       datetime.timedelta(days=self.age))
 
         self._cursor.execute('SELECT id, last_updated '
                              'FROM build_requests')
@@ -120,8 +127,8 @@ class BuildRequestDB(object):
         self._conn.commit()
 
     def _create_database(self):
-        logging.debug('Creating database %s', DB_PATH)
-        conn = sqlite3.connect(DB_PATH)
+        logging.debug('Creating database %s', self.database)
+        conn = sqlite3.connect(self.database)
 
         conn.cursor().execute('PRAGMA user_version = %s' % SCHEMA_VERSION)
 

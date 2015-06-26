@@ -34,6 +34,8 @@ _required_fields = {
         'partial',
         'protocol_version',
         'allow_detach',
+        'distbuild_database',
+        'age_max',
     ],
     'build-progress': [
         'id',
@@ -95,6 +97,8 @@ _required_fields = {
     'list-requests': [
         'id',
         'protocol_version',
+        'distbuild_database',
+        'age_max',
     ],
     'request-output': [
         'message',
@@ -102,10 +106,14 @@ _required_fields = {
     'build-cancel': [
         'id',
         'protocol_version',
+        'distbuild_database',
+        'age_max',
     ],
     'build-status': [
         'id',
         'protocol_version',
+        'distbuild_database',
+        'age_max',
     ],
     'graphing-started': [
         'id',
