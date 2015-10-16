@@ -16,11 +16,13 @@
 
 
 import cliapp
+
+import codecs
 import itertools
 import logging
 import os
-import uuid
 import time
+import uuid
 
 import distbuild
 
@@ -194,7 +196,7 @@ class Initiator(distbuild.StateMachine):
         path = self._get_step_output_dir()
         filename = os.path.join(path,
                                'build-step-%s.log' % msg['step_name'])
-        f = open(filename, 'a')
+        f = codecs.open(filename, 'a', encoding='utf-8')
         self._step_outputs[msg['step_name']] = f
 
     def _close_output(self, msg):
