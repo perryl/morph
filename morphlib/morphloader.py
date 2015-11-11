@@ -22,21 +22,6 @@ import yaml
 import morphlib
 
 
-class MorphologyObsoleteFieldWarning(UserWarning):
-
-    def __init__(self, morphology, spec, field):
-        self.kind = morphology['kind']
-        self.morphology_name = morphology.get('name', '<unknown>')
-        self.stratum_name = spec.get('alias', spec['morph'])
-        self.field = field
-
-    def __str__(self):
-        format_string = ('%(kind)s morphology %(morphology_name)s refers to '
-                         'stratum %(stratum_name)s with the %(field)s field. '
-                         'Defaulting to null.')
-        return format_string % self.__dict__
-
-
 class MorphologySyntaxError(morphlib.Error):
     pass
 
@@ -92,14 +77,6 @@ class InvalidTypeError(MorphologyValidationError):
         self.msg = (
             'Field %s expected type %s, got %s in morphology %s' %
             (field, expected, actual, morphology_name))
-
-
-class ObsoleteFieldsError(MorphologyValidationError):
-
-    def __init__(self, fields, morph_filename):
-        self.msg = (
-           'Morphology %s uses obsolete fields: %s' % 
-           (morph_filename, ' '.join(fields)))
 
 
 class UnknownArchitectureError(MorphologyValidationError):
@@ -361,13 +338,6 @@ class MorphologyLoader(object):
         ],
     }
 
-    _obsolete_fields = {
-        'system': [
-            'system-kind',
-            'disk-size',
-        ],
-    }
-
     _static_defaults = {
         'chunk': {
             'description': '',
@@ -496,10 +466,8 @@ class MorphologyLoader(object):
             raise UnknownKindError(morph['kind'], morph.filename)
 
         required = ['kind'] + self._required_fields[kind]
-        obsolete = self._obsolete_fields.get(kind, [])
         allowed = self._static_defaults[kind].keys()
         self._require_fields(required, morph)
-        self._deny_obsolete_fields(obsolete, morph)
         self._deny_unknown_fields(required + allowed, morph)
 
         getattr(self, '_validate_%s' % kind)(morph)
@@ -546,9 +514,6 @@ class MorphologyLoader(object):
                 raise DuplicateStratumError(morph['name'], name)
             names.add(name)
 
-        # Validate stratum spec fields
-        self._validate_stratum_specs_fields(morph, 'strata')
-
         # We allow the ARMv7 little-endian architecture to be specified
         # as armv7 and armv7l. Normalise.
         if morph['arch'] == 'armv7':
@@ -580,9 +545,6 @@ class MorphologyLoader(object):
             else:
                 raise NoStratumBuildDependenciesError(
                     morph['name'], morph.filename)
-
-        # Validate build-dependencies if specified
-        self._validate_stratum_specs_fields(morph, 'build-depends')
 
         # All chunk names must be unique within a stratum.
         names = set()
@@ -700,18 +662,6 @@ class MorphologyLoader(object):
                                          type(pattern), morphology_name)
                     errors.append(e)
 
-    @classmethod
-    def _warn_obsolete_field(cls, morphology, spec, field):
-        warnings.warn(MorphologyObsoleteFieldWarning(morphology, spec, field),
-                      stacklevel=2)
-
-    @classmethod
-    def _validate_stratum_specs_fields(cls, morphology, specs_field):
-        for spec in morphology.get(specs_field, None) or []:
-            for obsolete_field in ('repo', 'ref'):
-                if obsolete_field in spec:
-                    cls._warn_obsolete_field(morphology, spec, obsolete_field)
-
     def _require_field(self, field, morphology):
         if field not in morphology:
             raise MissingFieldError(field, morphology.filename)
@@ -719,11 +669,6 @@ class MorphologyLoader(object):
     def _require_fields(self, fields, morphology):
         for field in fields:
             self._require_field(field, morphology)
-
-    def _deny_obsolete_fields(self, fields, morphology):
-        obsolete_ones = [x for x in morphology if x in fields]
-        if obsolete_ones:
-            raise ObsoleteFieldsError(obsolete_ones, morphology.filename)
 
     def _deny_unknown_fields(self, allowed, morphology):
         for field in morphology:
@@ -760,20 +705,6 @@ class MorphologyLoader(object):
 
         getattr(self, '_unset_%s_defaults' % kind)(morphology)
 
-    @classmethod
-    def _set_stratum_specs_defaults(cls, morphology, specs_field):
-        for spec in morphology.get(specs_field, None) or []:
-            for obsolete_field in ('repo', 'ref'):
-                if obsolete_field in spec:
-                    del spec[obsolete_field]
-
-    @classmethod
-    def _unset_stratum_specs_defaults(cls, morphology, specs_field):
-        for spec in morphology.get(specs_field, []):
-            for obsolete_field in ('repo', 'ref'):
-                if obsolete_field in spec:
-                    del spec[obsolete_field]
-
     def _set_cluster_defaults(self, morph):
         for system in morph.get('systems', []):
             if 'deploy-defaults' not in system:
@@ -789,10 +720,10 @@ class MorphologyLoader(object):
                 del system['deploy']
 
     def _set_system_defaults(self, morph):
-        self._set_stratum_specs_defaults(morph, 'strata')
+        pass
 
     def _unset_system_defaults(self, morph):
-        self._unset_stratum_specs_defaults(morph, 'strata')
+        pass
 
     def _set_stratum_defaults(self, morph):
         for spec in morph['chunks']:
@@ -804,7 +735,6 @@ class MorphologyLoader(object):
             if 'prefix' not in spec:
                 spec['prefix'] = \
                     self._static_defaults['chunk']['prefix']
-        self._set_stratum_specs_defaults(morph, 'build-depends')
 
     def _unset_stratum_defaults(self, morph):
         for spec in morph['chunks']:
@@ -816,7 +746,6 @@ class MorphologyLoader(object):
             if 'prefix' in spec and spec['prefix'] == \
                     self._static_defaults['chunk']['prefix']:
                 del spec['prefix']
-        self._unset_stratum_specs_defaults(morph, 'strata')
 
     def _set_chunk_defaults(self, morph):
         if morph['max-jobs'] is not None:

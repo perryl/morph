@@ -23,7 +23,6 @@ import unittest
 import warnings
 
 import morphlib
-from morphlib.morphloader import MorphologyObsoleteFieldWarning
 
 
 def stratum_template(name):
@@ -258,32 +257,6 @@ chunks:
         self.assertRaises(
             morphlib.morphloader.DependsOnSelfError,
             self.loader.load_from_string, text, 'strata/bad-stratum.morph')
-
-    def test_fails_to_validate_system_with_obsolete_system_kind_field(self):
-        m = morphlib.morphology.Morphology({
-            'kind': 'system',
-            'name': 'foo',
-            'arch': 'x86_64',
-            'strata': [
-                {'morph': 'bar'},
-            ],
-            'system-kind': 'foo',
-        })
-        self.assertRaises(
-            morphlib.morphloader.ObsoleteFieldsError, self.loader.validate, m)
-
-    def test_fails_to_validate_system_with_obsolete_disk_size_field(self):
-        m = morphlib.morphology.Morphology({
-            'kind': 'system',
-            'name': 'foo',
-            'arch': 'x86_64',
-            'strata': [
-                {'morph': 'bar'},
-            ],
-            'disk-size': 'over 9000',
-        })
-        self.assertRaises(
-            morphlib.morphloader.ObsoleteFieldsError, self.loader.validate, m)
 
     def test_fails_to_validate_system_with_no_fields(self):
         m = morphlib.morphology.Morphology({
@@ -694,8 +667,6 @@ build-system: manual
             strata=[
                 {
                     'morph': 'bar',
-                    'repo': 'obsolete',
-                    'ref': 'obsolete',
                 },
             ])
         self.loader.set_defaults(m)
@@ -724,8 +695,6 @@ build-system: manual
                 'strata': [
                     {
                         'morph': 'bar',
-                        'repo': None,
-                        'ref': None,
                     },
                 ],
                 'configuration-extensions': [],
@@ -847,62 +816,6 @@ build-system: manual
             for warning_class in warning_classes:
                 warnings.simplefilter("always", warning_class)
             yield caught_warnings
-
-    def test_warns_when_systems_refer_to_strata_with_repo_or_ref(self):
-        for obsolete_field in ('repo', 'ref'):
-            m = morphlib.morphology.Morphology(
-                name="foo",
-                kind="system",
-                arch="testarch",
-                strata=[
-                    {
-                        'morph': 'bar',
-                        obsolete_field: 'obsolete',
-                    }])
-
-            with self.catch_warnings(MorphologyObsoleteFieldWarning) \
-            as caught_warnings:
-
-                self.loader.validate(m)
-                self.assertEqual(len(caught_warnings), 1)
-                warning = caught_warnings[0].message
-                self.assertEqual(warning.kind, 'system')
-                self.assertEqual(warning.morphology_name, 'foo')
-                self.assertEqual(warning.stratum_name, 'bar')
-                self.assertEqual(warning.field, obsolete_field)
-
-    def test_warns_when_strata_refer_to_build_depends_with_repo_or_ref(self):
-        for obsolete_field in ('repo', 'ref'):
-            m = morphlib.morphology.Morphology(
-                {
-                    'name': 'foo',
-                    'kind': 'stratum',
-                    'build-depends': [
-                        {
-                            'morph': 'bar',
-                            obsolete_field: 'obsolete'
-                        },
-                    ],
-                    'chunks': [
-                        {
-                            'morph': 'chunk',
-                            'name': 'chunk',
-                            'build-mode': 'test',
-                            'build-depends': [],
-                        },
-                    ],
-                })
-
-            with self.catch_warnings(MorphologyObsoleteFieldWarning) \
-            as caught_warnings:
-
-                self.loader.validate(m)
-                self.assertEqual(len(caught_warnings), 1)
-                warning = caught_warnings[0].message
-                self.assertEqual(warning.kind, 'stratum')
-                self.assertEqual(warning.morphology_name, 'foo')
-                self.assertEqual(warning.stratum_name, 'bar')
-                self.assertEqual(warning.field, obsolete_field)
 
     def test_unordered_asciibetically_after_ordered(self):
         # We only get morphologies with arbitrary keys in clusters
