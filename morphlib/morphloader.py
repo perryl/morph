@@ -388,49 +388,32 @@ class MorphologyLoader(object):
             self._predefined_build_systems['manual'] = \
                 morphlib.buildsystem.ManualBuildSystem()
 
-    def parse_morphology_text(self, text, morph_filename):
-        '''Parse a textual morphology.
-
-        The text may be a string, or an open file handle.
-
-        Return the new Morphology object, or raise an error indicating
-        the problem. This method does minimal validation: a syntactically
-        correct morphology is fine, even if none of the fields are
-        valid. It also does not set any default values for any of the
-        fields. See validate and set_defaults.
-
-        '''
-
-        try:
-            obj = yaml.safe_load(text)
-        except yaml.error.YAMLError as e:
-            raise MorphologyNotYamlError(morph_filename, e)
-
-        if not isinstance(obj, dict):
-            raise NotADictionaryError(morph_filename)
-
-        m = morphlib.morphology.Morphology(obj)
-        m.filename = morph_filename
-        return m
-
-    def load_from_string(self, string,
-                         filename='string'):  # pragma: no cover
+    def load_from_string(self, string, filename='string',
+                         set_defaults=True):  # pragma: no cover
         '''Load a morphology from a string.
 
         Return the Morphology object.
 
         '''
 
-        if string is None:
-            return None
+        try:
+            obj = yaml.safe_load(string)
+        except yaml.error.YAMLError as e:
+            raise MorphologyNotYamlError(filename, e)
 
-        m = self.parse_morphology_text(string, filename)
+        if not isinstance(obj, dict):
+            raise NotADictionaryError(filename)
+
+        m = morphlib.morphology.Morphology(obj)
+        m.filename = filename
         self.validate(m)
-        self.set_commands(m)
-        self.set_defaults(m)
+
+        if set_defaults:
+            self.set_commands(m)
+            self.set_defaults(m)
         return m
 
-    def load_from_file(self, filename):
+    def load_from_file(self, filename, set_defaults=True):
         '''Load a morphology from a named file.
 
         Return the Morphology object.
@@ -439,7 +422,8 @@ class MorphologyLoader(object):
 
         with open(filename) as f:
             text = f.read()
-        return self.load_from_string(text, filename=filename)
+        return self.load_from_string(text, filename=filename,
+                                     set_defaults=set_defaults)
 
     def save_to_string(self, morphology):
         '''Return normalised textual form of morphology.'''

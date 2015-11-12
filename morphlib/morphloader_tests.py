@@ -61,7 +61,7 @@ name: foo
 kind: chunk
 build-system: manual
 '''
-        morph = self.loader.parse_morphology_text(string, 'test')
+        morph = self.loader.load_from_string(string, 'test')
         self.assertEqual(morph['kind'], 'chunk')
         self.assertEqual(morph['name'], 'foo')
         self.assertEqual(morph['build-system'], 'manual')
@@ -69,12 +69,12 @@ build-system: manual
     def test_fails_to_parse_utter_garbage(self):
         self.assertRaises(
             morphlib.morphloader.MorphologySyntaxError,
-            self.loader.parse_morphology_text, ',,,', 'test')
+            self.loader.load_from_string, ',,,', 'test')
 
     def test_fails_to_parse_non_dict(self):
         self.assertRaises(
             morphlib.morphloader.NotADictionaryError,
-            self.loader.parse_morphology_text, '- item1\n- item2\n', 'test')
+            self.loader.load_from_string, '- item1\n- item2\n', 'test')
 
     def test_fails_to_validate_dict_without_kind(self):
         m = morphlib.morphology.Morphology({
@@ -689,9 +689,10 @@ build-system: manual
             name: foo
             kind: cluster
             systems:
-                - morph: bar
+            - morph: bar
+              deploy: {}
         '''
-        m = self.loader.parse_morphology_text(string, 'test')
+        m = self.loader.load_from_string(string, 'test')
         self.loader.set_defaults(m)
         self.loader.validate(m)
         self.assertEqual(m['name'], 'foo')
@@ -740,12 +741,17 @@ build-system: manual
 
     def test_multi_line_round_trip(self):
         s = ('name: foo\n'
-             'kind: bar\n'
+             'kind: system\n'
              'description: |\n'
              '  1 2 3\n'
              '  4 5 6\n'
-             '  7 8 9\n')
-        m = self.loader.parse_morphology_text(s, 'string')
+             '  7 8 9\n'
+             'arch: x86_64\n'
+             'strata:\n'
+             '- name: le-chunk\n'
+             '  morph: le-chunk\n'
+             'configuration-extensions: []\n')
+        m = self.loader.load_from_string(s, 'string')
         self.assertEqual(s, self.loader.save_to_string(m))
 
     def test_smoketest_multi_line_unicode(self):
