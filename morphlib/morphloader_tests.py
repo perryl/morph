@@ -342,17 +342,6 @@ chunks:
             morphlib.morphloader.UnknownArchitectureError,
             self.loader.validate, m)
 
-    def test_validate_normalises_architecture_armv7_to_armv7l(self):
-        m = morphlib.morphology.Morphology(
-            kind="system",
-            name="foo",
-            arch="armv7",
-            strata=[
-                {'morph': 'bar'},
-            ])
-        self.loader.validate(m)
-        self.assertEqual(m['arch'], 'armv7l')
-
     def test_validate_requires_build_deps_or_bootstrap_mode_for_strata(self):
         m = stratum_template("stratum-no-bdeps-no-bootstrap")
 
