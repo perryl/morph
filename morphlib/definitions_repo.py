@@ -67,9 +67,10 @@ class DefinitionsRepo(gitdir.GitDirectory):
 
         return self.get_remote('origin').get_fetch_url()
 
-    def branch_with_local_changes(self, uuid, push=True, build_ref_prefix=None,
+    def branch_with_local_changes(self, build_uuid, push=True,
+                                  build_ref_prefix=None,
                                   git_user_name=None, git_user_email=None,
-                                  status_cb=None):
+                                  status_cb=lambda **kwargs: None):
         '''Yield a branch that includes the user's local changes to this repo.
 
         When operating on local repos, this isn't really necessary. But when
@@ -87,18 +88,43 @@ class DefinitionsRepo(gitdir.GitDirectory):
         to only certain refs in some Git servers.
 
         '''
-        if status_cb:
-            status_cb(msg='Looking for uncommitted changes (pass '
-                          '--local-changes=ignore to skip)')
 
-        bb = morphlib.buildbranch.BuildBranch(
-                build_ref_prefix, uuid, definitions_repo=self)
+        status_cb(msg='Looking for uncommitted changes (pass '
+                      '--local-changes=ignore to skip)')
 
-        pbb = morphlib.buildbranch.pushed_build_branch(
-            bb, changes_need_pushing=push, name=git_user_name,
-            email=git_user_email, build_uuid=uuid,
-            status=status_cb)
-        return pbb   # (repo_url, commit, original_ref)
+        def report_add(gd, build_ref, changed):
+            status_cb(msg='Creating temporary branch in %(dirname)s named '
+                          '%(ref)s',
+                      dirname=gd.dirname, ref=build_ref)
+
+        def report_commit(gd, build_ref):
+            status_cb(msg='Committing changes in %(dirname)s to %(ref)s',
+                      dirname=gd.dirname, ref=build_ref, chatty=True)
+
+        def report_push(gd, build_ref, remote, refspec):
+            status_cb(msg='Pushing %(ref)s in %(dirname)s to %(remote)s',
+                      ref=build_ref, dirname=gd.dirname,
+                      remote=remote.get_push_url(), chatty=True)
+
+        @contextlib.contextmanager
+        def bbcm():
+            with contextlib.closing(morphlib.buildbranch.BuildBranch(
+                    build_ref_prefix, build_uuid, definitions_repo=self)) \
+            as bb:
+                changes_made = bb.stage_uncommited_changes(add_cb=report_add)
+                unpushed = bb.needs_pushing()
+                if not changes_made and not unpushed:
+                    yield bb.repo_remote_url, bb.head_commit, bb.head_ref
+                    return
+                bb.commit_staged_changes(git_user_name, git_user_email,
+                                         commit_cb=report_commit)
+                if push:
+                    repo_url = bb.repo_remote_url
+                    bb.push_build_branch(push_cb=report_push)
+                else:
+                    repo_url = bb.repo_local_url
+                yield repo_url, bb.build_commit, bb.build_ref
+        return bbcm()
 
     @contextlib.contextmanager
     def source_pool(self, lrc, rrc, cachedir, ref, system_filename,
