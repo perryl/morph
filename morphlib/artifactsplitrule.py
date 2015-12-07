@@ -189,42 +189,6 @@ class SplitRules(collections.Iterable):
             for artifact, rule in  self._rules)
 
 
-DEFAULT_CHUNK_RULES = [
-    ('-bins', [ r"(usr/)?s?bin/.*" ]),
-    ('-libs', [
-        r"(usr/)?lib(32|64)?/lib[^/]*\.so(\.\d+)*",
-        r"(usr/)libexec/.*"]),
-    ('-devel', [
-        r"(usr/)?include/.*",
-        r"(usr/)?lib(32|64)?/lib.*\.a",
-        r"(usr/)?lib(32|64)?/lib.*\.la",
-        r"(usr/)?(lib(32|64)?|share)/pkgconfig/.*\.pc"]),
-    ('-doc', [
-        r"(usr/)?share/doc/.*",
-        r"(usr/)?share/man/.*",
-        r"(usr/)?share/info/.*"]),
-    ('-locale', [
-        r"(usr/)?share/locale/.*",
-        r"(usr/)?share/i18n/.*",
-        r"(usr/)?share/zoneinfo/.*"]),
-    ('-misc', [ r".*" ]),
-]
-
-
-DEFAULT_STRATUM_RULES = [
-    ('-devel', [
-        r'.*-devel',
-        r'.*-debug',
-        r'.*-doc']),
-    ('-runtime', [
-        r'.*-bins',
-        r'.*-libs',
-        r'.*-locale',
-        r'.*-misc',
-        r'.*']),
-]
-
-
 # A 'no-op' set of split rules. An empty list would cause everything to be
 # ignored, which is unlikely to ever be what a user wants, and breaks some
 # internal bits of Morph.
@@ -233,7 +197,7 @@ EMPTY_RULES = [
 ]
 
 
-def unify_chunk_matches(morphology, default_rules=DEFAULT_CHUNK_RULES):
+def unify_chunk_matches(morphology, default_rules=None):
     '''Create split rules including defaults and per-chunk rules.
 
     With rules specified in the morphology's 'products' field and the
@@ -262,7 +226,7 @@ def unify_chunk_matches(morphology, default_rules=DEFAULT_CHUNK_RULES):
     return split_rules
 
 
-def unify_stratum_matches(morphology, default_rules=DEFAULT_STRATUM_RULES):
+def unify_stratum_matches(morphology, default_rules=None):
     '''Create split rules including defaults and per-stratum rules.
 
     With rules specified in the chunk spec's 'artifacts' fields, the
@@ -304,7 +268,7 @@ def unify_stratum_matches(morphology, default_rules=DEFAULT_STRATUM_RULES):
                                       match_split_rules))
 
 
-def unify_system_matches(morphology, default_rules=[]):
+def unify_system_matches(morphology, default_rules=None):
     '''Create split rules including defaults and per-chunk rules.
 
     With rules specified in the morphology's 'products' field and the

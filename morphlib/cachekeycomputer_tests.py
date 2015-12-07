@@ -29,8 +29,8 @@ class DummyBuildEnvironment:
 
 
 default_split_rules = {
-    'chunk': morphlib.artifactsplitrule.DEFAULT_CHUNK_RULES,
-    'stratum': morphlib.artifactsplitrule.DEFAULT_STRATUM_RULES,
+    'chunk': morphlib.artifactsplitrule.EMPTY_RULES,
+    'stratum': morphlib.artifactsplitrule.EMPTY_RULES,
 }
 
 

@@ -27,13 +27,6 @@ import morphlib
 class Defaults(object):
     '''Represents predefined default values specific to Baserock definitions.
 
-    The DEFAULTS file was added in definitions format version 7, which lets
-    users set these defaults. The text of DEFAULTS file can be passed in as
-    'text', and will be validated and parsed if definitions_version >= 7.
-
-    Prior to version 7, the defaults were hardcoded in Morph. These defaults
-    will be returned if definitions_version < 7.
-
     '''
     def __init__(self, definitions_version, text=None):
         self._build_systems = {}
@@ -44,11 +37,8 @@ class Defaults(object):
         with open(schema_path) as f:
             self.schema = yaml.load(f)
 
-        if definitions_version >= 7:
-            if text:
-                self._build_systems, self._split_rules = self._parse(text)
-        else:
-            self._build_systems, self._split_rules = self._builtins()
+        if text:
+            self._build_systems, self._split_rules = self._parse(text)
 
     def _parse(self, text):
         build_systems = {}
@@ -84,20 +74,6 @@ class Defaults(object):
             for rule in rules:
                 rule_unlabelled = (rule['artifact'], rule['include'])
                 split_rules[kind].append(rule_unlabelled)
-
-        return build_systems, split_rules
-
-    def _builtins(self):
-        build_systems = {}
-        split_rules = {}
-
-        for build_system in morphlib.buildsystem.build_systems:
-            build_systems[build_system.name] = build_system
-
-        split_rules['chunk'] = \
-            morphlib.artifactsplitrule.DEFAULT_CHUNK_RULES
-        split_rules['stratum'] = \
-            morphlib.artifactsplitrule.DEFAULT_STRATUM_RULES
 
         return build_systems, split_rules
 

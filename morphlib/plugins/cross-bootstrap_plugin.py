@@ -156,8 +156,6 @@ class BootstrapSystemBuilder(morphlib.builder.BuilderBase):
         f.write('cd $DESTDIR/$chunk_name.build\n')
         f.write('export PREFIX=%s\n' % source.prefix)
 
-        bs = morphlib.buildsystem.lookup_build_system(m['build-system'])
-
         # FIXME: merge some of this with Morphology
         steps = [
             ('pre-configure', False),

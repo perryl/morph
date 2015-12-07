@@ -19,10 +19,13 @@ import yaml
 
 import morphlib
 
-
 default_split_rules = {
-    'chunk': morphlib.artifactsplitrule.DEFAULT_CHUNK_RULES,
-    'stratum': morphlib.artifactsplitrule.DEFAULT_STRATUM_RULES,
+'chunk': [
+    ('-bins', ['(usr/)?bin/.*']),
+    ('-devel', ['(usr/)?include/.*'])],
+'stratum': [
+    ('-devel', ['.*-devel', '.*-debug']),
+    ('-runtime', ['.*-bins', '.*'])]
 }
 
 
