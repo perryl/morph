@@ -574,20 +574,6 @@ build-system: manual
                 'prefix': '/usr',
             })
 
-    def test_unsets_defaults_for_chunks(self):
-        m = morphlib.morphology.Morphology({
-            'kind': 'chunk',
-            'name': 'foo',
-            'build-system': 'manual',
-        })
-        self.loader.unset_defaults(m)
-        self.assertEqual(
-            dict(m),
-            {
-                'kind': 'chunk',
-                'name': 'foo',
-            })
-
     def test_sets_defaults_for_strata(self):
         m = morphlib.morphology.Morphology({
             'kind': 'stratum',
@@ -626,28 +612,6 @@ build-system: manual
                 'products': [],
             })
 
-    def test_unsets_defaults_for_strata(self):
-        test_dict = {
-            'kind': 'stratum',
-            'name': 'foo',
-            'chunks': [
-                {
-                    'name': 'bar',
-                    "ref": "bar",
-                    'build-mode': 'staging',
-                    'build-depends': [],
-                    'prefix': '/usr',
-                },
-            ],
-        }
-        test_dict_with_build_depends = dict(test_dict)
-        test_dict_with_build_depends["build-depends"] = []
-        m = morphlib.morphology.Morphology(test_dict_with_build_depends)
-        self.loader.unset_defaults(m)
-        self.assertEqual(
-            dict(m),
-            test_dict)
-
     def test_sets_defaults_for_system(self):
         m = morphlib.morphology.Morphology(
             kind='system',
@@ -674,32 +638,6 @@ build-system: manual
             },
             dict(m))
 
-    def test_unsets_defaults_for_system(self):
-        m = morphlib.morphology.Morphology(
-            {
-                'description': '',
-                'kind': 'system',
-                'name': 'foo',
-                'arch': 'testarch',
-                'strata': [
-                    {
-                        'morph': 'bar',
-                    },
-                ],
-                'configuration-extensions': [],
-            })
-        self.loader.unset_defaults(m)
-        self.assertEqual(
-            dict(m),
-            {
-                'kind': 'system',
-                'name': 'foo',
-                'arch': 'testarch',
-                'strata': [
-                    {'morph': 'bar'},
-                ],
-            })
-
     def test_sets_defaults_for_cluster(self):
         m = morphlib.morphology.Morphology(
             name='foo',
@@ -716,24 +654,6 @@ build-system: manual
              {'morph': 'bar',
               'deploy-defaults': {},
               'deploy': {}}])
-
-    def test_unsets_defaults_for_cluster(self):
-        m = morphlib.morphology.Morphology(
-            name='foo',
-            kind='cluster',
-            description='',
-            systems=[
-                {'morph': 'foo',
-                 'deploy-defaults': {},
-                 'deploy': {}},
-                {'morph': 'bar',
-                 'deploy-defaults': {},
-                 'deploy': {}}])
-        self.loader.unset_defaults(m)
-        self.assertNotIn('description', m)
-        self.assertEqual(m['systems'],
-                         [{'morph': 'foo'},
-                          {'morph': 'bar'}])
 
     def test_sets_stratum_chunks_repo_from_name(self):
         m = morphlib.morphology.Morphology(
@@ -753,26 +673,6 @@ build-system: manual
         self.loader.set_defaults(m)
         self.loader.validate(m)
         self.assertEqual(m['chunks'][0]['repo'], 'le-chunk')
-
-    def test_collapses_stratum_chunks_repo_from_name(self):
-        m = morphlib.morphology.Morphology(
-            {
-                "name": "foo",
-                "kind": "stratum",
-                "chunks": [
-                    {
-                        "name": "le-chunk",
-                        "repo": "le-chunk",
-                        "morph": "le-chunk",
-                        "ref": "ref",
-                        "build-system": "manual",
-                        "build-depends": [],
-                    }
-                ]
-            })
-
-        self.loader.unset_defaults(m)
-        self.assertTrue('repo' not in m['chunks'][0])
 
     def test_convertes_max_jobs_to_an_integer(self):
         m = morphlib.morphology.Morphology(

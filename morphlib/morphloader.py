@@ -685,21 +685,6 @@ class MorphologyLoader(object):
 
         getattr(self, '_set_%s_defaults' % kind)(morphology)
 
-    def unset_defaults(self, morphology):
-        '''If a field is equal to its default, delete it.
-
-        The morphology is assumed to be valid.
-
-        '''
-
-        kind = morphology['kind']
-        defaults = self._static_defaults[kind]
-        for key in defaults:
-            if key in morphology and morphology[key] == defaults[key]:
-                del morphology[key]
-
-        getattr(self, '_unset_%s_defaults' % kind)(morphology)
-
     def _set_cluster_defaults(self, morph):
         for system in morph.get('systems', []):
             if 'deploy-defaults' not in system:
@@ -707,17 +692,7 @@ class MorphologyLoader(object):
             if 'deploy' not in system:
                 system['deploy'] = {}
 
-    def _unset_cluster_defaults(self, morph):
-        for system in morph.get('systems', []):
-            if 'deploy-defaults' in system and system['deploy-defaults'] == {}:
-                del system['deploy-defaults']
-            if 'deploy' in system and system['deploy'] == {}:
-                del system['deploy']
-
     def _set_system_defaults(self, morph):
-        pass
-
-    def _unset_system_defaults(self, morph):
         pass
 
     def _set_stratum_defaults(self, morph):
@@ -731,34 +706,9 @@ class MorphologyLoader(object):
                 spec['prefix'] = \
                     self._static_defaults['chunk']['prefix']
 
-    def _unset_stratum_defaults(self, morph):
-        for spec in morph['chunks']:
-            if 'repo' in spec and spec['repo'] == spec['name']:
-                del spec['repo']
-            if 'build-mode' in spec and spec['build-mode'] == \
-                    self._static_defaults['chunk']['build-mode']:
-                del spec['build-mode']
-            if 'prefix' in spec and spec['prefix'] == \
-                    self._static_defaults['chunk']['prefix']:
-                del spec['prefix']
-
     def _set_chunk_defaults(self, morph):
         if morph['max-jobs'] is not None:
             morph['max-jobs'] = int(morph['max-jobs'])
-
-    def _unset_chunk_defaults(self, morph):  # pragma: no cover
-        # This is only used by the deprecated branch-and-merge plugin, and
-        # probably doesn't work correctly for definitions V7 and newer.
-        default_bs = self._static_defaults['chunk']['build-system']
-        bs_name = morph.get('build-system', default_bs)
-        bs = self.lookup_build_system(bs_name)
-        for key in self._static_defaults['chunk']:
-            if key not in morph: continue
-            if 'commands' not in key: continue
-            attr = key.replace('-', '_')
-            default_value = getattr(bs, attr)
-            if morph[key] == default_value:
-                del morph[key]
 
     def lookup_build_system(self, name):
         return self._predefined_build_systems[name]
