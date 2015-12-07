@@ -509,7 +509,7 @@ class MorphologyLoader(object):
         # All stratum names should be unique within a system.
         names = set()
         for spec in strata:
-            name = spec.get('alias', spec['morph'])
+            name = spec['morph']
             if name in names:
                 raise DuplicateStratumError(morph['name'], name)
             names.add(name)
@@ -544,24 +544,23 @@ class MorphologyLoader(object):
         # All chunk names must be unique within a stratum.
         names = set()
         for spec in morph['chunks']:
-            name = spec.get('alias', spec['name'])
+            name = spec['name']
             if name in names:
                 raise DuplicateChunkError(morph['name'], name)
             names.add(name)
 
         # Check each reference to a chunk.
         for spec in morph['chunks']:
-            chunk_name = spec.get('alias', spec['name'])
+            chunk_name = spec['name']
 
             # All chunk refs must be strings.
             if 'ref' in spec:
                 ref = spec['ref']
                 if ref == None:
-                    raise EmptyRefError(
-                        spec.get('alias', spec['name']), morph.filename)
+                    raise EmptyRefError(spec['name'], morph.filename)
                 elif not isinstance(ref, basestring):
                     raise ChunkSpecRefNotStringError(
-                        ref, spec.get('alias', spec['name']), morph.filename)
+                        ref, spec['name'], morph.filename)
 
             # The build-depends field must be a list.
             if 'build-depends' in spec:
