@@ -229,6 +229,10 @@ another to hold a chunk.
         - make
         install-commands:
         - make install
+      manual:
+        configure-commands: []
+        build-commands: []
+        install-commands: []
     split-rules:
       chunk:
       - artifact: -devel
