@@ -1,8 +1,6 @@
 morphlib/__init__.py
 morphlib/artifactcachereference.py
 morphlib/artifactsplitrule.py
-morphlib/builddependencygraph.py
-morphlib/tester.py
 morphlib/git.py
 morphlib/app.py
 morphlib/mountableimage.py
@@ -10,11 +8,7 @@ morphlib/extensions.py
 morphlib/extractedtarball.py
 morphlib/plugins/artifact_inspection_plugin.py
 morphlib/plugins/cross-bootstrap_plugin.py
-morphlib/plugins/hello_plugin.py
 morphlib/plugins/graphing_plugin.py
-morphlib/plugins/syslinux-disk-systembuilder_plugin.py
-morphlib/plugins/disk-systembuilder_plugin.py
-morphlib/plugins/tarball-systembuilder_plugin.py
 morphlib/plugins/show_dependencies_plugin.py
 morphlib/buildcommand.py
 morphlib/plugins/build_plugin.py
