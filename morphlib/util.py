@@ -767,13 +767,14 @@ class ProgressBar(object):
         self._empty_char = empty_char
 
     def show(self, progress): #pragma: no cover
-        blocks = int(progress / self._block_width);
+        if sys.stderr.isatty():
+            blocks = int(progress / self._block_width);
 
-        s = self.TEMPLATE % (self._label, self._progress_char * blocks,
-                             self._empty_char * (self._width - blocks),
-                             progress, self._expected_size, self._unit)
-        sys.stderr.write(s)
-        sys.stderr.flush()
+            s = self.TEMPLATE % (self._label, self._progress_char * blocks,
+                                self._empty_char * (self._width - blocks),
+                                progress, self._expected_size, self._unit)
+            sys.stderr.write(s)
+            sys.stderr.flush()
 
 
 def schemas_directory():  # pragma: no cover
