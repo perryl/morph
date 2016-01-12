@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2011-2015  Codethink Limited
+# Copyright (C) 2011-2016  Codethink Limited
 # Copyright © 2015  Richard Ipsum
 #
 # This program is free software; you can redistribute it and/or modify
@@ -15,6 +15,7 @@
 # with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import contextlib
+import errno
 import itertools
 import os
 import pipes
@@ -105,8 +106,15 @@ def create_cachedir(settings):  # pragma: no cover
     '''Return cache directory, creating it if necessary.'''
 
     cachedir = settings['cachedir']
-    if not os.path.exists(cachedir):
+    # Don't check the folder exists and handle the exception that happens in
+    # this case to avoid errors if the folder is created by something else
+    # just after the check.
+    try:
         os.mkdir(cachedir)
+    except OSError as e:
+         if e.errno != errno.EEXIST:
+             raise
+
     return cachedir
 
 
@@ -135,8 +143,15 @@ def new_artifact_caches(settings):  # pragma: no cover
 
     cachedir = create_cachedir(settings)
     artifact_cachedir = os.path.join(cachedir, 'artifacts')
-    if not os.path.exists(artifact_cachedir):
+    # Don't check the folder exists and handle the exception that happens in
+    # this case to avoid errors if the folder is created by something else
+    # just after the check.
+    try:
         os.mkdir(artifact_cachedir)
+    except OSError as e:
+         if e.errno != errno.EEXIST:
+             raise
+
 
     lac = morphlib.localartifactcache.LocalArtifactCache(
             fs.osfs.OSFS(artifact_cachedir))
