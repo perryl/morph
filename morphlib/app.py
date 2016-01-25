@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2015  Codethink Limited
+# Copyright (C) 2011-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,6 +14,7 @@
 
 
 import cliapp
+import errno
 import logging
 import os
 import pipes
@@ -286,8 +287,14 @@ class Morph(cliapp.Application):
                              os.path.join(tmpdir, 'staging'),
                              os.path.join(tmpdir, 'deployments'),
                              self.settings['cachedir']):
-            if not os.path.exists(required_dir):
+            # Don't check the folder exists and handle the exception that
+            # happens in this case to avoid errors if the folder is created
+            # by something else just after the check.
+            try:
                 os.makedirs(required_dir)
+            except OSError as e:
+                if e.errno != errno.EEXIST:
+                     raise
 
         cliapp.Application.process_args(self, args)
 
