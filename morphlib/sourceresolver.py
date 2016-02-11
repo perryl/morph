@@ -1,4 +1,4 @@
-# Copyright (C) 2014-2015  Codethink Limited
+# Copyright (C) 2014-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -363,7 +363,7 @@ class SourceResolver(object):
     def process_chunk(self, resolved_morphologies, resolved_trees,
                       definitions_checkout_dir, morph_loader, chunk_repo,
                       chunk_ref, filename, chunk_buildsystem, visit,
-                      predefined_split_rules):
+                      predefined_build_systems, predefined_split_rules):
         absref, tree = self._resolve_ref(resolved_trees, chunk_repo, chunk_ref)
 
         if chunk_buildsystem is None:
@@ -377,8 +377,11 @@ class SourceResolver(object):
             # Chunk uses one of the predefined build systems. In this case
             # 'filename' will be faked (name of chunk + '.morph').
 
-            buildsystem = morphlib.buildsystem.lookup_build_system(
-                chunk_buildsystem)
+            try:
+                buildsystem = predefined_build_systems[chunk_buildsystem]
+            except KeyError:
+                raise SourceResolverError("Unknown build system for %s: %s" %
+                        (filename, chunk_buildsystem))
 
             morphology = self._create_morphology_for_build_system(
                 morph_loader, buildsystem, filename)
@@ -436,6 +439,7 @@ class SourceResolver(object):
                 self.process_chunk(resolved_morphologies, resolved_trees,
                                    definitions_checkout_dir, morph_loader,
                                    repo, ref, filename, buildsystem, visit,
+                                   predefined_build_systems,
                                    predefined_split_rules)
 
 class DuplicateChunkError(morphlib.Error):
