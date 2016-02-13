@@ -854,7 +854,7 @@ Implementations for building systems
     cd "$DATADIR"/definitions
     git checkout "$branch"
     cat << EOF > "${chunk_name}".morph
-    name: hello
+    name: "${chunk_name}"
     kind: chunk
     configure-commands:
     - echo dummy configure

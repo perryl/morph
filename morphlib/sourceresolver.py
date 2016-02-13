@@ -374,6 +374,10 @@ class SourceResolver(object):
             morphology = self._get_morphology(resolved_morphologies,
                                               definitions_checkout_dir,
                                               morph_loader, filename)
+
+            if morphology['name'] != chunk_name:
+                warnings.warn("Name '%s' doesn't match '%s in morpholgy: %s"
+                              % (morphology['name'], chunk_name, filename))
         else:
             # Chunk uses one of the predefined build systems. In this case
             # 'filename' will be faked (name of chunk + '.morph').
