@@ -341,14 +341,15 @@ class SourceResolver(object):
                             raise MorphologyReferenceNotFoundError(
                                 path, filename)
 
-                        chunk_queue.add((c['repo'], c['ref'], path, None))
+                        chunk_queue.add((c['name'], c['repo'], c['ref'],
+                                         path, None))
                     else:
                         # We invent a filename here, so that the rest of the
                         # Morph code doesn't need to know about the predefined
                         # build instructions.
-                        chunk_name = c['name'] + '.morph'
-                        chunk_queue.add((c['repo'], c['ref'], chunk_name,
-                                         c['build-system']))
+                        chunk_filename = c['name'] + '.morph'
+                        chunk_queue.add((c["name"], c['repo'], c['ref'],
+                                         chunk_filename, c['build-system']))
 
         return chunk_queue
 
@@ -361,9 +362,9 @@ class SourceResolver(object):
         return morph
 
     def process_chunk(self, resolved_morphologies, resolved_trees,
-                      definitions_checkout_dir, morph_loader, chunk_repo,
-                      chunk_ref, filename, chunk_buildsystem, visit,
-                      predefined_build_systems, predefined_split_rules):
+                      definitions_checkout_dir, morph_loader, chunk_name,
+                      chunk_repo, chunk_ref, filename, chunk_buildsystem,
+                      visit, predefined_build_systems, predefined_split_rules):
         absref, tree = self._resolve_ref(resolved_trees, chunk_repo, chunk_ref)
 
         if chunk_buildsystem is None:
@@ -384,7 +385,7 @@ class SourceResolver(object):
                         (filename, chunk_buildsystem))
 
             morphology = self._create_morphology_for_build_system(
-                morph_loader, buildsystem, filename)
+                morph_loader, buildsystem, chunk_name)
 
         visit(chunk_repo, chunk_ref, filename, absref, tree, morphology,
               predefined_split_rules)
@@ -435,11 +436,11 @@ class SourceResolver(object):
                     predefined_split_rules)
 
             # Now process all the chunks involved in the build.
-            for repo, ref, filename, buildsystem in chunk_queue:
+            for name, repo, ref, filename, buildsystem in chunk_queue:
                 self.process_chunk(resolved_morphologies, resolved_trees,
                                    definitions_checkout_dir, morph_loader,
-                                   repo, ref, filename, buildsystem, visit,
-                                   predefined_build_systems,
+                                   name, repo, ref, filename, buildsystem,
+                                   visit, predefined_build_systems,
                                    predefined_split_rules)
 
 class DuplicateChunkError(morphlib.Error):
