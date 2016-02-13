@@ -107,6 +107,14 @@ class MorphologyReferenceNotFoundError(SourceResolverError):
                                      % (filename, reference_file))
 
 
+class MorphologyNameError(SourceResolverError):
+    def __init__(self, name_in_morphology, name, filename):
+        SourceResolverError.__init__(self,
+                                     "Name '%s' doesn't match '%s' in "
+                                     "morphology: %s"
+                                     % (name_in_morphology, name, filename))
+
+
 # Callers may want to give the user a special error message if we hit an
 # InvalidRefError in the definitions.git repo. Currently a separate exception
 # type seems the easiest way to do that, but adding enough detail to the
@@ -300,15 +308,19 @@ class SourceResolver(object):
                                            system_filenames,
                                            visit,
                                            predefined_split_rules):
-        definitions_queue = collections.deque(system_filenames)
+        # Initialise definitions_queue with tuples (name, filename).
+        # We don't need system's filename, so use 'None'
+        definitions_queue = collections.deque((None, f)
+                                               for f in system_filenames)
         chunk_queue = set()
 
         def get_morphology(filename):
             return self._get_morphology(resolved_morphologies,
                                         definitions_checkout_dir, morph_loader,
                                         filename)
+
         while definitions_queue:
-            filename = definitions_queue.popleft()
+            name, filename = definitions_queue.popleft()
 
             morphology = get_morphology(filename)
 
@@ -323,13 +335,20 @@ class SourceResolver(object):
                 raise cliapp.AppException(
                     "Cannot build a morphology of type 'cluster'.")
             elif morphology['kind'] == 'system':
-                definitions_queue.extend(
-                    sanitise_morphology_path(s['morph'])
+                # name is not mandatory, use 'None' if not definied.
+                definitions_queue.extend((s.get('name'),
+                    sanitise_morphology_path(s['morph']))
                     for s in morphology['strata'])
             elif morphology['kind'] == 'stratum':
+                # If we have the name of the stratum, fail if it doesn't
+                # match with the one set in the stratum file.
+                if name and name != morphology.get('name'):
+                    raise MorphologyNameError(morphology['name'], name,
+                                              filename)
                 if morphology['build-depends']:
-                    definitions_queue.extend(
-                        sanitise_morphology_path(s['morph'])
+                    # build-depends don't have names. Use 'None' as name.
+                    definitions_queue.extend((None,
+                        sanitise_morphology_path(s['morph']))
                         for s in morphology['build-depends'])
                 for c in morphology['chunks']:
                     if 'morph' in c:
