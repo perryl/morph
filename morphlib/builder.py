@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2015  Codethink Limited
+# Copyright (C) 2012-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -311,7 +311,6 @@ class ChunkBuilder(BuilderBase):
 
     def run_commands(self, logfilepath, stdout=None):  # pragma: no cover
         m = self.source.morphology
-        bs = morphlib.buildsystem.lookup_build_system(m['build-system'])
 
         relative_builddir = self.staging_area.relative_builddir()
         relative_destdir = self.staging_area.relative_destdir()
