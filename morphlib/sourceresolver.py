@@ -491,6 +491,18 @@ def create_source_pool(lrc, rrc, repo, ref, filenames, cachedir,
 
     def add_to_pool(reponame, ref, filename, absref, tree, morphology,
                     predefined_split_rules):
+        # If there are duplicate chunks which have the same 'name' and the
+        # same build instructions, we might cause a stack overflow in
+        # cachekeycomputer.py when trying to hash the build graph. The
+        # _find_duplicate_chunks() function doesn't handle this case, it
+        # is checking for duplicates with the same name but different build
+        # instructions.
+        if morphology['kind'] != 'stratum':
+            if pool.lookup(reponame, ref, filename):
+                raise morphlib.Error(
+                    "There are multiple versions of component '%s'" %
+                    morphology['name'])
+
         sources = morphlib.source.make_sources(
             reponame, ref, filename, absref, tree, morphology,
             predefined_split_rules)
