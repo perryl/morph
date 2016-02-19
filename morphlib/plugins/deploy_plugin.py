@@ -1,4 +1,4 @@
-# Copyright (C) 2013-2015  Codethink Limited
+# Copyright (C) 2013-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -471,7 +471,7 @@ class DeployPlugin(cliapp.Plugin):
             build_command = morphlib.buildcommand.BuildCommand(self.app)
             artifact = build_command.resolve_artifacts(source_pool)
 
-            deploy_defaults = system.get('deploy-defaults', {})
+            deploy_defaults = system.get('deploy-defaults') or {}
             for system_id, deploy_params in system['deploy'].iteritems():
                 if not system_id in deployment_filter and deployment_filter:
                     continue
