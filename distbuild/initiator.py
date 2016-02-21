@@ -1,6 +1,6 @@
 # distbuild/initiator.py -- state machine for the initiator
 #
-# Copyright (C) 2012, 2014-2015  Codethink Limited
+# Copyright (C) 2012, 2014-2016  Codethink Limited
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,7 +17,6 @@
 
 import cliapp
 
-import codecs
 import itertools
 import logging
 import os
@@ -196,7 +195,7 @@ class Initiator(distbuild.StateMachine):
         path = self._get_step_output_dir()
         filename = os.path.join(path,
                                'build-step-%s.log' % msg['step_name'])
-        f = codecs.open(filename, 'a', encoding='utf-8')
+        f = open(filename, 'a')
         self._step_outputs[msg['step_name']] = f
 
     def _close_output(self, msg):
@@ -230,8 +229,15 @@ class Initiator(distbuild.StateMachine):
         step_name = msg['step_name']
         if step_name in self._step_outputs:
             f = self._get_output(msg)
-            f.write(msg['stdout'])
-            f.write(msg['stderr'])
+            if isinstance(msg['stdout'], unicode):
+                f.write(msg['stdout'].encode('utf-8'))
+            else:
+                f.write(msg['stdout'])
+
+            if isinstance(msg['stderr'], unicode):
+                f.write(msg['stderr'].encode('utf-8'))
+            else:
+                f.write(msg['stderr'])
             f.flush()
         else:
             logging.warning(
