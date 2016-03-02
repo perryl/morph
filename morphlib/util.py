@@ -102,20 +102,15 @@ def make_concurrency(cores=None):
     return min(n, 20)
 
 
-def create_cachedir(settings):  # pragma: no cover
-    '''Return cache directory, creating it if necessary.'''
-
-    cachedir = settings['cachedir']
+def ensure_directory_exists(path):  # pragma: no cover
     # Don't check the folder exists and handle the exception that happens in
     # this case to avoid errors if the folder is created by something else
     # just after the check.
     try:
-        os.mkdir(cachedir)
+        os.makedirs(path)
     except OSError as e:
          if e.errno != errno.EEXIST:
              raise
-
-    return cachedir
 
 
 def get_artifact_cache_server(settings): # pragma: no cover
@@ -141,17 +136,8 @@ def new_artifact_caches(settings):  # pragma: no cover
 
     '''
 
-    cachedir = create_cachedir(settings)
-    artifact_cachedir = os.path.join(cachedir, 'artifacts')
-    # Don't check the folder exists and handle the exception that happens in
-    # this case to avoid errors if the folder is created by something else
-    # just after the check.
-    try:
-        os.mkdir(artifact_cachedir)
-    except OSError as e:
-         if e.errno != errno.EEXIST:
-             raise
-
+    artifact_cachedir = os.path.join(settings['cachedir'], 'artifacts')
+    ensure_directory_exists(artifact_cachedir)
 
     lac = morphlib.localartifactcache.LocalArtifactCache(
             fs.osfs.OSFS(artifact_cachedir))
@@ -222,24 +208,26 @@ def combine_aliases(app):  # pragma: no cover
 
     return alias_map.values()
 
-def new_repo_caches(app):  # pragma: no cover
-    '''Create new objects for local, remote git repository caches.'''
 
-    aliases = app.settings['repo-alias']
-    cachedir = create_cachedir(app.settings)
-    gits_dir = os.path.join(cachedir, 'gits')
+def new_repo_cache(app):  # pragma: no cover
+    '''Create a RepoCache instance using settings from app.settings.'''
+
+    gits_dir = os.path.join(app.settings['cachedir'], 'gits')
     tarball_base_url = app.settings['tarball-server']
-    repo_resolver = morphlib.repoaliasresolver.RepoAliasResolver(aliases)
-    lrc = morphlib.localrepocache.LocalRepoCache(
-        app, gits_dir, repo_resolver, tarball_base_url=tarball_base_url)
+    git_resolve_cache_url = get_git_resolve_cache_server(app.settings)
+    aliases = app.settings['repo-alias']
+    repo_alias_resolver = morphlib.repoaliasresolver.RepoAliasResolver(aliases)
 
-    url = get_git_resolve_cache_server(app.settings)
-    if url:
-        rrc = morphlib.remoterepocache.RemoteRepoCache(url, repo_resolver)
-    else:
-        rrc = None
+    return morphlib.repocache.RepoCache(
+        gits_dir, repo_alias_resolver,
+        tarball_base_url=tarball_base_url,
+        git_resolve_cache_url=git_resolve_cache_url,
+        update_gits=(not app.settings['no-git-update']),
+        runcmd_cb=app.runcmd,
+        status_cb=app.status,
+        verbose=app.settings['verbose'],
+        debug=app.settings['debug'])
 
-    return lrc, rrc
 
 def env_variable_is_password(key):  # pragma: no cover
     return 'PASSWORD' in key

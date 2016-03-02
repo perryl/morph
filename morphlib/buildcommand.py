@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2011-2015  Codethink Limited
+# Copyright (C) 2011-2016  Codethink Limited
 # Copyright © 2015  Richard Ipsum
 #
 # This program is free software; you can redistribute it and/or modify
@@ -47,7 +47,7 @@ class BuildCommand(object):
     def __init__(self, app, build_env = None):
         self.app = app
         self.lac, self.rac = self.new_artifact_caches()
-        self.lrc, self.rrc = self.new_repo_caches()
+        self.repo_cache = morphlib.util.new_repo_cache(self.app)
 
     def build(self, repo_name, ref, filename, original_ref=None):
         '''Build a given system morphology.'''
@@ -76,9 +76,6 @@ class BuildCommand(object):
         '''
         return morphlib.util.new_artifact_caches(self.app.settings)
 
-    def new_repo_caches(self):
-        return morphlib.util.new_repo_caches(self.app)
-
     def new_build_env(self, arch):
         '''Create a new BuildEnvironment instance.'''
         return morphlib.buildenvironment.BuildEnvironment(self.app.settings,
@@ -95,10 +92,8 @@ class BuildCommand(object):
         '''
         self.app.status(msg='Creating source pool', chatty=True)
         srcpool = morphlib.sourceresolver.create_source_pool(
-            self.lrc, self.rrc, repo_name, ref, filenames,
-            cachedir=self.app.settings['cachedir'],
+            self.repo_cache, repo_name, ref, filenames,
             original_ref=original_ref,
-            update_repos=not self.app.settings['no-git-update'],
             status_cb=self.app.status)
         return srcpool
 
@@ -394,8 +389,9 @@ class BuildCommand(object):
         '''Update the local git repository cache with the sources.'''
 
         repo_name = source.repo_name
-        source.repo = self.lrc.get_updated_repo(repo_name, ref=source.sha1)
-        self.lrc.ensure_submodules(source.repo, source.sha1)
+        source.repo = self.repo_cache.get_updated_repo(repo_name,
+                                                       ref=source.sha1)
+        self.repo_cache.ensure_submodules(source.repo, source.sha1)
 
     def cache_artifacts_locally(self, artifacts):
         '''Get artifacts missing from local cache from remote cache.'''
@@ -540,7 +536,7 @@ class BuildCommand(object):
                             '%(sha1)s',
                         name=source.name, sha1=source.sha1[:7])
         builder = morphlib.builder.Builder(
-            self.app, staging_area, self.lac, self.rac, self.lrc,
+            self.app, staging_area, self.lac, self.rac, self.repo_cache,
             self.app.settings['max-jobs'], setup_mounts)
         return builder.build_and_cache(source)
 

@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2015  Codethink Limited
+# Copyright (C) 2012-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -42,24 +42,6 @@ class ShowDependenciesPlugin(cliapp.Plugin):
         of build dependencies of the constituent components.
 
         '''
-
-        if not os.path.exists(self.app.settings['cachedir']):
-            os.mkdir(self.app.settings['cachedir'])
-        cachedir = os.path.join(self.app.settings['cachedir'], 'gits')
-        tarball_base_url = self.app.settings['tarball-server']
-        repo_resolver = morphlib.repoaliasresolver.RepoAliasResolver(
-            self.app.settings['repo-alias'])
-        lrc = morphlib.localrepocache.LocalRepoCache(
-            self.app, cachedir, repo_resolver, tarball_base_url)
-
-        remote_url = morphlib.util.get_git_resolve_cache_server(
-            self.app.settings)
-        if remote_url:
-            rrc = morphlib.remoterepocache.RemoteRepoCache(
-                remote_url, repo_resolver)
-        else:
-            rrc = None
-            
         build_command = morphlib.buildcommand.BuildCommand(self.app)
 
         # traverse the morphs to list all the sources

@@ -101,9 +101,9 @@ class GetRepoPlugin(cliapp.Plugin):
                         '%(stratum)s stratum',
                     ref=ref or chunk_spec['ref'], chunk=chunk_spec['name'],
                     stratum=morph['name'])
-                lrc, rrc = morphlib.util.new_repo_caches(self.app)
-                cached_repo = lrc.get_updated_repo(chunk_spec['repo'],
-                                                   chunk_spec['ref'])
+                repo_cache = morphlib.util.new_repo_cache(self.app)
+                cached_repo = repo_cache.get_updated_repo(chunk_spec['repo'],
+                                                          chunk_spec['ref'])
 
                 try:
                     self._clone_repo(cached_repo, dirname,

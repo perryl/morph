@@ -137,9 +137,8 @@ class AnchorPlugin(cliapp.Plugin):
             for reponame, sources in sources_by_reponame.iteritems():
                 # UGLY HACK we need to push *FROM* our local repo cache to
                 # avoid cloning everything multiple times.
-                repo = bc.lrc.get_updated_repo(reponame,
-                                               refs=(s.original_ref
-                                                     for s in sources))
+                repo = bc.repo_cache.get_updated_repo(
+                    reponame, refs=(s.original_ref for s in sources))
                 remote = Remote(repo)
 
                 push_url = resolver.push_url(reponame)

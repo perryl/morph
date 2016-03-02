@@ -57,7 +57,7 @@ class CertifyPlugin(cliapp.Plugin):
         system_filenames = map(morphlib.util.sanitise_morphology_path,
                                args[2:])
 
-        self.lrc, self.rrc = morphlib.util.new_repo_caches(self.app)
+        self.repo_cache = morphlib.util.new_repo_cache(self.app)
         self.resolver = morphlib.artifactresolver.ArtifactResolver()
 
         for system_filename in system_filenames:
@@ -69,9 +69,7 @@ class CertifyPlugin(cliapp.Plugin):
         self.app.status(
             msg='Creating source pool for %s' % system_filename, chatty=True)
         source_pool = morphlib.sourceresolver.create_source_pool(
-            self.lrc, self.rrc, repo, ref, [system_filename],
-            cachedir=self.app.settings['cachedir'],
-            update_repos = not self.app.settings['no-git-update'],
+            self.repo_cache, repo, ref, [system_filename],
             status_cb=self.app.status)
 
         self.app.status(
@@ -115,7 +113,7 @@ class CertifyPlugin(cliapp.Plugin):
                               .format(name, ref))
                 certified = False
 
-            cached = self.lrc.get_updated_repo(source.repo_name, ref)
+            cached = self.repo_cache.get_updated_repo(source.repo_name, ref)
 
             # Test that sha1 ref is anchored in a tag or branch,
             # and thus not a candidate for removal on `git gc`.

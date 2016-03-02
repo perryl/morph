@@ -36,28 +36,23 @@ class NotASystemArtifactError(cliapp.AppException):
 
 class ProjectVersionGuesser(object):
 
-    def __init__(self, app, lrc, rrc, interesting_files):
+    def __init__(self, app, repo_cache, interesting_files):
         self.app = app
-        self.lrc = lrc
-        self.rrc = rrc
+        self.repo_cache = repo_cache
         self.interesting_files = interesting_files
 
     def file_contents(self, repo, ref, tree):
         filenames = [x for x in self.interesting_files if x in tree]
-        if filenames:
-            if self.lrc.has_repo(repo):
-                repository = self.lrc.get_updated_repo(repo, ref)
-                for filename in filenames:
-                    yield filename, repository.read_file(filename, ref)
-            elif self.rrc:
-                for filename in filenames:
-                    yield filename, self.rrc.cat_file(repo, ref, filename)
+        for filename in filenames:
+            # This can use a remote repo cache if available, to avoid having
+            # to clone every repo locally.
+            yield filename, self.repo_cache.cat_file(repo, ref, filename)
 
 
 class AutotoolsVersionGuesser(ProjectVersionGuesser):
 
-    def __init__(self, app, lrc, rrc):
-        ProjectVersionGuesser.__init__(self, app, lrc, rrc, [
+    def __init__(self, app, repo_cache):
+        ProjectVersionGuesser.__init__(self, app, repo_cache, [
             'configure.ac',
             'configure.in',
             'configure.ac.in',
@@ -136,9 +131,9 @@ class VersionGuesser(object):
 
     def __init__(self, app):
         self.app = app
-        self.lrc, self.rrc = morphlib.util.new_repo_caches(app)
+        self.repo_cache = morphlib.util.new_repo_cache(app)
         self.guessers = [
-            AutotoolsVersionGuesser(app, self.lrc, self.rrc)
+            AutotoolsVersionGuesser(app, self.repo_cache)
         ]
 
     def guess_version(self, repo, ref):
@@ -146,14 +141,10 @@ class VersionGuesser(object):
                         repo=repo, ref=ref, chatty=True)
         version = None
         try:
-            if self.lrc.has_repo(repo):
-                repository = self.lrc.get_updated_repo(repo, ref)
-                tree = repository.list_files(ref=ref, recurse=False)
-            elif self.rrc:
-                repository = None
-                tree = self.rrc.ls_tree(repo, ref)
-            else:
-                return None
+            # This can use a remote repo cache if available, to avoid having
+            # to clone every repo locally.
+            tree = self.repo_cache.ls_tree(repo, ref)
+
             for guesser in self.guessers:
                 version = guesser.guess_version(repo, ref, tree)
                 if version:

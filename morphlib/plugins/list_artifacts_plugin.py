@@ -1,4 +1,4 @@
-# Copyright (C) 2014-2015  Codethink Limited
+# Copyright (C) 2014-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -58,7 +58,7 @@ class ListArtifactsPlugin(cliapp.Plugin):
         system_filenames = map(morphlib.util.sanitise_morphology_path,
                                args[2:])
 
-        self.lrc, self.rrc = morphlib.util.new_repo_caches(self.app)
+        self.repo_cache = morphlib.util.new_repo_cache(self.app)
         self.resolver = morphlib.artifactresolver.ArtifactResolver()
 
         artifact_files = set()
@@ -85,9 +85,7 @@ class ListArtifactsPlugin(cliapp.Plugin):
         self.app.status(
             msg='Creating source pool for %s' % system_filename, chatty=True)
         source_pool = morphlib.sourceresolver.create_source_pool(
-            self.lrc, self.rrc, repo, ref, [system_filename],
-            cachedir=self.app.settings['cachedir'],
-            update_repos = not self.app.settings['no-git-update'],
+            self.repo_cache, repo, ref, [system_filename],
             status_cb=self.app.status)
 
         self.app.status(

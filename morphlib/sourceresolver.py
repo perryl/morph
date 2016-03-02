@@ -138,17 +138,17 @@ class SourceResolver(object):
     be either a normal URL, or a keyed URL using a repo-alias like
     'baserock:baserock/definitions'.
 
-    The 'remote repo cache' is a Baserock Trove system. It functions as a
-    normal Git server, but in addition it runs a service on port 8080 called
-    'morph-cache-server' which can resolve refs, list their contents and read
-    specific files from the repos it holds. This allows the SourceResolver to
-    work out how to build something without cloning the whole repo. (If a local
-    build of that source ends up being necessary then it will get cloned into
-    the local cache later on).
+    Each commit used in a build is resolved to a tree SHA1, which means that
+    merge commits and changes to commit messages don't affect the cache
+    identity of a chunk. This does mean we need to query every repo in the
+    build graph, though.
 
-    The second layer of caching is the local repository cache, which mirrors
-    entire repositories in $cachedir/gits. If a repo is not in the remote repo
-    cache then it must be present in the local repo cache.
+    All requests for information on a repo use the 'repocache' module. This
+    maintains a local copy of all the Git repos we need to work with. A repo
+    cache can also use a remote 'morph-cache-server' instance, if available,
+    to query certain information about a repo without cloning it locally.
+    Using this we can resolve commits to trees without having to clone every
+    repo locally, which is a huge performance improvement in some cases.
 
     The third layer of caching is a simple commit SHA1 -> tree SHA mapping. It
     turns out that even if all repos are available locally, running
@@ -168,14 +168,11 @@ class SourceResolver(object):
 
     '''
 
-    def __init__(self, local_repo_cache, remote_repo_cache,
-                 tree_cache_manager, update_repos,
-                 status_cb=None):
-        self.lrc = local_repo_cache
-        self.rrc = remote_repo_cache
+    def __init__(self, repo_cache, tree_cache_manager, status_cb=None):
+        self.repo_cache = repo_cache
         self.tree_cache_manager = tree_cache_manager
 
-        self.update = update_repos
+        self.update = repo_cache.update_gits
         self.status = status_cb
 
     def _resolve_ref(self, resolved_trees, reponame, ref):
@@ -183,9 +180,6 @@ class SourceResolver(object):
 
         If update is True then this has the side-effect of updating or cloning
         the repository into the local repo cache.
-
-        This function is complex due to the 3 layers of caching described in
-        the SourceResolver docstring.
 
         '''
 
@@ -198,29 +192,8 @@ class SourceResolver(object):
 
         logging.debug('tree (%s, %s) not in cache', reponame, ref)
 
-        absref = None
-        if self.lrc.has_repo(reponame):
-            repo = self.lrc.get_updated_repo(reponame, ref)
-            # If the user passed --no-git-update, and the ref is a SHA1 not
-            # available locally, this call will raise an exception.
-            absref = repo.resolve_ref_to_commit(ref)
-            tree = repo.resolve_ref_to_tree(absref)
-        elif self.rrc is not None:
-            try:
-                absref, tree = self.rrc.resolve_ref(reponame, ref)
-                if absref is not None:
-                    self.status(msg='Resolved %(reponame)s %(ref)s via remote '
-                                'repo cache',
-                                reponame=reponame,
-                                ref=ref,
-                                chatty=True)
-            except BaseException as e:
-                logging.warning('Caught (and ignored) exception: %s' % str(e))
-
-        if absref is None:
-            repo = self.lrc.get_updated_repo(reponame, ref)
-            absref = repo.resolve_ref_to_commit(ref)
-            tree = repo.resolve_ref_to_tree(absref)
+        absref, tree = self.repo_cache.resolve_ref_to_commit_and_tree(reponame,
+                                                                      ref)
 
         logging.debug('Writing tree to cache with ref (%s, %s)',
                       reponame, absref)
@@ -430,7 +403,7 @@ class SourceResolver(object):
             if definitions_original_ref:
                 definitions_ref = definitions_original_ref
 
-            definitions_cached_repo = self.lrc.get_updated_repo(
+            definitions_cached_repo = self.repo_cache.get_updated_repo(
                     repo_name=definitions_repo, ref=definitions_absref)
             definitions_cached_repo.extract_commit(
                 definitions_absref, definitions_checkout_dir)
@@ -489,9 +462,8 @@ def _find_duplicate_chunks(sourcepool): #pragma: no cover
 
     return {k: v for (k, v) in chunk_sources_by_name.iteritems() if len(v) > 1}
 
-def create_source_pool(lrc, rrc, repo, ref, filenames, cachedir,
-                       original_ref=None, update_repos=True,
-                       status_cb=None):
+def create_source_pool(repo_cache, repo, ref, filenames,
+                       original_ref=None, status_cb=None):
     '''Find all the sources involved in building a given system.
 
     Given a system morphology, this function will traverse the tree of stratum
@@ -502,8 +474,12 @@ def create_source_pool(lrc, rrc, repo, ref, filenames, cachedir,
     Note that Git submodules are not considered 'sources' in the current
     implementation, and so they must be handled separately.
 
-    The 'lrc' and 'rrc' parameters specify the local and remote Git repository
-    caches used for resolving the sources.
+    The 'repo_cache' parameter specifies a repo cache which is used when
+    accessing the source repos. If a git_resolve_cache_server is set for this
+    repo cache, and all repos in the build are known to it, then this function
+    will only need the definitions.git repo available locally. If not, then all
+    repos must be cloned in order to resolve the refs to tree SHA1s, which is
+    a slow process!
 
     '''
     pool = morphlib.sourcepool.SourcePool()
@@ -529,10 +505,10 @@ def create_source_pool(lrc, rrc, repo, ref, filenames, cachedir,
             pool.add(source)
 
     tree_cache_manager = PickleCacheManager(
-        os.path.join(cachedir, tree_cache_filename), tree_cache_size)
+        os.path.join(repo_cache.cachedir, tree_cache_filename),
+        tree_cache_size)
 
-    resolver = SourceResolver(lrc, rrc, tree_cache_manager, update_repos,
-                              status_cb)
+    resolver = SourceResolver(repo_cache, tree_cache_manager, status_cb)
     resolver.traverse_morphs(repo, ref, filenames,
                              visit=add_to_pool,
                              definitions_original_ref=original_ref)

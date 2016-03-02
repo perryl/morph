@@ -22,7 +22,6 @@ from morphlib.cmdline_parse_utils import (definition_lists_synopsis,
 from morphlib.morphologyfinder import MorphologyFinder
 from morphlib.morphloader import MorphologyLoader
 from morphlib.morphset import MorphologySet
-from morphlib.util import new_repo_caches
 
 
 class DiffPlugin(cliapp.Plugin):
@@ -60,9 +59,10 @@ class DiffPlugin(cliapp.Plugin):
                         name, from_source.repo_name, to_source.repo_name))
 
             if from_source.original_ref != to_source.original_ref:
-                from_repo, to_repo = (self.bc.lrc.get_updated_repo(s.repo_name,
-                                                                   ref=s.sha1)
-                                        for s in (from_source, to_source))
+                repo_cache = self.bc.repo_cache
+                from_repo, to_repo = (repo_cache.get_updated_repo(s.repo_name,
+                                                                  ref=s.sha1)
+                                      for s in (from_source, to_source))
 
                 from_desc = from_repo.version_guess(from_source.sha1)
                 to_desc = to_repo.version_guess(to_source.sha1)
@@ -100,7 +100,7 @@ class DiffPlugin(cliapp.Plugin):
         def get_systems((reponame, ref, definitions)):
             'Convert a definition path list into a list of systems'
             ml = MorphologyLoader()
-            repo = self.bc.lrc.get_updated_repo(reponame, ref=ref)
+            repo = self.bc.repo_cache.get_updated_repo(reponame, ref=ref)
             mf = MorphologyFinder(gitdir=repo, ref=ref)
             # We may have been given an empty set of definitions as input, in
             # which case we instead use every we find.

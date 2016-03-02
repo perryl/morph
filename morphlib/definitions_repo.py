@@ -1,4 +1,4 @@
-# Copyright (C) 2015  Codethink Limited
+# Copyright (C) 2015-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -127,9 +127,9 @@ class DefinitionsRepo(gitdir.GitDirectory):
         return bbcm()
 
     @contextlib.contextmanager
-    def source_pool(self, lrc, rrc, cachedir, ref, system_filename,
+    def source_pool(self, repo_cache, ref, system_filename,
                     include_local_changes=False, push_local_changes=False,
-                    update_repos=True, status_cb=None, build_ref_prefix=None,
+                    status_cb=None, build_ref_prefix=None,
                     git_user_name=None, git_user_email=None):
         '''Load the system defined in 'morph' and all the sources it contains.
 
@@ -162,15 +162,10 @@ class DefinitionsRepo(gitdir.GitDirectory):
         setting, but that was probably only useful for `morph distbuild` and
         that now uses branch_with_local_changes().
 
-        The 'lrc' and 'rrc' parameters are local and remote Git repo caches.
-        Use morphlib.util.new_repo_caches() to obtain these. The 'cachedir'
-        parameter points to where Git repos are cached by Morph,
-        app.settings['cachedir'] tells you that.
-
-        The 'update_repos' flag allows you to disable updating Git repos, to
-        honour app.settings['no-git-update']. If one of the refs in the build
-        graph is not available locally and update_repos is False, you will see
-        a morphlib.gitdir.InvalidRefError exception.
+        The 'repo_cache' parameter is a morphlib.repocache.RepoCache instance.
+        If update_gits=False is set for this repo cache, and one of the refs in
+        the build graph is not available locally, you will see a
+        morphlib.gitdir.InvalidRefError exception.
 
         The 'status_cb' function will be called if set to output progress and
         status messages to the user.
@@ -200,9 +195,8 @@ class DefinitionsRepo(gitdir.GitDirectory):
                     status_cb(msg='Deciding on task order')
 
                 yield morphlib.sourceresolver.create_source_pool(
-                    lrc, rrc, repo_url, commit, [system_filename],
-                    cachedir=cachedir, original_ref=original_ref,
-                    update_repos=update_repos, status_cb=status_cb)
+                    repo_cache, repo_url, commit, [system_filename],
+                    original_ref=original_ref, status_cb=status_cb)
         else:
             repo_url = self.remote_url
             commit = self.resolve_ref_to_commit(ref)
@@ -212,9 +206,8 @@ class DefinitionsRepo(gitdir.GitDirectory):
 
             try:
                 yield morphlib.sourceresolver.create_source_pool(
-                    lrc, rrc, repo_url, commit, [system_filename],
-                    cachedir=cachedir, original_ref=ref,
-                    update_repos=update_repos, status_cb=status_cb)
+                    repo_cache, repo_url, commit, [system_filename],
+                    original_ref=ref, status_cb=status_cb)
             except morphlib.sourceresolver.InvalidDefinitionsRefError as e:
                 raise cliapp.AppException(
                     'Commit %s wasn\'t found in the "origin" remote %s. '
@@ -332,7 +325,7 @@ class DefinitionsRepoWithApp(DefinitionsRepo):
         self._git_user_name = morphlib.git.get_user_name(app.runcmd)
         self._git_user_email = morphlib.git.get_user_email(app.runcmd)
 
-        self._lrc, self._rrc = morphlib.util.new_repo_caches(app)
+        self.repo_cache = morphlib.util.new_repo_cache(self.app)
 
     def branch_with_local_changes(self, uuid, push=False):
         '''Equivalent to DefinitionsRepo.branch_with_local_changes().'''
@@ -343,22 +336,20 @@ class DefinitionsRepoWithApp(DefinitionsRepo):
             build_ref_prefix=self.app.settings['build-ref-prefix'],
             git_user_name=self._git_user_name,
             git_user_email=self._git_user_email,
-            status_cb=self.app.status,)
+            status_cb=self.app.status)
 
     def source_pool(self, ref, system_filename):
         '''Equivalent to DefinitionsRepo.source_pool().'''
 
         local_changes = self.app.settings['local-changes']
         return DefinitionsRepo.source_pool(
-            self, self._lrc, self._rrc, self.app.settings['cachedir'],
-            ref, system_filename,
+            self, self.repo_cache, ref, system_filename,
             include_local_changes=(local_changes == 'include'),
             push_local_changes=self.app.settings['push-build-branches'],
             build_ref_prefix=self.app.settings['build-ref-prefix'],
             git_user_name=self._git_user_name,
             git_user_email=self._git_user_email,
-            status_cb=self.app.status,
-            update_repos=(not self.app.settings['no-git-update']))
+            status_cb=self.app.status)
 
 def _local_definitions_repo(path, search_for_root, app=None):
     '''Open a local Git repo containing Baserock definitions, at 'path'.

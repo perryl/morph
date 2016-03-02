@@ -304,7 +304,7 @@ class CrossBootstrapPlugin(cliapp.Plugin):
             system_artifact.source, build_env, use_chroot=False)
         builder = BootstrapSystemBuilder(
             self.app, staging_area, build_command.lac, build_command.rac,
-            system_artifact.source, build_command.lrc, 1, False)
+            system_artifact.source, build_command.repo_cache, 1, False)
         builder.build_and_cache()
 
         self.app.status(

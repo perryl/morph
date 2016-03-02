@@ -84,7 +84,7 @@ class SystemManifestsPlugin(cliapp.Plugin):
         system_filenames = map(morphlib.util.sanitise_morphology_path,
                                args[2:])
 
-        self.lrc, self.rrc = morphlib.util.new_repo_caches(self.app)
+        self.repo_cache = morphlib.util.new_repo_cache(self.app)
         self.resolver = morphlib.artifactresolver.ArtifactResolver()
 
         for system_filename in system_filenames:
@@ -104,9 +104,7 @@ class SystemManifestsPlugin(cliapp.Plugin):
             msg='Creating source pool for %(system)s',
             system=system_filename, chatty=True)
         source_pool = morphlib.sourceresolver.create_source_pool(
-            self.lrc, self.rrc, repo, ref, [system_filename],
-            cachedir=self.app.settings['cachedir'],
-            update_repos = not self.app.settings['no-git-update'],
+            self.repo_cache, repo, ref, [system_filename],
             status_cb=self.app.status)
 
         self.app.status(
@@ -135,10 +133,11 @@ class SystemManifestsPlugin(cliapp.Plugin):
         except IndexError:
             trove_id = None
         with morphlib.util.temp_dir(dir=self.app.settings['tempdir']) as td:
-            lorries = get_lorry_repos(td, self.lrc, self.app.status, trove_id,
+            lorries = get_lorry_repos(td, self.repo_cache, self.app.status,
+                                      trove_id,
                                       self.app.settings['trove-host'])
             manifest = Manifest(system_artifact.name, td, self.app.status,
-                                self.lrc)
+                                self.repo_cache)
 
             old_prefix = self.app.status_prefix
             sources = set(a.source for a in system_artifact.walk()
@@ -150,7 +149,8 @@ class SystemManifestsPlugin(cliapp.Plugin):
                 name = source.morphology['name']
                 ref = source.original_ref
 
-                cached = self.lrc.get_updated_repo(source.repo_name, ref)
+                cached = self.repo_cache.get_updated_repo(source.repo_name,
+                                                          ref)
 
                 new_prefix = '[%d/%d][%s] ' % (i, len(sources), name)
                 self.app.status_prefix = old_prefix + new_prefix
@@ -169,8 +169,8 @@ def run_licensecheck(filename):
     else:
         return output[len(filename) + 2:].strip()
 
-def checkout_repo(lrc, repo, dest, ref='master'):
-    cached = lrc.get_updated_repo(repo, ref)
+def checkout_repo(repo_cache, repo, dest, ref='master'):
+    cached = repo_cache.get_updated_repo(repo, ref)
     if not os.path.exists(dest):
         morphlib.gitdir.checkout_from_cached_repo(repo, ref, dest)
 
@@ -235,14 +235,15 @@ def get_upstream_address(chunk_url, lorries, status):
                chunk=chunk_url)
         return 'UNKNOWN'
 
-def get_lorry_repos(tempdir, lrc, status, trove_id, trove_host):
+def get_lorry_repos(tempdir, repo_cache, status, trove_id, trove_host):
     lorries = []
     try:
         baserock_lorry_repo = 'baserock:local-config/lorries'
         lorrydir = os.path.join(tempdir, 'baserock-lorries')
-        baserock_lorrydir = checkout_repo(lrc, baserock_lorry_repo, lorrydir)
+        baserock_lorrydir = checkout_repo(repo_cache, baserock_lorry_repo,
+                                          lorrydir)
         lorries.extend(load_lorries(lorrydir))
-    except morphlib.localrepocache.NoRemote as e:
+    except morphlib.repocache.NoRemote as e:
         status(msg="WARNING: Could not find lorries from git.baserock.org, "
                    "expected to find them on %(trove)s at %(reponame)s",
                trove=trove_host, reponame = e.reponame)
@@ -252,9 +253,10 @@ def get_lorry_repos(tempdir, lrc, status, trove_id, trove_host):
             trove_lorry_repo =  ('http://%s/git/%s/local-config/lorries' %
                                  (trove_host, trove_id))
             lorrydir = os.path.join(tempdir, '%s-lorries' % trove_id)
-            trove_lorrydir = checkout_repo(lrc, trove_lorry_repo, lorrydir)
+            trove_lorrydir = checkout_repo(repo_cache, trove_lorry_repo,
+                                           lorrydir)
             lorries.extend(load_lorries(lorrydir))
-        except morphlib.localrepocache.NoRemote as e:
+        except morphlib.repocache.NoRemote as e:
             status(msg="WARNING: Could not find lorries repo on %(trove)s "
                        "at %(reponame)s",
                    trove=trove_host, reponame=e.reponame)
@@ -268,10 +270,10 @@ def get_lorry_repos(tempdir, lrc, status, trove_id, trove_host):
 class Manifest(object):
     """Writes out a manifest of what's included in a system."""
 
-    def __init__(self, system_name, tempdir, status_cb, lrc):
+    def __init__(self, system_name, tempdir, status_cb, repo_cache):
         self.tempdir = tempdir
         self.status = status_cb
-        self.lrc = lrc
+        self.repo_cache = repo_cache
         path = os.path.join(os.getcwd(), system_name + '-manifest.csv')
         self.status(msg='Creating %(path)s', path=path)
         self.file = open(path, 'wb')

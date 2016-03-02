@@ -69,15 +69,14 @@ import git
 import gitdir
 import gitindex
 import localartifactcache
-import localrepocache
 import mountableimage
 import morphologyfinder
 import morphology
 import morphloader
 import morphset
 import remoteartifactcache
-import remoterepocache
 import repoaliasresolver
+import repocache
 import savefile
 import source
 import sourcepool

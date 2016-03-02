@@ -51,7 +51,7 @@ class FakeSource(object):
         self.name = 'a'
 
         with morphlib.gitdir_tests.allow_nonexistant_git_repos():
-            self.repo = morphlib.localrepocache.CachedRepo(
+            self.repo = morphlib.repocache.CachedRepo(
                 'path', 'repo', 'url')
         self.repo_name = 'url'
         self.original_ref = 'e'

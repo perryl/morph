@@ -58,11 +58,12 @@ class MissingSubmoduleCommitError(cliapp.AppException):
 
 class Submodules(object):
 
-    def __init__(self, app, repo, ref):
-        self.app = app
+    def __init__(self, repo, ref, runcmd_cb=cliapp.runcmd):
         self.repo = repo
         self.ref = ref
         self.submodules = []
+
+        self.runcmd_cb = runcmd_cb
 
     def load(self):
         content = self._read_gitmodules_file()
@@ -76,7 +77,7 @@ class Submodules(object):
     def _read_gitmodules_file(self):
         try:
             # try to read the .gitmodules file from the repo/ref
-            content = gitcmd(self.app.runcmd, 'cat-file', 'blob',
+            content = gitcmd(self.runcmd_cb, 'cat-file', 'blob',
                              '%s:.gitmodules' % self.ref, cwd=self.repo,
                              ignore_fail=True)
 
@@ -100,7 +101,7 @@ class Submodules(object):
                 try:
                     # list objects in the parent repo tree to find the commit
                     # object that corresponds to the submodule
-                    commit = gitcmd(self.app.runcmd, 'ls-tree', self.ref,
+                    commit = gitcmd(self.runcmd_cb, 'ls-tree', self.ref,
                                     submodule.path, cwd=self.repo)
 
                     # read the commit hash from the output
