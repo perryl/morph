@@ -137,9 +137,6 @@ class AnchorPlugin(cliapp.Plugin):
             for reponame, sources in sources_by_reponame.iteritems():
                 # UGLY HACK we need to push *FROM* our local repo cache to
                 # avoid cloning everything multiple times.
-                # This uses get_updated_repo rather than get_repo because the
-                # BuildCommand.create_source_pool won't cache the repositories
-                # locally if it can use a remote cache instead.
                 repo = bc.lrc.get_updated_repo(reponame,
                                                refs=(s.original_ref
                                                      for s in sources))

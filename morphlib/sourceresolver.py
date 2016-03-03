@@ -200,11 +200,7 @@ class SourceResolver(object):
 
         absref = None
         if self.lrc.has_repo(reponame):
-            repo = self.lrc.get_repo(reponame)
-            if self.update and repo.requires_update_for_ref(ref):
-                self.status(msg='Updating cached git repository %(reponame)s '
-                            'for ref %(ref)s', reponame=reponame, ref=ref)
-                repo.update()
+            repo = self.lrc.get_updated_repo(reponame, ref)
             # If the user passed --no-git-update, and the ref is a SHA1 not
             # available locally, this call will raise an exception.
             absref = repo.resolve_ref_to_commit(ref)

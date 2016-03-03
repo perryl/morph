@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2015  Codethink Limited
+# Copyright (C) 2012-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -181,7 +181,7 @@ class LocalRepoCache(object):
 
         return True, None
 
-    def cache_repo(self, reponame):
+    def _cache_repo(self, reponame):
         '''Clone the given repo into the cache.
 
         If the repo is already cloned, do nothing.
@@ -192,7 +192,7 @@ class LocalRepoCache(object):
             self.fs.makedir(self._cachedir, recursive=True)
 
         try:
-            return self.get_repo(reponame)
+            return self._get_repo(reponame)
         except NotCached as e:
             pass
 
@@ -201,7 +201,7 @@ class LocalRepoCache(object):
         if self._tarball_base_url:
             ok, error = self._clone_with_tarball(repourl, path)
             if ok:
-                repo = self.get_repo(reponame)
+                repo = self._get_repo(reponame)
                 repo.update()
                 return repo
             else:
@@ -223,7 +223,7 @@ class LocalRepoCache(object):
 
         self.fs.rename(target, path)
 
-        repo = self.get_repo(reponame)
+        repo = self._get_repo(reponame)
         repo.already_updated = True
         return repo
 
@@ -232,7 +232,7 @@ class LocalRepoCache(object):
         return morphlib.cachedrepo.CachedRepo(
             self._app, reponame, repourl, path)
 
-    def get_repo(self, reponame):
+    def _get_repo(self, reponame):
         '''Return an object representing a cached repository.'''
 
         if reponame in self._cached_repo_objects:
@@ -262,13 +262,13 @@ class LocalRepoCache(object):
                                  'because of no-git-update being set',
                              chatty=True,
                              repo_name=repo_name)
-            return self.get_repo(repo_name)
+            return self._get_repo(repo_name)
 
         if ref is not None and refs is None:
             refs = (ref,)
 
         if self.has_repo(repo_name):
-            repo = self.get_repo(repo_name)
+            repo = self._get_repo(repo_name)
             if refs:
                 required_refs = set(refs)
                 missing_refs = set()
@@ -296,7 +296,7 @@ class LocalRepoCache(object):
         else:
             self._app.status(msg='Cloning %(repo_name)s',
                              repo_name=repo_name)
-            return self.cache_repo(repo_name)
+            return self._cache_repo(repo_name)
 
     def ensure_submodules(self, toplevel_repo,
                           toplevel_ref):  # pragma: no cover

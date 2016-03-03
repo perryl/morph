@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2015 Codethink Limited
+# Copyright (C) 2012-2016 Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,10 +29,11 @@ class FakeApplication(object):
     def __init__(self):
         self.settings = {
             'debug': True,
-            'verbose': True
+            'verbose': True,
+            'no-git-update': False,
         }
 
-    def status(self, msg):
+    def status(self, **kwargs):
         pass
 
 
@@ -89,8 +90,10 @@ class LocalRepoCacheTests(unittest.TestCase):
 
     def new_cached_repo_instance(self, *args):
         with morphlib.gitdir_tests.allow_nonexistant_git_repos():
-            return morphlib.cachedrepo.CachedRepo(
+            repo = morphlib.cachedrepo.CachedRepo(
                 FakeApplication(), *args)
+            repo.update = lambda: None
+            return repo
 
     def not_found(self, url, path):
         raise cliapp.AppException('Not found')
@@ -101,26 +104,16 @@ class LocalRepoCacheTests(unittest.TestCase):
     def test_has_not_got_absolute_repo_initially(self):
         self.assertFalse(self.lrc.has_repo(self.repourl))
 
-    def test_caches_shortened_repository_on_request(self):
-        self.lrc.cache_repo(self.reponame)
-        self.assertTrue(self.lrc.has_repo(self.reponame))
-        self.assertTrue(self.lrc.has_repo(self.repourl))
-
-    def test_caches_absolute_repository_on_request(self):
-        self.lrc.cache_repo(self.repourl)
-        self.assertTrue(self.lrc.has_repo(self.reponame))
-        self.assertTrue(self.lrc.has_repo(self.repourl))
-
     def test_cachedir_does_not_exist_initially(self):
         self.assertFalse(self.lrc.fs.exists(self.cachedir))
 
     def test_creates_cachedir_if_missing(self):
-        self.lrc.cache_repo(self.repourl)
+        self.lrc.get_updated_repo(self.repourl, ref='master')
         self.assertTrue(self.lrc.fs.exists(self.cachedir))
 
     def test_happily_caches_same_repo_twice(self):
-        self.lrc.cache_repo(self.repourl)
-        self.lrc.cache_repo(self.repourl)
+        self.lrc.get_updated_repo(self.repourl, ref='master')
+        self.lrc.get_updated_repo(self.repourl, ref='master')
 
     def test_fails_to_cache_when_remote_does_not_exist(self):
         def fail(args, **kwargs):
@@ -128,10 +121,10 @@ class LocalRepoCacheTests(unittest.TestCase):
             raise cliapp.AppException('')
         self.lrc._git = fail
         self.assertRaises(morphlib.localrepocache.NoRemote,
-                          self.lrc.cache_repo, self.repourl)
+                          self.lrc.get_updated_repo, self.repourl, 'master')
 
     def test_does_not_mind_a_missing_tarball(self):
-        self.lrc.cache_repo(self.repourl)
+        self.lrc.get_updated_repo(self.repourl, ref='master')
         self.assertEqual(self.fetched, [])
 
     def test_fetches_tarball_when_it_exists(self):
@@ -139,24 +132,11 @@ class LocalRepoCacheTests(unittest.TestCase):
 
         with morphlib.gitdir_tests.monkeypatch(
                 morphlib.cachedrepo.CachedRepo, 'update', lambda self: None):
-            self.lrc.cache_repo(self.repourl)
+            self.lrc.get_updated_repo(self.repourl, ref='master')
 
         self.assertEqual(self.fetched, [self.tarball_url])
         self.assertFalse(self.lrc.fs.exists(self.cache_path + '.tar'))
         self.assertEqual(self.remotes['origin']['url'], self.repourl)
-
-    def test_gets_cached_shortened_repo(self):
-        self.lrc.cache_repo(self.reponame)
-        cached = self.lrc.get_repo(self.reponame)
-        self.assertTrue(cached is not None)
-
-    def test_gets_cached_absolute_repo(self):
-        self.lrc.cache_repo(self.repourl)
-        cached = self.lrc.get_repo(self.repourl)
-        self.assertTrue(cached is not None)
-
-    def test_get_repo_raises_exception_if_repo_is_not_cached(self):
-        self.assertRaises(Exception, self.lrc.get_repo, self.repourl)
 
     def test_escapes_repourl_as_filename(self):
         escaped = self.lrc._escape(self.repourl)
@@ -168,6 +148,5 @@ class LocalRepoCacheTests(unittest.TestCase):
 
     def test_avoids_caching_local_repo(self):
         self.lrc.fs.makedir('/local/repo', recursive=True)
-        self.lrc.cache_repo('file:///local/repo')
-        cached = self.lrc.get_repo('file:///local/repo')
+        cached = self.lrc.get_updated_repo('file:///local/repo', refs='master')
         assert cached.path == '/local/repo'

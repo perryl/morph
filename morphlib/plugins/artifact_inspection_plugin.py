@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2015 Codethink Limited
+# Copyright (C) 2012-2016 Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -46,7 +46,7 @@ class ProjectVersionGuesser(object):
         filenames = [x for x in self.interesting_files if x in tree]
         if filenames:
             if self.lrc.has_repo(repo):
-                repository = self.lrc.get_repo(repo)
+                repository = self.lrc.get_updated_repo(repo, ref)
                 for filename in filenames:
                     yield filename, repository.read_file(filename, ref)
             elif self.rrc:
@@ -147,9 +147,7 @@ class VersionGuesser(object):
         version = None
         try:
             if self.lrc.has_repo(repo):
-                repository = self.lrc.get_repo(repo)
-                if not self.app.settings['no-git-update']:
-                    repository.update()
+                repository = self.lrc.get_updated_repo(repo, ref)
                 tree = repository.list_files(ref=ref, recurse=False)
             elif self.rrc:
                 repository = None

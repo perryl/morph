@@ -1,4 +1,4 @@
-# Copyright (C) 2014-2015  Codethink Limited
+# Copyright (C) 2014-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -115,11 +115,7 @@ class CertifyPlugin(cliapp.Plugin):
                               .format(name, ref))
                 certified = False
 
-            # Ensure we have a cache of the repo
-            if not self.lrc.has_repo(source.repo_name):
-                self.lrc.cache_repo(source.repo_name)
-
-            cached = self.lrc.get_repo(source.repo_name)
+            cached = self.lrc.get_updated_repo(source.repo_name, ref)
 
             # Test that sha1 ref is anchored in a tag or branch,
             # and thus not a candidate for removal on `git gc`.

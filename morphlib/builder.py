@@ -53,7 +53,7 @@ def extract_sources(app, repo_cache, repo, sha1, srcdir): #pragma: no cover
         else:
             tuples = []
             for sub in submodules:
-                cached_repo = repo_cache.get_repo(sub.url)
+                cached_repo = repo_cache.get_updated_repo(sub.url, sub.commit)
                 sub_dir = os.path.join(destdir, sub.path)
                 tuples.append((cached_repo, sub.commit, sub_dir))
             return tuples

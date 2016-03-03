@@ -1,4 +1,4 @@
-# Copyright (C) 2015  Codethink Limited
+# Copyright (C) 2015-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -150,11 +150,7 @@ class SystemManifestsPlugin(cliapp.Plugin):
                 name = source.morphology['name']
                 ref = source.original_ref
 
-                # Ensure we have a cache of the repo
-                if not self.lrc.has_repo(source.repo_name):
-                    self.lrc.cache_repo(source.repo_name)
-
-                cached = self.lrc.get_repo(source.repo_name)
+                cached = self.lrc.get_updated_repo(source.repo_name, ref)
 
                 new_prefix = '[%d/%d][%s] ' % (i, len(sources), name)
                 self.app.status_prefix = old_prefix + new_prefix
@@ -174,9 +170,7 @@ def run_licensecheck(filename):
         return output[len(filename) + 2:].strip()
 
 def checkout_repo(lrc, repo, dest, ref='master'):
-    if not lrc.has_repo(repo):
-        lrc.cache_repo(repo)
-    cached = lrc.get_repo(repo)
+    cached = lrc.get_updated_repo(repo, ref)
     if not os.path.exists(dest):
         cached.checkout(ref, dest)
 
