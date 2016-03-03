@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2015  Codethink Limited
+# Copyright (C) 2012-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -51,8 +51,8 @@ class FakeSource(object):
         self.name = 'a'
 
         with morphlib.gitdir_tests.allow_nonexistant_git_repos():
-            self.repo = morphlib.cachedrepo.CachedRepo(
-                FakeApp(), 'repo', 'url', 'path')
+            self.repo = morphlib.localrepocache.CachedRepo(
+                'path', 'repo', 'url')
         self.repo_name = 'url'
         self.original_ref = 'e'
         self.sha1 = 'f'

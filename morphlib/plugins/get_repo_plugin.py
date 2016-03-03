@@ -46,13 +46,13 @@ class GetRepoPlugin(cliapp.Plugin):
     def _clone_repo(self, cached_repo, dirname, checkout_ref):
         '''Clone a cached git repository into the directory given by path.'''
         # Do the clone.
-        gd = morphlib.gitdir.clone_from_cached_repo(
-            cached_repo, dirname, checkout_ref)
+        gd = morphlib.gitdir.checkout_from_cached_repo(
+            cached_repo, checkout_ref, dirname)
 
         # Configure the "origin" remote to use the upstream git repository,
         # and not the locally cached copy.
         resolver = morphlib.repoaliasresolver.RepoAliasResolver(
-            cached_repo.app.settings['repo-alias'])
+            self.app.settings['repo-alias'])
         remote = gd.get_remote('origin')
         remote.set_fetch_url(resolver.pull_url(cached_repo.url))
         remote.set_push_url(resolver.push_url(cached_repo.original_name))

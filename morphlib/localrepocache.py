@@ -68,6 +68,36 @@ class NotCached(morphlib.Error):
         return 'Repository %s is not cached yet' % self.reponame
 
 
+class UpdateError(cliapp.AppException):  # pragma: no cover
+
+    def __init__(self, repo):
+        cliapp.AppException.__init__(
+            self, 'Failed to update cached version of repo %s' % repo)
+
+
+class CachedRepo(morphlib.gitdir.GitDirectory):
+    '''A locally cached Git repository with an origin remote set up.
+
+    On instance of this class represents a locally cached version of a
+    remote Git repository. This remote repository is set up as the
+    'origin' remote.
+
+    Cached repositories are bare mirrors of the upstream.  Locally created
+    branches will be lost the next time the repository updates.
+
+    '''
+    def __init__(self, path, original_name, url):
+        self.original_name = original_name
+        self.url = url
+        self.is_mirror = not url.startswith('file://')
+        self.already_updated = False
+
+        super(CachedRepo, self).__init__(path)
+
+    def __str__(self):  # pragma: no cover
+        return self.url
+
+
 class LocalRepoCache(object):
 
     '''Manage locally cached git repositories.
@@ -202,7 +232,7 @@ class LocalRepoCache(object):
             ok, error = self._clone_with_tarball(repourl, path)
             if ok:
                 repo = self._get_repo(reponame)
-                repo.update()
+                self._update_repo(repo)
                 return repo
             else:
                 errors.append(error)
@@ -227,11 +257,6 @@ class LocalRepoCache(object):
         repo.already_updated = True
         return repo
 
-    def _new_cached_repo_instance(self, reponame, repourl,
-                                  path):  # pragma: no cover
-        return morphlib.cachedrepo.CachedRepo(
-            self._app, reponame, repourl, path)
-
     def _get_repo(self, reponame):
         '''Return an object representing a cached repository.'''
 
@@ -241,10 +266,18 @@ class LocalRepoCache(object):
             repourl = self._resolver.pull_url(reponame)
             path = self._cache_name(repourl)
             if self.fs.exists(path):
-                repo = self._new_cached_repo_instance(reponame, repourl, path)
+                repo = CachedRepo(path, reponame, repourl)
                 self._cached_repo_objects[reponame] = repo
                 return repo
         raise NotCached(reponame)
+
+    def _update_repo(self, cachedrepo):  # pragma: no cover
+        try:
+            cachedrepo.update_remotes(
+                echo_stderr=self._app.settings['verbose'])
+            cachedrepo.already_updated = True
+        except cliapp.AppException:
+            raise UpdateError(self)
 
     def get_updated_repo(self, repo_name,
                          ref=None, refs=None):  # pragma: no cover
@@ -291,7 +324,7 @@ class LocalRepoCache(object):
 
             self._app.status(msg='Updating %(repo_name)s',
                              repo_name=repo_name)
-            repo.update()
+            self._update_repo(repo)
             return repo
         else:
             self._app.status(msg='Cloning %(repo_name)s',
@@ -311,13 +344,14 @@ class LocalRepoCache(object):
                 return []
 
         done = set()
-        subs_to_process = submodules_for_repo(toplevel_repo.path, toplevel_ref)
+        subs_to_process = submodules_for_repo(toplevel_repo.dirname,
+                                              toplevel_ref)
         while subs_to_process:
             url, ref = subs_to_process.pop()
             done.add((url, ref))
 
             cached_repo = self.get_updated_repo(url, ref=ref)
 
-            for submod in submodules_for_repo(cached_repo.path, ref):
+            for submod in submodules_for_repo(cached_repo.dirname, ref):
                 if submod not in done:
                     subs_to_process.append(submod)

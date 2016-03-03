@@ -1,4 +1,4 @@
-# Copyright (C) 2013-2015  Codethink Limited
+# Copyright (C) 2013-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,6 +14,8 @@
 #
 # =*= License: GPL-2 =*=
 
+
+import fs.tempfs
 
 import contextlib
 import datetime
@@ -304,6 +306,16 @@ class GitDirectoryContentsTests(unittest.TestCase):
 
         morphlib.git.gitcmd(gd._runcmd, 'reset', '--hard')
         self.assertEqual(gd.describe(), 'example')
+
+    def test_extract_commit_into_new_directory(self):
+        gd = morphlib.gitdir.GitDirectory(self.dirname)
+
+        unpack_dir = fs.tempfs.TempFS().getsyspath('unpack-dir')
+        gd.extract_commit('master', unpack_dir)
+        self.assertTrue(os.path.exists(unpack_dir))
+
+        morph_filename = os.path.join(unpack_dir, 'bar.morph')
+        self.assertTrue(os.path.exists(morph_filename))
 
 
 class GitDirectoryFileTypeTests(unittest.TestCase):

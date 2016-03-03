@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2015  Codethink Limited
+# Copyright (C) 2011-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -57,7 +57,6 @@ import buildcommand
 import buildenvironment
 import buildsystem
 import builder
-import cachedrepo
 import cachekeycomputer
 import cmdline_parse_utils
 import defaults

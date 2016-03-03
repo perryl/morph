@@ -43,9 +43,9 @@ def extract_sources(app, repo_cache, repo, sha1, srcdir): #pragma: no cover
                    source=repo.original_name,
                    target=destdir)
 
-        repo.checkout(sha1, destdir)
+        morphlib.gitdir.checkout_from_cached_repo(repo, sha1, destdir)
         morphlib.git.reset_workdir(app.runcmd, destdir)
-        submodules = morphlib.git.Submodules(app, repo.path, sha1)
+        submodules = morphlib.git.Submodules(app, repo.dirname, sha1)
         try:
             submodules.load()
         except morphlib.git.NoModulesFileError:
@@ -187,7 +187,7 @@ class BuilderBase(object):
         '''
 
         assert isinstance(self.source.repo,
-                          morphlib.cachedrepo.CachedRepo)
+                          morphlib.localrepocache.CachedRepo)
         meta = {
             'artifact-name': artifact_name,
             'source-name': self.source.name,

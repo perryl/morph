@@ -172,7 +172,7 @@ def run_licensecheck(filename):
 def checkout_repo(lrc, repo, dest, ref='master'):
     cached = lrc.get_updated_repo(repo, ref)
     if not os.path.exists(dest):
-        cached.checkout(ref, dest)
+        morphlib.gitdir.checkout_from_cached_repo(repo, ref, dest)
 
 def load_lorries(dir):
     lorries = []
@@ -292,8 +292,8 @@ class Manifest(object):
         try:
             self.status(msg='Checking out chunk repo into %(dir)s at %(ref)s',
                         dir=dir, ref=ref, chatty=True)
-            cached_repo.checkout(ref, dir)
-            gd = morphlib.gitdir.GitDirectory(dir)
+            gd = morphlib.gitdir.checkout_from_cached_repo(
+                cached_repo, ref, dir)
             gd.update_submodules(app)
 
             self.status(msg='Getting license info', chatty=True)

@@ -57,7 +57,7 @@ class LocalRepoCacheTests(unittest.TestCase):
         self.lrc._git = self.fake_git
         self.lrc._fetch = self.not_found
         self.lrc._mkdtemp = self.fake_mkdtemp
-        self.lrc._new_cached_repo_instance = self.new_cached_repo_instance
+        self.lrc._update_repo = lambda *args: None
         self._mkdtemp_count = 0
 
     def fake_git(self, args, **kwargs):
@@ -88,13 +88,6 @@ class LocalRepoCacheTests(unittest.TestCase):
         self.lrc.fs.makedir(dirname+"/"+thing)
         return thing
 
-    def new_cached_repo_instance(self, *args):
-        with morphlib.gitdir_tests.allow_nonexistant_git_repos():
-            repo = morphlib.cachedrepo.CachedRepo(
-                FakeApplication(), *args)
-            repo.update = lambda: None
-            return repo
-
     def not_found(self, url, path):
         raise cliapp.AppException('Not found')
 
@@ -108,12 +101,14 @@ class LocalRepoCacheTests(unittest.TestCase):
         self.assertFalse(self.lrc.fs.exists(self.cachedir))
 
     def test_creates_cachedir_if_missing(self):
-        self.lrc.get_updated_repo(self.repourl, ref='master')
+        with morphlib.gitdir_tests.allow_nonexistant_git_repos():
+            self.lrc.get_updated_repo(self.repourl, ref='master')
         self.assertTrue(self.lrc.fs.exists(self.cachedir))
 
     def test_happily_caches_same_repo_twice(self):
-        self.lrc.get_updated_repo(self.repourl, ref='master')
-        self.lrc.get_updated_repo(self.repourl, ref='master')
+        with morphlib.gitdir_tests.allow_nonexistant_git_repos():
+            self.lrc.get_updated_repo(self.repourl, ref='master')
+            self.lrc.get_updated_repo(self.repourl, ref='master')
 
     def test_fails_to_cache_when_remote_does_not_exist(self):
         def fail(args, **kwargs):
@@ -124,14 +119,14 @@ class LocalRepoCacheTests(unittest.TestCase):
                           self.lrc.get_updated_repo, self.repourl, 'master')
 
     def test_does_not_mind_a_missing_tarball(self):
-        self.lrc.get_updated_repo(self.repourl, ref='master')
+        with morphlib.gitdir_tests.allow_nonexistant_git_repos():
+            self.lrc.get_updated_repo(self.repourl, ref='master')
         self.assertEqual(self.fetched, [])
 
     def test_fetches_tarball_when_it_exists(self):
         self.lrc._fetch = lambda url, path: self.fetched.append(url)
 
-        with morphlib.gitdir_tests.monkeypatch(
-                morphlib.cachedrepo.CachedRepo, 'update', lambda self: None):
+        with morphlib.gitdir_tests.allow_nonexistant_git_repos():
             self.lrc.get_updated_repo(self.repourl, ref='master')
 
         self.assertEqual(self.fetched, [self.tarball_url])
@@ -148,5 +143,7 @@ class LocalRepoCacheTests(unittest.TestCase):
 
     def test_avoids_caching_local_repo(self):
         self.lrc.fs.makedir('/local/repo', recursive=True)
-        cached = self.lrc.get_updated_repo('file:///local/repo', refs='master')
-        assert cached.path == '/local/repo'
+        with morphlib.gitdir_tests.allow_nonexistant_git_repos():
+            cached = self.lrc.get_updated_repo('file:///local/repo',
+                                               refs='master')
+        assert cached.dirname == '/local/repo'

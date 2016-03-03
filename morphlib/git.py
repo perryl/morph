@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2015  Codethink Limited
+# Copyright (C) 2011-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -226,6 +226,10 @@ def copy_repository(runcmd, repo, destdir, is_mirror=True):
     This also fixes up the repository afterwards, so that it can contain
     code etc.  It does not leave any given branch ready for use.
 
+    This is slightly faster than `git clone` for large repositories,
+    as of Git 2.3.0. Long term, we should fix `git clone` to be as fast
+    as possible, and use that.
+
     '''
     if is_mirror == False:
         runcmd(['cp', '-a', os.path.join(repo, '.git'),
@@ -271,21 +275,6 @@ def reset_workdir(runcmd, gitdir):
     gitcmd(runcmd, 'clean', '-fxd', cwd=gitdir)
     gitcmd(runcmd, 'reset', '--hard', 'HEAD', cwd=gitdir)
 
-
-def clone_into(runcmd, srcpath, targetpath, ref=None):
-    '''Clones a repo in srcpath into targetpath, optionally directly at ref.'''
-    
-    if ref is None:
-        gitcmd(runcmd, 'clone', srcpath, targetpath)
-    elif is_valid_sha1(ref):
-        gitcmd(runcmd, 'clone', srcpath, targetpath)
-        gitcmd(runcmd, 'checkout', ref, cwd=targetpath)
-    else:
-        gitcmd(runcmd, 'clone', '-b', ref, srcpath, targetpath)
-    gd = morphlib.gitdir.GitDirectory(targetpath)
-    if gd.has_fat():
-        gd.fat_init()
-        gd.fat_pull()
 
 def is_valid_sha1(ref):
     '''Checks whether a string is a valid SHA1.'''

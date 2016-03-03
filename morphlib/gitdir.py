@@ -1,4 +1,4 @@
-# Copyright (C) 2013-2015  Codethink Limited
+# Copyright (C) 2013-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@ import cliapp
 import itertools
 import os
 import re
+import tempfile
 
 import morphlib
 
@@ -455,7 +456,6 @@ class GitDirectory(object):
         methods for specific git operations instead.
 
         '''
-
         return cliapp.runcmd(argv, cwd=self.dirname, **kwargs)
 
     def _runcmd_unchecked(self, *args, **kwargs):
@@ -467,9 +467,6 @@ class GitDirectory(object):
         except cliapp.AppException as e:
             # Exact error is logged already by the runcmd() function.
             raise NoGitRepoError(self.dirname)
-
-    def clone_into(self, dst, ref=None): # pragma: no cover
-        morphlib.git.clone_into(cliapp.runcmd, self.dirname, dst, ref=ref)
 
     def checkout(self, branch_name): # pragma: no cover
         '''Check out a git branch.'''
@@ -848,6 +845,29 @@ class GitDirectory(object):
     def get_relpath(self, path): # pragma: no cover
         return os.path.relpath(path, self.dirname)
 
+    def extract_commit(self, ref, target_dir):
+        '''Extract files from a given commit into target_dir.
+
+        This is different to a checkout: a checkout assumes a working tree
+        associated with a repository, where here we just copy the files out so
+        they can be read quickly.
+
+        Use read_file() if you only want to read one or two files.
+
+        This approach is marginally quicker than doing a shallow clone. Running
+        `morph list-artifacts` 10 times gave an average time of 1.334s
+        using `git clone --depth 1` and an average time of 1.261s using
+        this code.
+
+        '''
+        if not os.path.exists(target_dir):
+            os.makedirs(target_dir)
+
+        with tempfile.NamedTemporaryFile() as index_file:
+            index = self.get_index(index_file=index_file.name)
+            index.set_to_tree(ref)
+            index.checkout(working_tree=target_dir)
+
 
 def init(dirname):
     '''Initialise a new git repository.'''
@@ -857,13 +877,39 @@ def init(dirname):
     return gd
 
 
-def clone_from_cached_repo(cached_repo, dirname, ref): # pragma: no cover
-    '''Clone a CachedRepo into the desired directory.
+def checkout_from_cached_repo(cached_repo, ref, target_dir,
+                              runcmd_cb=cliapp.runcmd):  # pragma: no cover
+    '''Clones the repository to a directory and checks out a given ref.
 
-    The given ref is checked out (or git's default branch is checked out
-    if ref is None).
+    This doesn't actually call `git clone`. The approach used is to `cp -a`
+    the repo in place, then tweak it so it appears to be a clone. This seems
+    *slightly* faster than using `git clone`, as of Git version 2.3.0.
+
+    I tested this by checking out a ref of linux.git, having cleared my
+    system's caches. It took 7m06s using `git clone`, and 6m53s using the
+    'cp' approach.
 
     '''
+    if not os.path.exists(target_dir):
+        os.mkdir(target_dir)
 
-    cached_repo.clone_checkout(ref, dirname)
-    return GitDirectory(dirname)
+    # Note, we copy instead of cloning because it's much faster in the case
+    # that the target is on a different filesystem from the cache. We then
+    # take care to turn the copy into something as good as a real clone.
+    try:
+        morphlib.git.copy_repository(
+            runcmd_cb, cached_repo.dirname, target_dir, cached_repo.is_mirror)
+    except cliapp.AppException:
+        raise CopyError(cached_repo.original_name, target_dir)
+
+    gitdir = morphlib.gitdir.GitDirectory(target_dir)
+    try:
+        gitdir.checkout(ref)
+    except cliapp.AppException:
+        raise CheckoutError(cached_repo.original_name, ref, target_dir)
+
+    if gitdir.has_fat():
+        gitdir.fat_init()
+        gitdir.fat_pull()
+
+    return gitdir

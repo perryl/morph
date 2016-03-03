@@ -1,4 +1,4 @@
-# Copyright (C) 2013-2015  Codethink Limited
+# Copyright (C) 2013-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -38,7 +38,7 @@ echo "Complete!"
 '''
 
 def escape_source_name(source):
-    repo_name = source.repo.original_name
+    repo_name = source.repo_name
     ref = source.original_ref
     source_name = '%s__%s' % (repo_name, ref)
     return re.sub('[:/]', '_', source_name)

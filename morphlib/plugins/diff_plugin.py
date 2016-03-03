@@ -64,8 +64,8 @@ class DiffPlugin(cliapp.Plugin):
                                                                    ref=s.sha1)
                                         for s in (from_source, to_source))
 
-                from_desc = from_repo.gitdir.version_guess(from_source.sha1)
-                to_desc = to_repo.gitdir.version_guess(to_source.sha1)
+                from_desc = from_repo.version_guess(from_source.sha1)
+                to_desc = to_repo.version_guess(to_source.sha1)
 
                 self.app.output.write(
                     '{} ref changed from {} to {}\n'.format(name, from_desc,
@@ -101,7 +101,7 @@ class DiffPlugin(cliapp.Plugin):
             'Convert a definition path list into a list of systems'
             ml = MorphologyLoader()
             repo = self.bc.lrc.get_updated_repo(reponame, ref=ref)
-            mf = MorphologyFinder(gitdir=repo.gitdir, ref=ref)
+            mf = MorphologyFinder(gitdir=repo, ref=ref)
             # We may have been given an empty set of definitions as input, in
             # which case we instead use every we find.
             if not definitions:

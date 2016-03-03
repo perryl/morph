@@ -140,7 +140,7 @@ class AnchorPlugin(cliapp.Plugin):
                 repo = bc.lrc.get_updated_repo(reponame,
                                                refs=(s.original_ref
                                                      for s in sources))
-                remote = Remote(repo.gitdir)
+                remote = Remote(repo)
 
                 push_url = resolver.push_url(reponame)
                 remote.set_push_url(push_url)
@@ -178,7 +178,7 @@ class AnchorPlugin(cliapp.Plugin):
                     lsinfo = dict((ref, sha1) for (sha1, ref) in remote.ls())
 
                     for flag, sha1, target, summary, reason in results:
-                        commit = repo.gitdir.resolve_ref_to_commit(sha1)
+                        commit = repo.resolve_ref_to_commit(sha1)
 
                         # Fail if we failed to push something other than a tag
                         # pushed to a branch
