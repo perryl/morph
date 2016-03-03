@@ -860,7 +860,7 @@ Implementations for building systems
     - echo dummy configure
     build-commands:
     - echo The next command will fail
-    - false
+    - 'false'
     EOF
     git add "${chunk_name}".morph
     git commit -m "Update ${chunk_name} build commands"

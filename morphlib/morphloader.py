@@ -597,11 +597,14 @@ class MorphologyLoader(object):
 
     @classmethod
     def _validate_commands(cls, morphology_name, key, commands, errors):
-            for cmd_index, cmd in enumerate(commands):
-                if not isinstance(cmd, basestring):
-                    e = InvalidTypeError('%s[%d]' % (key, cmd_index),
-                                         str, type(cmd), morphology_name)
-                    errors.append(e)
+        if commands is None:
+            return
+
+        for cmd_index, cmd in enumerate(commands):  # pragma: no cover
+            if not isinstance(cmd, basestring):
+                e = InvalidTypeError('%s[%d]' % (key, cmd_index),
+                                        str, type(cmd), morphology_name)
+                errors.append(e)
 
     @classmethod
     def _validate_products(cls, morphology_name, products, errors):
