@@ -369,7 +369,7 @@ class RepoCache(object):
             return self._get_repo(repo_name)
 
     def ensure_submodules(self, toplevel_repo,
-                          toplevel_ref):  # pragma: no cover
+                          toplevel_ref, submodules={}):  # pragma: no cover
         '''Ensure any submodules of a given repo are cached and up to date.'''
 
         def submodules_for_repo(repo_path, ref):
@@ -377,7 +377,8 @@ class RepoCache(object):
                 submodules = morphlib.git.Submodules(repo_path, ref,
                                                      runcmd_cb=self.runcmd_cb)
                 submodules.load()
-                return [(submod.url, submod.commit) for submod in submodules]
+                return [(submod.name, submod.url, submod.commit)
+                            for submod in submodules]
             except morphlib.git.NoModulesFileError:
                 return []
 
@@ -385,8 +386,10 @@ class RepoCache(object):
         subs_to_process = submodules_for_repo(toplevel_repo.dirname,
                                               toplevel_ref)
         while subs_to_process:
-            url, ref = subs_to_process.pop()
+            name, url, ref = subs_to_process.pop()
             done.add((url, ref))
+            if name in submodules:
+                url = submodules[name]['url']
 
             cached_repo = self.get_updated_repo(url, ref=ref)
 

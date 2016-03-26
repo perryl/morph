@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2015  Codethink Limited
+# Copyright (C) 2012-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -226,6 +226,8 @@ class BuildPlugin(cliapp.Plugin):
         '''
         bc = morphlib.buildcommand.BuildCommand(self.app)
         bc.validate_sources(source_pool)
+        bc.source_pool = source_pool
+        definitions_version = source_pool.definitions_version
         root = bc.resolve_artifacts(source_pool)
         if not component_names:
             component_names = [root.source.name]
@@ -234,7 +236,7 @@ class BuildPlugin(cliapp.Plugin):
             raise ComponentNotInSystemError(not_found, filename)
         for name, component in components.iteritems():
             component.build_env = root.build_env
-            bc.build_in_order(component)
+            bc.build_in_order(component, definitions_version)
             self.app.status(msg='%(kind)s %(name)s is cached at %(path)s',
                             kind=component.source.morphology['kind'],
                             name=name,

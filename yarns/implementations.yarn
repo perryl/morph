@@ -45,6 +45,60 @@ locally, which we'll tell Morph to access using `file:` URLs. Specifically,
 we'll create a repository to hold system and stratum morphologies, and
 another to hold a chunk.
 
+    IMPLEMENTS GIVEN a chunk with recursive submodules
+    mkdir "$DATADIR/gits/grandchild-chunk"
+    cd "$DATADIR/gits/grandchild-chunk"
+    git init .
+    touch grandchild-file
+    git add .
+    git commit -m "Initial commit"
+
+    mkdir "$DATADIR/gits/child-chunk"
+    cd "$DATADIR/gits/child-chunk"
+    git init .
+    touch child-file
+    git add .
+    git commit -m "Initial commit"
+    git submodule add -b master file://$DATADIR/gits/grandchild-chunk
+    sed  -i -e 's#file://$DATADIR/gits/granchild-chunk#fake/location#' .gitmodules
+    git add .
+    git commit -m "Initial submodule"
+
+    mkdir "$DATADIR/gits/chunk-with-submodules"
+    cd "$DATADIR/gits/chunk-with-submodules"
+    git init .
+    git add .
+    git commit --allow-empty -m "Initial commit"
+    git submodule add -b master file://$DATADIR/gits/child-chunk
+    sed  -i -e 's#file://$DATADIR/gits/child-chunk#fake/location#' .gitmodules
+    git add .
+    git commit -m "Add submodule"
+
+    cd "$DATADIR/gits/definitions"
+    echo "version: 8" > VERSION
+    cat << EOF >> strata/core.morph
+    -   name: chunk-with-submodules
+        morph: chunk-with-submodules.morph
+        repo: test:chunk-with-submodules
+        ref: master
+        submodules:
+          grandchild-chunk:
+            url: file://$DATADIR/gits/grandchild-chunk
+          child-chunk:
+            url: file://$DATADIR/gits/child-chunk
+    EOF
+
+    cat << EOF >> chunk-with-submodules.morph
+    name: chunk-with-submodules
+    kind: chunk
+    build-system: manual
+    build-commands:
+    - file exists child-chunk/child-file
+    - file exists child-chunk/grandchild-chunk/grandchild-file
+    EOF
+    git add .
+    git commit -m "Add moar stuff"
+
     IMPLEMENTS GIVEN a git server
 
     # Create a directory for all the git repositories.
@@ -216,7 +270,7 @@ another to hold a chunk.
     mkdir "$DATADIR/gits/definitions"
     cd "$DATADIR/gits/definitions"
     git init .
-    echo 'version: 7' > VERSION
+    echo 'version: 8' > VERSION
 
     install -m644 -D /dev/stdin << EOF "DEFAULTS"
     # This is a simplified version of the DEFAULTS file supplied with the

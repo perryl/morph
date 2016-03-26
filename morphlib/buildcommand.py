@@ -59,9 +59,10 @@ class BuildCommand(object):
         self.app.status(msg='Deciding on task order')
         srcpool = self.create_source_pool(
             repo_name, ref, [filename], original_ref)
+        definitions_version = srcpool.definitions_version
         self.validate_sources(srcpool)
         root_artifact = self.resolve_artifacts(srcpool)
-        self.build_in_order(root_artifact)
+        self.build_in_order(root_artifact, definitions_version)
 
         self.app.status(
             msg='Build of %(repo_name)s %(ref)s %(filename)s ended '
@@ -273,7 +274,7 @@ class BuildCommand(object):
                 known_sources.add(artifact.source)
                 yield artifact.source
 
-    def build_in_order(self, root_artifact):
+    def build_in_order(self, root_artifact, definitions_version):
         '''Build everything specified in a build order.'''
 
         self.app.status(msg='Starting build of %(name)s',
@@ -289,11 +290,11 @@ class BuildCommand(object):
                     'name': s.name,
                 })
 
-            self.cache_or_build_source(s, build_env)
+            self.cache_or_build_source(s, build_env, definitions_version)
 
         self.app.status_prefix = old_prefix
 
-    def cache_or_build_source(self, source, build_env):
+    def cache_or_build_source(self, source, build_env, definitions_version):
         '''Make artifacts of the built source available in the local cache.
 
         This can be done by retrieving from a remote artifact cache, or if
@@ -309,7 +310,7 @@ class BuildCommand(object):
                 pass
 
         if any(not self.lac.has(artifact) for artifact in artifacts):
-            self.build_source(source, build_env)
+            self.build_source(source, build_env, definitions_version)
 
         for a in artifacts:
             self.app.status(msg='%(kind)s %(name)s is cached at %(cachepath)s',
@@ -317,7 +318,7 @@ class BuildCommand(object):
                             cachepath=self.lac.artifact_filename(a),
                             chatty=(source.morphology['kind'] != "system"))
 
-    def build_source(self, source, build_env):
+    def build_source(self, source, build_env, definitions_version):
         '''Build all artifacts for one source.
 
         All the dependencies are assumed to be built and available
@@ -329,7 +330,7 @@ class BuildCommand(object):
                         name=source.name,
                         kind=source.morphology['kind'])
 
-        self.fetch_sources(source)
+        self.fetch_sources(source, definitions_version)
         # TODO: Make an artifact.walk() that takes multiple root artifacts.
         # as this does a walk for every artifact. This was the status
         # quo before build logic was made to work per-source, but we can
@@ -366,7 +367,8 @@ class BuildCommand(object):
         else:
             staging_area = self.create_staging_area(source, build_env, False)
 
-        self.build_and_cache(staging_area, source, setup_mounts)
+        self.build_and_cache(staging_area, source, setup_mounts,
+                             definitions_version)
         self.remove_staging_area(staging_area)
 
         td = datetime.datetime.now() - starttime
@@ -385,13 +387,18 @@ class BuildCommand(object):
                     ordered_deps.append(dep)
         return ordered_deps
 
-    def fetch_sources(self, source):
+    def fetch_sources(self, source, definitions_version):
         '''Update the local git repository cache with the sources.'''
 
         repo_name = source.repo_name
         source.repo = self.repo_cache.get_updated_repo(repo_name,
                                                        ref=source.sha1)
-        self.repo_cache.ensure_submodules(source.repo, source.sha1)
+        if source.morphology['kind'] == 'chunk':
+            if definitions_version >= 8:
+                self.repo_cache.ensure_submodules(
+                    source.repo, source.sha1, source.submodules)
+            else:
+                self.repo_cache.ensure_submodules(source.repo, source.sha1)
 
     def cache_artifacts_locally(self, artifacts):
         '''Get artifacts missing from local cache from remote cache.'''
@@ -529,7 +536,8 @@ class BuildCommand(object):
         if target_source.build_mode == 'staging':
             morphlib.builder.ldconfig(self.app, staging_area.dirname)
 
-    def build_and_cache(self, staging_area, source, setup_mounts):
+    def build_and_cache(self, staging_area, source, setup_mounts,
+                        definitions_version):
         '''Build a source and put its artifacts into the local cache.'''
 
         self.app.status(msg='Starting actual build: %(name)s '
@@ -537,7 +545,8 @@ class BuildCommand(object):
                         name=source.name, sha1=source.sha1[:7])
         builder = morphlib.builder.Builder(
             self.app, staging_area, self.lac, self.rac, self.repo_cache,
-            self.app.settings['max-jobs'], setup_mounts)
+            self.app.settings['max-jobs'], setup_mounts,
+            definitions_version)
         return builder.build_and_cache(source)
 
 class InitiatorBuildCommand(BuildCommand):

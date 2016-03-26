@@ -54,6 +54,14 @@ class ExpectedSha1Error(cliapp.AppException):
             self, 'SHA1 expected, got %s' % ref)
 
 
+class MissingSubmoduleCommitError(cliapp.AppException):
+
+    def __init__(self, repo, ref, submodule):
+        cliapp.AppException.__init__(self, # pragma
+                           '%s:%s:.gitmodules: No commit object found for '
+                           'submodule "%s"' % (repo, ref, submodule))
+
+
 class RefChangeError(cliapp.AppException):
     pass
 
@@ -821,6 +829,20 @@ class GitDirectory(object):
             return self._update_ref(('-d', ref, old_sha1), message)
         except Exception as e:
             raise RefDeleteError(self, ref, old_sha1, e)
+
+    def get_submodule_commit(self, parent_ref,
+                             submodule_path): # pragma: no cover
+        try:
+            lstree_output = morphlib.git.gitcmd(self._runcmd, 'ls-tree',
+                                                parent_ref, submodule_path)
+        except cliapp.AppException:
+            raise MissingSubmoduleCommitError(self.dirname, parent_ref,
+                                              submodule_path)
+        m = re.match("160000 commit (?P<sha1>\w{40})", lstree_output)
+        if not m:
+            raise MissingSubmoduleCommitError(self.dirname, parent_ref,
+                                              submodule_path)
+        return m.group('sha1')
 
     def describe(self):
         version = morphlib.git.gitcmd(self._runcmd, 'describe',

@@ -104,6 +104,12 @@ class GitDirectoryTests(unittest.TestCase):
         gitdir = self.empty_git_directory()
         self.assertIsInstance(gitdir.get_index(), morphlib.gitindex.GitIndex)
 
+    def test_non_existent_submodule_path_raises_error(self):
+        gitdir = self.empty_git_directory()
+        self.assertRaises(
+                morphlib.gitdir.MissingSubmoduleCommitError,
+                gitdir.get_submodule_commit, 'master', 'somepath')
+
 
 class GitDirectoryAnchoredRefTests(unittest.TestCase):
 

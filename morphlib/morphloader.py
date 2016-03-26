@@ -15,6 +15,7 @@
 # =*= License: GPL-2 =*=
 
 
+import os
 import collections
 import warnings
 import yaml
@@ -34,8 +35,10 @@ class MorphologyNotYamlError(MorphologySyntaxError):
 
 class NotADictionaryError(MorphologySyntaxError):
 
-    def __init__(self, morph_filename):
+    def __init__(self, morph_filename, errmsg=None):
         self.msg = 'Not a dictionary: morphology %s' % morph_filename
+        if errmsg:
+            self.msg += "\n%s" % (errmsg)
 
 
 class MorphologyValidationError(morphlib.Error):
@@ -56,6 +59,17 @@ class MissingFieldError(MorphologyValidationError):
         self.morphology_name = morphology_name
         self.msg = (
             'Missing field %s from morphology %s' % (field, morphology_name))
+
+
+class InvalidStringError(MorphologyValidationError):
+
+    def __init__(self, field, spec, morph_filename):
+        self.field = field
+        self.spec = spec
+        self.morph_filename = morph_filename
+        MorphologyValidationError.__init__(
+            self, "Field '%(field)s' must be a non-empty string in %(spec)s"\
+                  " for morphology %(morph_filename)s" % locals())
 
 
 class InvalidFieldError(MorphologyValidationError):
@@ -117,27 +131,6 @@ class DuplicateChunkError(MorphologyValidationError):
         MorphologyValidationError.__init__(
             self, 'Duplicate chunk %(chunk_name)s '\
                   'in stratum %(stratum_name)s' % locals())
-
-
-class EmptyRefError(MorphologyValidationError):
-
-    def __init__(self, ref_location, morph_filename):
-        self.ref_location = ref_location
-        self.morph_filename = morph_filename
-        MorphologyValidationError.__init__(
-            self, 'Empty ref found for %(ref_location)s '\
-                  'in %(morph_filename)s' % locals())
-
-
-class ChunkSpecRefNotStringError(MorphologyValidationError):
-
-    def __init__(self, ref_value, chunk_name, stratum_name):
-        self.ref_value = ref_value
-        self.chunk_name = chunk_name
-        self.stratum_name = stratum_name
-        MorphologyValidationError.__init__(
-            self, 'Ref %(ref_value)s for %(chunk_name)s '\
-                  'in stratum %(stratum_name)s is not a string' % locals())
 
 
 class ChunkSpecConflictingFieldsError(MorphologyValidationError):
@@ -246,6 +239,7 @@ class MorphologyDumper(yaml.SafeDumper):
         'build-mode',
         'artifacts',
         'max-jobs',
+        'submodules',
         'products',
         'chunks',
         'build-system',
@@ -357,6 +351,7 @@ class MorphologyLoader(object):
             'strip-commands': None,
             'post-strip-commands': None,
             'devices': [],
+            'submodules': {},
             'products': [],
             'max-jobs': None,
             'build-system': 'manual',
@@ -537,14 +532,20 @@ class MorphologyLoader(object):
         for spec in morph['chunks']:
             chunk_name = spec['name']
 
-            # All chunk refs must be strings.
-            if 'ref' in spec:
-                ref = spec['ref']
-                if ref == None:
-                    raise EmptyRefError(spec['name'], morph.filename)
-                elif not isinstance(ref, basestring):
-                    raise ChunkSpecRefNotStringError(
-                        ref, spec['name'], morph.filename)
+            # All chunks repos and refs must be strings
+
+            def validate_chunk_str_field(field, spec, morph_filename):
+                if field not in spec:
+                    raise MissingFieldError('%s in %s' % (field, spec),
+                                            morph.filename)
+                val = spec[field]
+                if not val or not isinstance(val, basestring) or (
+                        not val.strip()):
+                   raise InvalidStringError(
+                        field, spec, morph_filename)
+
+            validate_chunk_str_field('repo', spec, morph.filename)
+            validate_chunk_str_field('ref', spec, morph.filename)
 
             # The build-depends field must be a list.
             if 'build-depends' in spec:
@@ -560,6 +561,18 @@ class MorphologyLoader(object):
             if 'morph' not in spec and 'build-system' not in spec:
                 raise ChunkSpecNoBuildInstructionsError(
                     chunk_name, morph.filename)
+
+            def validate_submodules(submodules, morph_filename):
+                for sub_name in submodules:
+                    validate_chunk_str_field('url', submodules[sub_name],
+                                             morph_filename)
+
+            if 'submodules' in spec:
+                if not isinstance(spec['submodules'], dict):
+                    raise NotADictionaryError(
+                        morph.filename, "The 'submodules' in chunk '%s' have "
+                        "to be a dict" % (chunk_name))
+                validate_submodules(spec['submodules'], morph.filename)
 
     @classmethod
     def _validate_chunk(cls, morphology):
@@ -704,6 +717,9 @@ class MorphologyLoader(object):
             if 'prefix' not in spec:
                 spec['prefix'] = \
                     self._static_defaults['chunk']['prefix']
+            if 'submodules' not in spec:
+                spec['submodules'] = \
+                    self._static_defaults['chunk']['submodules']
 
     def _set_chunk_defaults(self, morph):
         if morph['max-jobs'] is not None:

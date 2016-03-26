@@ -104,7 +104,8 @@ class BootstrapSystemBuilder(morphlib.builder.BuilderBase):
             if not os.path.exists(source_dir):
                 os.makedirs(source_dir)
                 morphlib.builder.extract_sources(
-                    self.app, self.repo_cache, s.repo, s.sha1, source_dir)
+                    self.app, self.definitions_version, self.repo_cache,
+                    s.repo, s.sha1, source_dir, s)
 
             name = s.name
             chunk_script = os.path.join(path, 'src', 'build-%s' % name)
@@ -256,6 +257,8 @@ class CrossBootstrapPlugin(cliapp.Plugin):
         srcpool = build_command.create_source_pool(
             root_repo, ref, [morph_name])
 
+        definitions_version = srcpool.definitions_version
+
         # FIXME: this is a quick fix in order to get it working for
         # Baserock 13 release, it is not a reasonable fix
         def validate(self, root_artifact):
@@ -289,10 +292,11 @@ class CrossBootstrapPlugin(cliapp.Plugin):
                 'mode can be cross-compiled.')
 
         for s in cross_sources:
-            build_command.cache_or_build_source(s, build_env)
+            build_command.cache_or_build_source(s, build_env,
+                                                definitions_version)
 
         for s in native_sources:
-            build_command.fetch_sources(s)
+            build_command.fetch_sources(s, definitions_version)
 
         # Install those to the output tarball ...
         self.app.status(msg='Building final bootstrap system image')
@@ -302,7 +306,8 @@ class CrossBootstrapPlugin(cliapp.Plugin):
             system_artifact.source, build_env, use_chroot=False)
         builder = BootstrapSystemBuilder(
             self.app, staging_area, build_command.lac, build_command.rac,
-            system_artifact.source, build_command.repo_cache, 1, False)
+            system_artifact.source, build_command.repo_cache, 1, False,
+            definitions_version)
         builder.build_and_cache()
 
         self.app.status(

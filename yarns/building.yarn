@@ -89,6 +89,14 @@ Morph Building Tests
     AND there are 2 artifacts named core-runtime in the cache
     FINALLY the git server is shut down
 
+    SCENARIO test recursive submodules overriding urls
+    GIVEN a git server
+    GIVEN a chunk with recursive submodules
+    WHEN the user clones definitions
+    WHEN the user attempts to build the system systems/test-system.morph in branch master
+    THEN morph succeeded
+    FINALLY the git server is shut down
+
 System integrations
 -------------------
 

@@ -1,4 +1,4 @@
-# Copyright (C) 2015  Codethink Limited
+# Copyright (C) 2015-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@ import yaml
 import morphlib
 
 
-SUPPORTED_VERSIONS = [7]
+SUPPORTED_VERSIONS = [7, 8]
 
 
 class DefinitionsVersionError(cliapp.AppException):

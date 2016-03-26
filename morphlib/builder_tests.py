@@ -156,7 +156,8 @@ class BuilderBaseTests(unittest.TestCase):
                                                      self.artifact,
                                                      self.repo_cache,
                                                      self.max_jobs,
-                                                     False)
+                                                     False,
+                                                     8)
 
     def test_runs_desired_command(self):
         self.builder.runcmd(['foo', 'bar'])

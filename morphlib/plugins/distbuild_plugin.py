@@ -1,6 +1,6 @@
 # distbuild_plugin.py -- Morph distributed build plugin
 #
-# Copyright (C) 2014-2015  Codethink Limited
+# Copyright (C) 2014-2016  Codethink Limited
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -248,6 +248,8 @@ class WorkerBuild(cliapp.Plugin):
                                             artifact_reference.ref,
                                             [artifact_reference.root_filename])
 
+        definitions_version = source_pool.definitions_version
+
         root = bc.resolve_artifacts(source_pool)
 
         # Now, before we start the build, we garbage collect the caches
@@ -263,7 +265,7 @@ class WorkerBuild(cliapp.Plugin):
 
         source = self.find_source(source_pool, artifact_reference)
         build_env = bc.new_build_env(artifact_reference.arch)
-        bc.build_source(source, build_env)
+        bc.build_source(source, build_env, definitions_version)
 
     def find_source(self, source_pool, artifact_reference):
         for s in source_pool.lookup(artifact_reference.source_repo,

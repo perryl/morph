@@ -329,7 +329,7 @@ class SourceResolver(object):
                         # Morph code doesn't need to know about the predefined
                         # build instructions.
                         chunk_filename = c['name'] + '.morph'
-                        chunk_queue.add((c["name"], c['repo'], c['ref'],
+                        chunk_queue.add((c['name'], c['repo'], c['ref'],
                                          chunk_filename, c['build-system']))
 
         return chunk_queue
@@ -375,10 +375,29 @@ class SourceResolver(object):
         visit(chunk_repo, chunk_ref, filename, absref, tree, morphology,
               predefined_split_rules)
 
-    def traverse_morphs(self, definitions_repo, definitions_ref,
-                        system_filenames,
-                        visit=lambda rn, rf, fn, arf, m: None,
-                        definitions_original_ref=None):
+    def add_morphs_to_source_pool(self, definitions_repo, definitions_ref,
+                                  system_filenames, pool,
+                                  definitions_original_ref=None):
+
+        def add_to_pool(reponame, ref, filename, absref, tree, morphology,
+                        predefined_split_rules):
+            # If there are duplicate chunks which have the same 'name' and the
+            # same build instructions, we might cause a stack overflow in
+            # cachekeycomputer.py when trying to hash the build graph. The
+            # _find_duplicate_chunks() function doesn't handle this case, it
+            # is checking for duplicates with the same name but different build
+            # instructions.
+            if morphology['kind'] != 'stratum':
+                if pool.lookup(reponame, ref, filename):
+                    raise morphlib.Error(
+                        "There are multiple versions of component '%s'" %
+                        morphology['name'])
+
+            sources = morphlib.source.make_sources(
+                reponame, ref, filename, absref, tree, morphology,
+                predefined_split_rules)
+            for source in sources:
+                pool.add(source)
 
         resolved_morphologies = {}
 
@@ -401,12 +420,12 @@ class SourceResolver(object):
             definitions_cached_repo.extract_commit(
                 definitions_absref, definitions_checkout_dir)
 
-            definitions_version = self._check_version_file(
+            pool.definitions_version = self._check_version_file(
                 definitions_checkout_dir)
 
             predefined_build_systems, predefined_split_rules = \
                 self._get_defaults(
-                    definitions_checkout_dir, definitions_version)
+                    definitions_checkout_dir, pool.definitions_version)
 
             morph_loader = morphlib.morphloader.MorphologyLoader(
                 predefined_build_systems=predefined_build_systems)
@@ -417,16 +436,17 @@ class SourceResolver(object):
             chunk_queue = self._process_definitions_with_children(
                     resolved_morphologies, definitions_checkout_dir,
                     definitions_repo, definitions_ref, definitions_absref,
-                    definitions_tree, morph_loader, system_filenames, visit,
-                    predefined_split_rules)
+                    definitions_tree, morph_loader, system_filenames,
+                    add_to_pool, predefined_split_rules)
 
             # Now process all the chunks involved in the build.
             for name, repo, ref, filename, buildsystem in chunk_queue:
                 self.process_chunk(resolved_morphologies, resolved_trees,
                                    definitions_checkout_dir, morph_loader,
                                    name, repo, ref, filename, buildsystem,
-                                   visit, predefined_build_systems,
+                                   add_to_pool, predefined_build_systems,
                                    predefined_split_rules)
+
 
 class DuplicateChunkError(morphlib.Error):
 
@@ -477,34 +497,13 @@ def create_source_pool(repo_cache, repo, ref, filenames,
     '''
     pool = morphlib.sourcepool.SourcePool()
 
-    def add_to_pool(reponame, ref, filename, absref, tree, morphology,
-                    predefined_split_rules):
-        # If there are duplicate chunks which have the same 'name' and the
-        # same build instructions, we might cause a stack overflow in
-        # cachekeycomputer.py when trying to hash the build graph. The
-        # _find_duplicate_chunks() function doesn't handle this case, it
-        # is checking for duplicates with the same name but different build
-        # instructions.
-        if morphology['kind'] != 'stratum':
-            if pool.lookup(reponame, ref, filename):
-                raise morphlib.Error(
-                    "There are multiple versions of component '%s'" %
-                    morphology['name'])
-
-        sources = morphlib.source.make_sources(
-            reponame, ref, filename, absref, tree, morphology,
-            predefined_split_rules)
-        for source in sources:
-            pool.add(source)
-
     tree_cache_manager = PickleCacheManager(
         os.path.join(repo_cache.cachedir, tree_cache_filename),
         tree_cache_size)
 
     resolver = SourceResolver(repo_cache, tree_cache_manager, status_cb)
-    resolver.traverse_morphs(repo, ref, filenames,
-                             visit=add_to_pool,
-                             definitions_original_ref=original_ref)
+    resolver.add_morphs_to_source_pool(repo, ref, filenames, pool,
+                                       definitions_original_ref=original_ref)
 
     # No two chunks may have the same name
     duplicate_chunks = _find_duplicate_chunks(pool)

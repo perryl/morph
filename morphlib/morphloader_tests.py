@@ -1,4 +1,4 @@
-# Copyright (C) 2013-2015  Codethink Limited
+# Copyright (C) 2013-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -208,6 +208,58 @@ build-system: manual
         self.assertRaises(
             morphlib.morphloader.InvalidFieldError, self.loader.validate, m)
 
+    def test_validate_requires_chunk_repos_to_exist(self):
+        m = morphlib.morphology.Morphology({
+            'kind': 'stratum',
+            'name': 'foo',
+            'build-depends': [],
+            'chunks': [
+                {
+                    'name': 'chunk',
+                    'ref': 'master',
+                    'build-depends': []
+                }
+            ]
+        })
+        with self.assertRaises(
+                morphlib.morphloader.MissingFieldError):
+            self.loader.validate(m)
+
+    def test_validate_requires_chunk_repos_in_stratum_to_be_strings(self):
+        m = morphlib.morphology.Morphology({
+            'kind': 'stratum',
+            'name': 'foo',
+            'build-depends': [],
+            'chunks': [
+                {
+                    'name': 'chunk',
+                    'repo': 1,
+                    'ref': 'master',
+                    'build-depends': []
+                }
+            ]
+        })
+        with self.assertRaises(
+                morphlib.morphloader.InvalidStringError):
+            self.loader.validate(m)
+
+    def test_validate_requires_chunk_refs_to_exist(self):
+        m = morphlib.morphology.Morphology({
+            'kind': 'stratum',
+            'name': 'foo',
+            'build-depends': [],
+            'chunks': [
+                {
+                    'name': 'chunk',
+                    'repo': 'test:repo',
+                    'build-depends': []
+                }
+            ]
+        })
+        with self.assertRaises(
+                morphlib.morphloader.MissingFieldError):
+            self.loader.validate(m)
+
     def test_validate_requires_chunk_refs_in_stratum_to_be_strings(self):
         m = morphlib.morphology.Morphology({
             'kind': 'stratum',
@@ -223,26 +275,54 @@ build-system: manual
             ]
         })
         with self.assertRaises(
-                morphlib.morphloader.ChunkSpecRefNotStringError):
+                morphlib.morphloader.InvalidStringError):
             self.loader.validate(m)
 
-    def test_fails_to_validate_stratum_with_empty_refs_for_a_chunk(self):
+    def test_fails_to_validate_stratum_with_a_missing_url(self):
         m = morphlib.morphology.Morphology({
             'kind': 'stratum',
             'name': 'foo',
             'build-depends': [],
-            'chunks' : [
+            'chunks': [
                 {
                     'name': 'chunk',
                     'repo': 'test:repo',
-                    'ref': None,
-                    'build-depends': []
+                    'ref': 'master',
+                    'build-system': 'manual',
+                    'build-depends': [],
+                    'submodules':
+                        {
+                            'foolib': {}
+                        }
                 }
             ]
         })
-        with self.assertRaises(
-                morphlib.morphloader.EmptyRefError):
-            self.loader.validate(m)
+        self.assertRaises(
+            morphlib.morphloader.MissingFieldError, self.loader.validate, m)
+
+    def test_fails_to_validate_stratum_with_no_dict_submodules(self):
+        m = morphlib.morphology.Morphology({
+            'kind': 'stratum',
+            'name': 'foo',
+            'build-depends': [],
+            'chunks': [
+                {
+                    'name': 'chunk',
+                    'repo': 'test:repo',
+                    'ref': 'master',
+                    'build-system': 'manual',
+                    'build-depends': [],
+                    'submodules':
+                        [
+                            {
+                                'foolib': {}
+                            }
+                        ]
+                }
+            ]
+        })
+        self.assertRaises(
+            morphlib.morphloader.NotADictionaryError, self.loader.validate, m)
 
     def test_fails_to_validate_stratum_which_build_depends_on_self(self):
         text = '''\
@@ -567,6 +647,7 @@ build-system: manual
                 'pre-strip-commands': None,
                 'post-strip-commands': None,
 
+                'submodules': {},
                 'products': [],
                 'system-integration': [],
                 'devices': [],
@@ -606,6 +687,7 @@ build-system: manual
                         "morph": "bar",
                         'build-mode': 'bootstrap',
                         'build-depends': [],
+                        'submodules': {},
                         'prefix': '/usr',
                     },
                 ],

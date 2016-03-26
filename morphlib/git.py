@@ -34,10 +34,16 @@ class NoModulesFileError(cliapp.AppException):
 
 class Submodule(object):
 
-    def __init__(self, name, url, path):
+    def __init__(self, name, url, sha1, path):
         self.name = name
         self.url = url
+        self.commit = sha1
         self.path = path
+
+    def __str__(self):
+        return "{name}|{url}|{path}".format(name=self.name,
+                                            url=self.url,
+                                            path=self.path)
 
 
 class InvalidSectionError(cliapp.AppException):
@@ -46,14 +52,6 @@ class InvalidSectionError(cliapp.AppException):
         Exception.__init__(self,
                            '%s:%s:.gitmodules: Found a misformatted section '
                            'title: [%s]' % (repo, ref, section))
-
-
-class MissingSubmoduleCommitError(cliapp.AppException):
-
-    def __init__(self, repo, ref, submodule):
-        Exception.__init__(self,
-                           '%s:%s:.gitmodules: No commit object found for '
-                           'submodule "%s"' % (repo, ref, submodule))
 
 
 class Submodules(object):
@@ -87,6 +85,7 @@ class Submodules(object):
             raise NoModulesFileError(self.repo, self.ref)
 
     def _validate_and_read_entries(self, parser):
+        gd = morphlib.gitdir.GitDirectory(self.repo)
         for section in parser.sections():
             # validate section name against the 'section "foo"' pattern
             section_pattern = r'submodule "(.*)"'
@@ -97,33 +96,9 @@ class Submodules(object):
                 path = parser.get(section, 'path')
 
                 # create a submodule object
-                submodule = Submodule(name, url, path)
-                try:
-                    # list objects in the parent repo tree to find the commit
-                    # object that corresponds to the submodule
-                    commit = gitcmd(self.runcmd_cb, 'ls-tree', self.ref,
-                                    submodule.path, cwd=self.repo)
-
-                    # read the commit hash from the output
-                    fields = commit.split()
-                    if len(fields) >= 2 and fields[1] == 'commit':
-                        submodule.commit = commit.split()[2]
-
-                        # fail if the commit hash is invalid
-                        if len(submodule.commit) != 40:
-                            raise MissingSubmoduleCommitError(self.repo,
-                                                              self.ref,
-                                                              submodule.name)
-
-                        # add a submodule object to the list
-                        self.submodules.append(submodule)
-                    else:
-                        logging.warning('Skipping submodule "%s" as %s:%s has '
-                                        'a non-commit object for it' %
-                                        (submodule.name, self.repo, self.ref))
-                except cliapp.AppException:
-                    raise MissingSubmoduleCommitError(self.repo, self.ref,
-                                                      submodule.name)
+                sha1 = gd.get_submodule_commit(self.ref, path)
+                submodule = Submodule(name, url, sha1, path)
+                self.submodules.append(submodule)
             else:
                 raise InvalidSectionError(self.repo, self.ref, section)
 
