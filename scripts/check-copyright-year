@@ -19,6 +19,7 @@
 from __future__ import print_function
 
 import datetime
+import fnmatch
 import re
 import sys
 
@@ -28,7 +29,7 @@ class CheckCopyrightYear(cliapp.Application):
 
     pat = re.compile(r'^[ #/*]*Copyright\s+(\(C\)\s*)'
                      r'(?P<years>[0-9, -]+)')
-    ignore = ['COPYING', 'morphlib/licensecheck.pl']
+    ignore = ['COPYING', 'morphlib/licensecheck.pl', 'cliapp/*']
 
     def add_settings(self):
         self.settings.boolean(['verbose', 'v'], 'be more verbose')
@@ -55,7 +56,7 @@ class CheckCopyrightYear(cliapp.Application):
         return filenames
 
     def process_input_line(self, filename, line):
-        if filename in self.ignore:
+        if any(fnmatch.fnmatch(filename, pattern) for pattern in self.ignore):
             return
 
         m = self.pat.match(line)
