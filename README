@@ -54,6 +54,50 @@ something like this:
 All of the above settings apart from `log` are the defaults, so may be omitted.
 
 
+Running `morph` outside Baserock
+--------------------------------
+
+It used to be the case that `morph` had to be run from within an existing
+Baserock system, however it is now possible to run `morph` from a general
+Linux host system; this has currently been demonstrated to work on Debian,
+Ubuntu and Fedora on x86_64, and Ubuntu on 64-bit little-endian ARMv8.
+
+Morph needs to be run as root user. As such, system configurations required to
+run `morph` independently, and which are tied to a particular user, must also
+be applied to root.
+
+* Install dependencies (on Debian-like systems)
+
+    sudo apt-get install linux-user-chroot python-pip build-essential git m4
+
+* Install dependencies (on Fedora systems)
+
+    sudo dnf install linux-user-chroot python-pip git m4
+    sudo dnf install make automake gcc gcc-c++ kernel-devel
+
+* Install dependencies (all)
+
+    sudo pip install --user fs pylru jsonschema pyyaml
+
+* Set-up
+
+    sudo git config --global user.name 'Your Name'
+    sudo git config --global user.email 'your.email@address.org'
+
+* Clone sources
+
+    git clone git://git.baserock.org/baserock/baserock/definitions.git
+    git clone git://git.baserock.org/baserock/baserock/morph.git
+    cd definitions
+
+* Start a build
+
+    sudo ../morph/morph build systems/base-system-x86_64-generic.morph
+
+You may optionally create a `/root/.morph.conf` configuration in the same way
+as above to configure `morph`, for example to add a log file.
+
+
 Build environment
 -----------------
 
@@ -92,7 +136,7 @@ Run the checks before submitting a patch, please.
 Legalese
 --------
 
-Copyright (C) 2011-2015  Codethink Limited
+Copyright (C) 2011-2016  Codethink Limited
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
