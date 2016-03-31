@@ -1,4 +1,4 @@
-# Copyright (C) 2011,2014-2015  Codethink Limited
+# Copyright (C) 2011,2014-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -128,7 +128,10 @@ class Check(Command):
         subprocess.check_call(['python', '-m', 'CoverageTestRunner',
                                '--ignore-missing-from=without-test-modules',
                                'morphlib', 'distbuild'])
-        os.remove('.coverage')
+        try:
+            os.remove('.coverage')
+        except OSError:
+            pass
 
 
 setup(name='morph',

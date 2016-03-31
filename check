@@ -2,7 +2,7 @@
 #
 # Run test suite for morph.
 #
-# Copyright (C) 2011-2015  Codethink Limited
+# Copyright (C) 2011-2016  Codethink Limited
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -138,9 +138,14 @@ fi
 # explicitly which environment variables to set in addition to the set
 # it sets anyway.
 
-if "$run_yarns" && command -v yarn > /dev/null
-then
-    yarn --env "PYTHONPATH=$PYTHONPATH" --env "TMPDIR=$TMPDIR" $snapshot \
-    --tempdir "$TMPDIR" -s yarns/morph.shell-lib \
-        yarns/*.yarn
+if "$run_yarns"; then
+    if command -v yarn > /dev/null; then
+        yarn --env "PYTHONPATH=$PYTHONPATH" --env "TMPDIR=$TMPDIR" $snapshot \
+        --tempdir "$TMPDIR" -s yarns/morph.shell-lib \
+            yarns/*.yarn
+    else
+        echo "WARNING: 'yarn' scenario test tool (part of 'cmdtest' " \
+             "package) was not found." >&2
+        echo "Not running Yarn tests." >&2
+    fi
 fi
