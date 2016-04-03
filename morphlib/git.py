@@ -94,9 +94,16 @@ class Submodules(object):
                 name = re.sub(section_pattern, r'\1', section)
                 url = parser.get(section, 'url')
                 path = parser.get(section, 'path')
+                try:
+                    sha1 = gd.get_submodule_commit(self.ref, path)
+                except morphlib.gitdir.MissingSubmoduleCommitError:
+                    # Ignore submodules listed in .gitmodules file that are
+                    # not pointing to a git commit object. If you try to clone
+                    # a repo with submodules without a commit object (using
+                    # Git), nothing will happen, and Git will not even complain
+                    continue
 
                 # create a submodule object
-                sha1 = gd.get_submodule_commit(self.ref, path)
                 submodule = Submodule(name, url, sha1, path)
                 self.submodules.append(submodule)
             else:
