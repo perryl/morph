@@ -143,6 +143,14 @@ class PushFailureError(PushError):
                                  'stderr: %(stderr)s' % locals())
 
 
+class CheckoutError(cliapp.AppException):
+
+    def __init__(self, repo, ref, target_dir): # pragma: no cover
+        cliapp.AppException.__init__(
+            self,
+            'Failed to check out ref %s in %s' % (ref, target_dir))
+
+
 class Config(object):
     '''Class representing Git repo configuration.
 
