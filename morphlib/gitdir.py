@@ -609,15 +609,15 @@ class GitDirectory(object):
                 '%s@{upstream}' % branch).strip()
             return out
         except cliapp.AppException as e:
-            emsg = str(e)
+            emsg = str(e).lower()
             if 'does not point to a branch' in emsg:
                 # ref wasn't a branch, can't have upstream
                 # treat it the same as no upstream for convenience
                 return None
-            elif 'No such branch' in emsg:
+            elif 'no such branch' in emsg:
                 # Same as above
                 return None
-            elif 'No upstream configured for branch' in emsg:
+            elif 'no upstream configured for branch' in emsg:
                 return None
             raise
 
