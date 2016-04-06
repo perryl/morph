@@ -43,6 +43,13 @@ class InvalidVersionFileError(DefinitionsVersionError):  # pragma: no cover
             self, "invalid VERSION file: '%s'" % text)
 
 
+class VersionFileNotFound(DefinitionsVersionError): # pragma: no cover
+    def __init__(self):
+        DefinitionsVersionError.__init__(
+            self, 'Failed to find VERSION file. '
+            'Is this a Definitions checkout?')
+
+
 def parse_version_file(version_text):
     '''Parse VERSION file and return the version of the format if:
 

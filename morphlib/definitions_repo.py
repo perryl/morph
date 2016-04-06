@@ -215,6 +215,21 @@ class DefinitionsRepo(gitdir.GitDirectory):
                     'to "origin", or use the --local-changes=include feature '
                     'of Morph.' % (e.ref, e.repo_url, ref))
 
+    def get_version(self, mf=None):
+        ''' Returns version of the definitions
+
+        This will read the VERSION file, raising a Exception if the file
+        is not found.
+
+        '''
+        if not mf:
+            mf = morphlib.morphologyfinder.MorphologyFinder(self)
+        try:
+            version_text = mf.read_file('VERSION')
+        except IOError:
+            raise morphlib.definitions_version.VersionFileNotFound()
+        return  morphlib.definitions_version.check_version_file(version_text)
+
     def get_morphology_loader(self):
         '''Return a MorphologyLoader instance.
 
@@ -224,11 +239,9 @@ class DefinitionsRepo(gitdir.GitDirectory):
         '''
         mf = morphlib.morphologyfinder.MorphologyFinder(self)
 
-        version_text = mf.read_file('VERSION')
-        version = morphlib.definitions_version.check_version_file(version_text)
+        version = self.get_version(mf)
 
         defaults_text = mf.read_file('DEFAULTS', allow_missing=True)
-
         if defaults_text is None:
             warnings.warn("No DEFAULTS file found.")
 

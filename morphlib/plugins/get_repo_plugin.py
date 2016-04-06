@@ -43,22 +43,40 @@ class GetRepoPlugin(cliapp.Plugin):
     def disable(self):
         pass
 
-    def _clone_repo(self, cached_repo, dirname, checkout_ref):
-        '''Clone a cached git repository into the directory given by path.'''
-        # Do the clone.
-        gd = morphlib.gitdir.checkout_from_cached_repo(
-            cached_repo, checkout_ref, dirname)
+    def extract_repo(self, repo_cache, repo, sha1, destdir,
+                     submodules_map=None): #pragma: no cover
+        self.app.status(msg='Extracting %(source)s into %(target)s',
+                   source=repo.original_name,
+                   target=destdir)
+        gd = morphlib.gitdir.checkout_from_cached_repo(repo, sha1, destdir)
+        morphlib.git.reset_workdir(self.app.runcmd, destdir)
 
         # Configure the "origin" remote to use the upstream git repository,
         # and not the locally cached copy.
         resolver = morphlib.repoaliasresolver.RepoAliasResolver(
             self.app.settings['repo-alias'])
         remote = gd.get_remote('origin')
-        remote.set_fetch_url(resolver.pull_url(cached_repo.url))
-        remote.set_push_url(resolver.push_url(cached_repo.original_name))
+        remote.set_fetch_url(resolver.pull_url(repo.url))
+        remote.set_push_url(resolver.push_url(repo.original_name))
 
-        gd.update_submodules(self.app)
-        gd.update_remotes()
+        # Check and handle submodules
+        submodules = morphlib.git.Submodules(repo.dirname, sha1,
+                                             self.app.runcmd)
+        try:
+            submodules.load()
+        except morphlib.git.NoModulesFileError:
+            return []
+        else:
+            tuples = []
+            for sub in submodules:
+                if submodules_map and sub.name in submodules_map:
+                    url = submodules_map[sub.name]['url']
+                else:
+                    url = sub.url
+                cached_repo = repo_cache.get_updated_repo(url, sub.commit)
+                sub_dir = os.path.join(destdir, sub.path)
+                tuples.append((cached_repo, sub.commit, sub_dir))
+            return tuples
 
     def _get_chunk_dirname(self, path, definitions_repo, spec):
         if path:
@@ -92,10 +110,11 @@ class GetRepoPlugin(cliapp.Plugin):
             path = os.path.abspath(args[1])
         ref = self.app.settings['ref']
 
-        def checkout_chunk(morph, chunk_spec):
+        def checkout_chunk(morph, chunk_spec, definitions_version):
             dirname = self._get_chunk_dirname(path, definitions_repo,
                                               chunk_spec)
             if not os.path.exists(dirname):
+                os.makedirs(dirname)
                 self.app.status(
                     msg='Checking out ref %(ref)s of %(chunk)s in '
                         '%(stratum)s stratum',
@@ -105,9 +124,20 @@ class GetRepoPlugin(cliapp.Plugin):
                 cached_repo = repo_cache.get_updated_repo(chunk_spec['repo'],
                                                           chunk_spec['ref'])
 
+                submodules = {}
+                if definitions_version >= 8:
+                    submodules = chunk_spec.get('submodules', {})
+
+                repo_cache.ensure_submodules(
+                    cached_repo, chunk_spec['ref'], submodules)
+
                 try:
-                    self._clone_repo(cached_repo, dirname,
-                                     ref or chunk_spec['ref'])
+                    todo = [(cached_repo, ref or chunk_spec['ref'], dirname)]
+                    while todo:
+                        repo, sha1, destdir = todo.pop()
+                        todo += self.extract_repo(repo_cache, repo, sha1,
+                                                  destdir, submodules)
+
                 except morphlib.gitdir.InvalidRefError:
                     raise cliapp.AppException(
                              "Cannot get '%s', repo has no commit at ref %s."
@@ -126,6 +156,7 @@ class GetRepoPlugin(cliapp.Plugin):
 
         definitions_repo = morphlib.definitions_repo.open(
             '.', search_for_root=True, app=self.app)
+        version = definitions_repo.get_version()
 
         self.app.status(msg='Loading in all morphologies')
         for morph in definitions_repo.load_all_morphologies():
@@ -139,7 +170,8 @@ class GetRepoPlugin(cliapp.Plugin):
                                 chunk=chunk_name, stratum=morph['name'],
                                 chatty=True)
                         else:
-                            chunk_dirname = checkout_chunk(morph, chunk)
+                            chunk_dirname = checkout_chunk(morph, chunk,
+                                                           version)
                         strata.add(morph['name'])
                         found = found + 1
 
