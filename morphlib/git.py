@@ -128,7 +128,7 @@ def update_submodules(app, repo_dir):  # pragma: no cover
         resolver = morphlib.repoaliasresolver.RepoAliasResolver(
             app.settings['repo-alias'])
         gitcmd(app.runcmd, 'submodule', 'init', cwd=repo_dir)
-        submodules = Submodules(app, repo_dir, 'HEAD')
+        submodules = Submodules(repo_dir, 'HEAD')
         submodules.load()
         for submodule in submodules:
             gitcmd(app.runcmd, 'config', 'submodule.%s.url' % submodule.name,
