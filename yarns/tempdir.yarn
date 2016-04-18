@@ -5,6 +5,7 @@ Temporary Directory
     GIVEN a git server
     WHEN the user clones definitions
     THEN the user is able to build the system systems/test-system.morph in branch master using the specified temporary directory
+    FINALLY  the git server is shut down
 
     IMPLEMENTS THEN the user is able to build the system (\S+) in branch (\S+) using the specified temporary directory
     system="$MATCH_1"

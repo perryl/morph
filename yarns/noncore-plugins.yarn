@@ -153,6 +153,7 @@ Generating a manifest works
     WHEN        the user clones definitions
     AND         morph generates a manifest
     THEN        the manifest is generated
+    FINALLY  the git server is shut down
 
 A CSV manifest can also be generated.
 
@@ -162,6 +163,7 @@ A CSV manifest can also be generated.
     WHEN     morph generates a manifest for system systems/test-system.morph at ref HEAD in repository test:definitions
     THEN     morph succeeded
     AND      the csv manifest is generated
+    FINALLY  the git server is shut down
 
 Definition diffing
 ------------------
@@ -177,6 +179,7 @@ Definition diffing
 
     THEN     morph succeeded
     AND      morph output test-tag
+    FINALLY  the git server is shut down
 
 ### diff implementations
 
@@ -196,6 +199,7 @@ a system is likely to have a reproducible result.
     WHEN     the user certifies the system systems/test-system.morph at ref HEAD in repository test:definitions
     THEN     morph succeeded
     AND      morph output Reproducibility certification PASSED
+    FINALLY  the git server is shut down
 
 Listing artifacts in a system
 -----------------------------
@@ -208,6 +212,7 @@ artifact in a system. This name includes the cache key of the artifact.
 
     WHEN     the user lists the artifacts which make up the system systems/test-system.morph at ref HEAD in repository test:definitions
     THEN     morph succeeded
+    FINALLY  the git server is shut down
 
 Printing the architecture
 -------------------------
@@ -279,6 +284,7 @@ Showing dependencies
     AND a system with two reasonable-sized strata in branch master of definitions
     WHEN the user runs the show-dependencies command for system xfce-system.morph in branch master
     THEN the result shows the dependencies of the system
+    FINALLY  the git server is shut down
 
     IMPLEMENTS GIVEN a system with two reasonable-sized strata in branch (\S+) of definitions
     branch="$MATCH_1"

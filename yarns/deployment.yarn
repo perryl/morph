@@ -312,3 +312,4 @@ something other than tarball or sysroot.
 
     WHEN the user attempts to partially deploy rawdisk from cluster clusters/partial-test-cluster.morph in branch master
     THEN morph failed
+    FINALLY  the git server is shut down
