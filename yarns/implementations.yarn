@@ -660,10 +660,10 @@ Implementation sections for building
 Implementation sections for cross-bootstrapping
 ===============================================
 
-    IMPLEMENTS WHEN the user (attempts to )?cross-bootstraps? the system (\S+) in branch (\S+) of repo (\S+) to the arch (\S+)
+    IMPLEMENTS WHEN the user (attempts to )?cross-bootstraps? the system (\S+) in branch (\S+) to the arch (\S+)
     cd "$DATADIR/definitions"
     git checkout "$MATCH_3"
-    set -- cross-bootstrap "$MATCH_5" "$MATCH_4" "$MATCH_3" "$MATCH_2"
+    set -- cross-bootstrap "$MATCH_4" "$MATCH_2"
     if [ "$MATCH_1" != "attempts to " ]; then run_morph "$@"
     else attempt_morph "$@"; fi
     echo $@ >&2

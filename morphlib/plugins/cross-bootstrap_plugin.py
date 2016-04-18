@@ -18,6 +18,7 @@ import os.path
 import re
 import tarfile
 import traceback
+import uuid
 
 import morphlib
 
@@ -209,13 +210,39 @@ class CrossBootstrapPlugin(cliapp.Plugin):
     def enable(self):
         self.app.add_subcommand('cross-bootstrap',
                                 self.cross_bootstrap,
-                                arg_synopsis='TARGET REPO REF SYSTEM-MORPH')
+                                arg_synopsis='TARGET-ARCH SYSTEM-MORPH')
 
     def disable(self):
         pass
 
     def cross_bootstrap(self, args):
         '''Cross-bootstrap a system from a different architecture.'''
+
+        MINARGS = 2
+
+        if len(args) != MINARGS:
+            raise cliapp.AppException(
+                'cross-bootstrap requires 2 arguments: target archicture, and '
+                'filename of the system morphology')
+
+        definitions_repo = morphlib.definitions_repo.open(
+            '.', search_for_root=True, app=self.app)
+
+        arch = args[0]
+        filename = args[1]
+
+        if arch not in morphlib.valid_archs:
+            raise morphlib.Error('Unsupported architecture "%s"' % arch)
+
+        filename = morphlib.util.sanitise_morphology_path(filename)
+        filename = definitions_repo.relative_path(filename, cwd='.')
+
+        source_pool_context = definitions_repo.source_pool(
+            definitions_repo.HEAD, filename)
+        with source_pool_context as source_pool:
+            self._cross_bootstrap(arch, source_pool)
+
+    def _cross_bootstrap(self, arch, srcpool):
 
         # A brief overview of this process: the goal is to native build as much
         # of the system as possible because that's easier, but in order to do
@@ -233,32 +260,6 @@ class CrossBootstrapPlugin(cliapp.Plugin):
         #
         # This function is a variant of the BuildCommand() class in morphlib.
 
-        # To do: make it work on a system branch instead of repo/ref/morph
-        # triplet.
-
-        if len(args) < 4:
-            raise cliapp.AppException(
-                'cross-bootstrap requires 4 arguments: target archicture, and '
-                'repo, ref and and name of the system morphology')
-
-        arch = args[0]
-        root_repo, ref, system_name = args[1:4]
-
-        if arch not in morphlib.valid_archs:
-            raise morphlib.Error('Unsupported architecture "%s"' % arch)
-
-        # Get system artifact
-
-        build_env = morphlib.buildenvironment.BuildEnvironment(
-            self.app.settings, arch)
-        build_command = morphlib.buildcommand.BuildCommand(self.app, build_env)
-
-        morph_name = morphlib.util.sanitise_morphology_path(system_name)
-        srcpool = build_command.create_source_pool(
-            root_repo, ref, [morph_name])
-
-        definitions_version = srcpool.definitions_version
-
         # FIXME: this is a quick fix in order to get it working for
         # Baserock 13 release, it is not a reasonable fix
         def validate(self, root_artifact):
@@ -271,6 +272,13 @@ class CrossBootstrapPlugin(cliapp.Plugin):
                     % (target_arch, root_arch))
 
         morphlib.buildcommand.BuildCommand._validate_architecture = validate
+
+        build_command = morphlib.buildcommand.BuildCommand(self.app)
+        build_command.validate_sources(srcpool)
+        build_command.srcpool = srcpool
+        root = build_command.resolve_artifacts(srcpool)
+        build_env = root.build_env
+        definitions_version = srcpool.definitions_version
 
         system_artifact = build_command.resolve_artifacts(srcpool)
 

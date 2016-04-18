@@ -14,7 +14,7 @@ Morph Architecture Tests
     GIVEN a git server
     AND a system called base-system-testarch.morph for the test architecture in the git server
     WHEN the user clones definitions
-    AND the user attempts to cross-bootstrap the system base-system-testarch.morph in branch master of repo test:definitions to the arch testarch
+    AND the user attempts to cross-bootstrap the system base-system-testarch.morph in branch master to the arch testarch
     THEN morph succeeded
     FINALLY the git server is shut down
 
@@ -22,7 +22,7 @@ Morph Architecture Tests
     GIVEN a git server
     AND a system called base-system-testarch.morph for the test architecture in the git server
     WHEN the user clones definitions
-    AND the user attempts to cross-bootstrap the system base-system-testarch.morph in branch master of repo test:definitions to the arch unknown-archicture
+    AND the user attempts to cross-bootstrap the system base-system-testarch.morph in branch master to the arch unknown-archicture
     THEN morph failed
     AND the cross-bootstrap error message includes the string "Unsupported architecture "unknown-archicture"
     FINALLY the git server is shut down
