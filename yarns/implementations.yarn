@@ -637,8 +637,10 @@ Implementations for `morph certify`
 Implementations for `morph list-artifacts`
 ------------------------------------------
 
-    IMPLEMENTS WHEN the user lists the artifacts which make up the system (\S+) at ref (\S+) in repository (\S+)
-    attempt_morph list-artifacts "$MATCH_3" "$MATCH_2" "$MATCH_1"
+    IMPLEMENTS WHEN the user lists the artifacts which make up the system (\S+) at ref (\S+)
+    cd "$DATADIR/definitions"
+    git checkout "$MATCH_2"
+    attempt_morph list-artifacts "$MATCH_1"
 
 Implementation sections for building
 ====================================

@@ -210,7 +210,8 @@ artifact in a system. This name includes the cache key of the artifact.
     SCENARIO using morph list-artifacts
     GIVEN    a git server
 
-    WHEN     the user lists the artifacts which make up the system systems/test-system.morph at ref HEAD in repository test:definitions
+    WHEN     the user clones definitions
+    AND      the user lists the artifacts which make up the system systems/test-system.morph at ref HEAD
     THEN     morph succeeded
     FINALLY  the git server is shut down
 

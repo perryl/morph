@@ -17,6 +17,7 @@
 # See: <http://wiki.baserock.org/guides/release-process> for more information.
 
 from __future__ import print_function
+import uuid
 
 import cliapp
 import morphlib
@@ -27,7 +28,7 @@ class ListArtifactsPlugin(cliapp.Plugin):
     def enable(self):
         self.app.add_subcommand(
             'list-artifacts', self.list_artifacts,
-            arg_synopsis='REPO REF MORPH [MORPH]...')
+            arg_synopsis='MORPH [MORPH]...')
 
     def disable(self):
         pass
@@ -37,8 +38,6 @@ class ListArtifactsPlugin(cliapp.Plugin):
 
         Command line arguments:
 
-        * `REPO` is a git repository URL.
-        * `REF` is a branch or other commit reference in that repository.
         * `MORPH` is a system morphology name at that ref.
 
         You can pass multiple values for `MORPH`, in which case the command
@@ -49,14 +48,41 @@ class ListArtifactsPlugin(cliapp.Plugin):
 
         '''
 
-        if len(args) < 3:
+        MINARGS = 1
+
+        if len(args) < MINARGS:
             raise cliapp.AppException(
                 'Wrong number of arguments to list-artifacts command '
                 '(see help)')
 
-        repo, ref = args[0], args[1]
-        system_filenames = map(morphlib.util.sanitise_morphology_path,
-                               args[2:])
+        definitions_repo = morphlib.definitions_repo.open(
+            '.', search_for_root=True, app=self.app)
+
+        system_filenames = []
+        for arg in args:
+            filename = morphlib.util.sanitise_morphology_path(arg)
+            filename = definitions_repo.relative_path(filename, cwd='.')
+            system_filenames.append(filename)
+
+        if self.app.settings['local-changes'] == 'include':
+            # Create a temporary branch with any local changes, and push it to
+            # the shared Git server. This is a convenience for developers, who
+            # otherwise need to commit and push each change manually in order
+            # for distbuild to see it. It renders the build unreproducible, as
+            # the branch is deleted after being built, so this feature should
+            # only be used during development!
+            build_uuid = uuid.uuid4().hex
+            branch = definitions_repo.branch_with_local_changes(
+                build_uuid, push=True)
+            with branch as (repo_url, commit, original_ref):
+                self._list_artifacts(repo_url, commit, system_filenames)
+        else:
+            ref = definitions_repo.HEAD
+            commit = definitions_repo.resolve_ref_to_commit(ref)
+            self._list_artifacts(definitions_repo.remote_url, commit,
+                                 system_filenames)
+
+    def _list_artifacts(self, repo, ref, system_filenames):
 
         self.repo_cache = morphlib.util.new_repo_cache(self.app)
         self.resolver = morphlib.artifactresolver.ArtifactResolver()
