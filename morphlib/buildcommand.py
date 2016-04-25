@@ -425,8 +425,9 @@ class BuildCommand(object):
             bar = morphlib.util.ProgressBar(name,
                                             expected_size, unit)
 
-            morphlib.util.copyfileobj(remote, local,
-                                      callback=report_progress)
+            cb = ((lambda count: None) if self.app.settings['quiet']
+                                       else report_progress)
+            morphlib.util.copyfileobj(remote, local, callback=cb)
 
         def fetch_files(name, to_fetch):
             '''Fetch a set of files atomically.
