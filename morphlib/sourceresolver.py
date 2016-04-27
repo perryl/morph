@@ -96,7 +96,7 @@ class SourceResolverError(cliapp.AppException):
 class MorphologyNotFoundError(SourceResolverError):
     def __init__(self, filename):
         SourceResolverError.__init__(
-            self, "Couldn't find morphology: %s" % filename)
+            self, "Couldn't find definition file to build: %s" % filename)
 
 
 class MorphologyReferenceNotFoundError(SourceResolverError):
@@ -252,9 +252,11 @@ class SourceResolver(object):
 
         text = self._get_file_contents_from_definitions(
             definitions_checkout_dir, filename)
-        morph = morph_loader.load_from_string(text, filename)
 
-        if morph is not None:
+        if text is None:
+            morph = None
+        else:
+            morph = morph_loader.load_from_string(text, filename)
             resolved_morphologies[filename] = morph
 
         return morph
