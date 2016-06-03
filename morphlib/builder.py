@@ -391,6 +391,8 @@ class ChunkBuilder(BuilderBase):
                         stdout.flush()
 
                     if exit_code != 0:
+                        self.app.status(msg='Error when running %(key)s',
+                                        key=key)
                         if not stdout:
                             with open(logfilepath, 'r') as log:
                                 shutil.copyfileobj(log, self.app.output)
