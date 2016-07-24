@@ -1,6 +1,6 @@
 # distbuild/worker_build_scheduler.py -- schedule worker-builds on workers
 #
-# Copyright (C) 2012, 2014-2015  Codethink Limited
+# Copyright (C) 2012, 2014-2016  Codethink Limited
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -118,6 +118,9 @@ class Job(object):
     def running(self):
         return self._state == 'running'
 
+    def active(self):
+        return self._state == 'running' or self._state == 'queued'
+
     def failed(self):
         return self._state == 'failed'
 
@@ -135,8 +138,8 @@ class JobQueue(object):
         self._owner = owner
         self._jobs = {}
 
-    def get_running_job_for_artifact(self, artifact_basename):
-        jobs =  [job for job in self.running_jobs()
+    def get_active_job_for_artifact(self, artifact_basename):
+        jobs =  [job for job in self.active_jobs()
                  if job.artifact.basename() == artifact_basename]
         if len(jobs) > 1:
             logging.warn('More than one running job for %s',
@@ -184,6 +187,9 @@ class JobQueue(object):
 
     def running_jobs(self):
         return [job for job in self if job.running()]
+
+    def active_jobs(self):
+        return [job for job in self if job.active()]
 
     def __repr__(self):
         items = []
@@ -297,7 +303,7 @@ class WorkerBuildQueuer(distbuild.StateMachine):
         # If so, add our initiator id to the existing job
         # If not, create a job
 
-        job = self._jobs.get_running_job_for_artifact(
+        job = self._jobs.get_active_job_for_artifact(
             event.artifact.basename())
         if job is not None:
             job.initiators.append(event.initiator_id)
@@ -476,7 +482,7 @@ class WorkerConnection(distbuild.StateMachine):
                       event_source)
 
         initiator_id = build_cancel.id
-        for job in self._jobs.running_jobs():
+        for job in self._jobs.active_jobs():
             self._remove_initiator_from_job(job, initiator_id)
 
     def _remove_initiator_from_job(self, job, initiator_id):
