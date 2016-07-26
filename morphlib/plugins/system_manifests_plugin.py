@@ -41,7 +41,7 @@ class SystemManifestsPlugin(cliapp.Plugin):
                                  '`single-file` or `all-files` for the '
                                  'two methods, respectively. Defaults to '
                                  'all-files, although this is much slower.',
-                                 group='manifest options')
+                                 group='generate-manifest-csv options')
 
     def disable(self):
         pass
