@@ -35,7 +35,7 @@ class GetRepoPlugin(cliapp.Plugin):
     def enable(self):
         self.app.add_subcommand(
             'get-repo', self.get_repo, arg_synopsis='CHUNK [PATH]')
-        self.app.settings.string(['ref', 'r'],
+        self.app.settings.string(['checkout-ref'],
                                  'ref to checkout in the cloned repo',
                                  metavar='REF', default='',
                                  group='get-repo options')
