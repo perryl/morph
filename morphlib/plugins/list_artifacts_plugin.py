@@ -38,10 +38,21 @@ class ListArtifactsPlugin(cliapp.Plugin):
 
         Command line arguments:
 
-        * `MORPH` is a system morphology name at that ref.
+        * `MORPH` is a system morphology name in the checked-out repository
+            or in a remote repostory.
+
+        Available options:
+
+        * `--repo=REPO`` is a git repository URL.
+        * `--ref=REF` is a branch or other commit reference in that repository.
+        * `--local-changes=LOCAL-CHANGES` option to `ignore` or `include`
+            uncommitted/unpushed local changes.
 
         You can pass multiple values for `MORPH`, in which case the command
         outputs the union of the build graphs of all the systems passed in.
+
+        If not `REPO` and `REF` specified, it will look into the current
+        working directory for a Definitions checkout.
 
         The output includes any meta-artifacts such as .meta and .build-log
         files.
@@ -54,6 +65,20 @@ class ListArtifactsPlugin(cliapp.Plugin):
             raise cliapp.AppException(
                 'Wrong number of arguments to list-artifacts command '
                 '(see help)')
+
+
+        repo = self.app.settings['repo']
+        ref = self.app.settings['ref']
+
+        if bool(repo) ^ bool(ref):
+            raise cliapp.AppException(
+                '--repo and --ref work toghether, use both please.')
+
+        if repo and ref:
+            system_filenames = map(morphlib.util.sanitise_morphology_path,
+                                   args)
+            self._list_artifacts(repo, ref, system_filenames)
+            return
 
         definitions_repo = morphlib.definitions_repo.open(
             '.', search_for_root=True, app=self.app)
