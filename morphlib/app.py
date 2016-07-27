@@ -167,11 +167,12 @@ class Morph(cliapp.Application):
                               group=group_build)
         self.settings.choice (['local-changes'],
                               ['include', 'ignore'],
-                              'the `build` and `deploy` commands detect '
-                              'uncommitted/unpushed local changes and operate '
+                              'various morph subcommands detect '
+                              'uncommitted/unpushed local changes and '
                               'operate from a temporary branch containing '
                               'those changes. Disable this behaviour with the '
-                              '`ignore` setting.',
+                              '`ignore` setting. See help of subcommands to '
+                              'check the support for this option.',
                               group=group_build)
 
         group_storage = 'Storage Options'
