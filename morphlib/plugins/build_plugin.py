@@ -56,6 +56,13 @@ class BuildPlugin(cliapp.Plugin):
         * `COMPONENT...` is the names of one or more chunks or strata to
           build. If none are given then SYSTEM is built.
 
+        Available options:
+
+        * `--repo=REPO`` is a git repository URL.
+        * `--ref=REF` is a branch or other commit reference in that repository.
+        * `--local-changes=LOCAL-CHANGES` option to `ignore` or `include`
+            uncommitted/unpushed local changes.
+
         This command launches a distributed build, to use this command
         you must first set up a distbuild cluster.
 
@@ -71,6 +78,14 @@ class BuildPlugin(cliapp.Plugin):
         If you do not have a persistent connection to the server on which
         the distbuild runs, consider using `morph distbuild-start` instead.
 
+        If not `REPO` and `REF` specified, it will look into the current
+        working directory for a Definitions checkout.
+
+        If the 'local-changes' setting is set to 'include', you do not need
+        to commit and push your changes before building. Morph does that for
+        you, in a temporary branch for each build. The branch will be pushed
+        to the Trove, and removed at the end of the build.
+
         Example:
 
             morph distbuild devel-system-x86_64-generic.morph
@@ -81,14 +96,26 @@ class BuildPlugin(cliapp.Plugin):
         if len(args) < MINARGS:
             raise cliapp.AppException(self._cmd_usage('distbuild'))
 
+        repo = self.app.settings['repo']
+        ref = self.app.settings['ref']
+
+        if bool(repo) ^ bool(ref):
+            raise cliapp.AppException(
+                '--repo and --ref work toghether, use both please.')
+
+        filename = morphlib.util.sanitise_morphology_path(args[0])
+        component_names = args[MINARGS:]
+
+        if repo and ref:
+            self._distbuild(repo, ref, filename,
+                            component_names=component_names)
+            return
+
         definitions_repo = morphlib.definitions_repo.open(
             '.', search_for_root=True, app=self.app)
 
-        filename = args[0]
-        filename = morphlib.util.sanitise_morphology_path(filename)
         filename = definitions_repo.relative_path(filename, cwd='.')
 
-        component_names = args[MINARGS:]
 
         if self.app.settings['local-changes'] == 'include':
             # Create a temporary branch with any local changes, and push it to
@@ -156,6 +183,13 @@ class BuildPlugin(cliapp.Plugin):
         * `COMPONENT...` is the names of one or more chunks or strata to
           build. If this is not given then the SYSTEM is built.
 
+        Available options:
+
+        * `--repo=REPO`` is a git repository URL.
+        * `--ref=REF` is a branch or other commit reference in that repository
+        * `--local-changes=LOCAL-CHANGES` option to `ignore` or `include`
+            uncommitted/unpushed local changes.
+
         This builds a system image, and any of its components that
         need building.  The system name is the basename of the system
         morphology, in the root repository of the current system branch,
@@ -163,6 +197,9 @@ class BuildPlugin(cliapp.Plugin):
 
         The location of the resulting system image artifact is printed
         at the end of the build output.
+
+        If not `REPO` and `REF` specified, it will look into the current
+        working directory for a Definitions checkout.
 
         If the 'local-changes' setting is set to 'include', you do not need
         to commit your changes before building. Morph does that for you, in a
@@ -187,13 +224,12 @@ class BuildPlugin(cliapp.Plugin):
         if len(args) < MINARGS:
             raise cliapp.AppException(self._cmd_usage('build'))
 
-        definitions_repo = morphlib.definitions_repo.open(
-            '.', search_for_root=True, app=self.app)
+        repo = self.app.settings['repo']
+        ref = self.app.settings['ref']
 
-        filename = args[0]
-        filename = morphlib.util.sanitise_morphology_path(filename)
-        filename = definitions_repo.relative_path(filename, cwd='.')
-        component_names = args[MINARGS:]
+        if bool(repo) ^ bool(ref):
+            raise cliapp.AppException(
+                '--repo and --ref work toghether, use both please.')
 
         # Raise an exception if there is not enough space
         morphlib.util.check_disk_available(
@@ -201,6 +237,22 @@ class BuildPlugin(cliapp.Plugin):
             self.app.settings['tempdir-min-space'],
             self.app.settings['cachedir'],
             self.app.settings['cachedir-min-space'])
+
+        filename = morphlib.util.sanitise_morphology_path(args[0])
+        component_names = args[MINARGS:]
+
+        if repo and ref:
+            build_command = morphlib.buildcommand.BuildCommand(self.app)
+            source_pool = build_command.create_source_pool(repo, ref,
+                                                           [filename])
+
+            self._build(source_pool, filename, component_names=component_names)
+            return
+
+        definitions_repo = morphlib.definitions_repo.open(
+            '.', search_for_root=True, app=self.app)
+
+        filename = definitions_repo.relative_path(filename, cwd='.')
 
         source_pool_context = definitions_repo.source_pool(
             definitions_repo.HEAD, filename)
