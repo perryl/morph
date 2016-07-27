@@ -216,7 +216,8 @@ class CrossBootstrapPlugin(cliapp.Plugin):
         pass
 
     def cross_bootstrap(self, args):
-        '''Cross-bootstrap a system from a different architecture.'''
+        '''Cross-bootstrap a system from a different architecture.
+        '''
 
         MINARGS = 2
 
@@ -225,16 +226,31 @@ class CrossBootstrapPlugin(cliapp.Plugin):
                 'cross-bootstrap requires 2 arguments: target archicture, and '
                 'filename of the system morphology')
 
-        definitions_repo = morphlib.definitions_repo.open(
-            '.', search_for_root=True, app=self.app)
 
         arch = args[0]
         filename = args[1]
+        repo = self.app.settings['repo']
+        ref = self.app.settings['ref']
+
+        if bool(repo) ^ bool(ref):
+            raise cliapp.AppException(
+                '--repo and --ref work toghether, use both please.')
 
         if arch not in morphlib.valid_archs:
             raise morphlib.Error('Unsupported architecture "%s"' % arch)
 
         filename = morphlib.util.sanitise_morphology_path(filename)
+
+        if repo and ref:
+            build_command = morphlib.buildcommand.BuildCommand(self.app)
+            source_pool = build_command.create_source_pool(repo, ref,
+                                                           [filename])
+            self._cross_bootstrap(arch, source_pool)
+            return
+
+        definitions_repo = morphlib.definitions_repo.open(
+            '.', search_for_root=True, app=self.app)
+
         filename = definitions_repo.relative_path(filename, cwd='.')
 
         source_pool_context = definitions_repo.source_pool(
