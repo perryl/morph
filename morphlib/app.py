@@ -84,6 +84,18 @@ class Morph(cliapp.Application):
                                   metavar='PREFIX, ...',
                                   default=defaults['trove-id'])
 
+        group_definitions_origin = 'Definitions origin options'
+        self.settings.string(['repo'],
+                             'definitions repository to use instead local '
+                             'checkout',
+                             metavar='REF', default=None,
+                             group=group_definitions_origin)
+        self.settings.string(['ref'],
+                             'definitions ref to use when not using local '
+                             'checkout',
+                              metavar='REF', default=None,
+                              group=group_definitions_origin)
+
         group_advanced = 'Advanced Options'
         self.settings.boolean(['no-git-update'],
                               'do not update the cached git repositories '
