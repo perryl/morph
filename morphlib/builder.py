@@ -378,7 +378,7 @@ class ChunkBuilder(BuilderBase):
                         stdout.flush()
 
                     with open(os.devnull) as devnull:
-                        exit_code = self.runcmd(['sh', '-x', '-c', cmd],
+                        exit_code = self.runcmd(['sh', '-x', '-e', '-c', cmd],
                                                 extra_env=extra_env,
                                                 cwd=relative_builddir,
                                                 stdin=devnull,

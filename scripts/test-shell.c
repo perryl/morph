@@ -1,4 +1,4 @@
-/* Copyright (C) 2014-2015  Codethink Limited
+/* Copyright (C) 2014-2016  Codethink Limited
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -201,16 +201,17 @@ int run_commands(FILE *cmdstream){
 }
 
 int main(int argc, char *argv[]) {
-    if (argc == 4 && strcmp(argv[1], "-x") == 0 \
-            && strcmp(argv[2], "-c") == 0) {
-        size_t cmdlen = strlen(argv[3]);
-        FILE *cmdstream = fmemopen(argv[3], cmdlen, "r");
+    if (argc == 5 && strcmp(argv[1], "-x") == 0 \
+            && strcmp(argv[2], "-e") == 0 \
+            && strcmp(argv[3], "-c") == 0) {
+        size_t cmdlen = strlen(argv[4]);
+        FILE *cmdstream = fmemopen(argv[4], cmdlen, "r");
         return run_commands(cmdstream);
     } else if (argc == 2) {
         FILE *cmdstream = fopen(argv[1], "r");
         return run_commands(cmdstream);
     } else {
-        fprintf(stderr, "Usage: %s -x -c COMMAND|%s SCRIPT\n",
+        fprintf(stderr, "Usage: %s -x -e -c COMMAND|%s SCRIPT\n",
                 argv[0], argv[0]);
         return 1;
     }
