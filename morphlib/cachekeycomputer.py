@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2015  Codethink Limited
+# Copyright (C) 2012-2016  Codethink Limited
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -127,7 +127,9 @@ class CacheKeyComputer(object):
             for key in morph_dict:
                 if key not in ignored_fields:
                     keys[key] = morph_dict[key]
-        if kind == 'stratum':
+        if kind == 'chunk':
+            keys['chunk-compatibility-version'] = 1
+        elif kind == 'stratum':
             keys['stratum-format-version'] = 1
         elif kind == 'system':
             keys['system-compatibility-version'] = "2~ (upgradable, root rw)"
